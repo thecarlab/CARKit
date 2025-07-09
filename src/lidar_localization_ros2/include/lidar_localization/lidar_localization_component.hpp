@@ -86,7 +86,7 @@ public:
 
   boost::shared_ptr<pcl::Registration<pcl::PointXYZI, pcl::PointXYZI>> registration_;
   pcl::VoxelGrid<pcl::PointXYZI> voxel_grid_filter_;
-  geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr corrent_pose_with_cov_stamped_ptr_;
+  geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr current_pose_with_cov_stamped_ptr_;
   nav_msgs::msg::Path::SharedPtr path_ptr_;
   sensor_msgs::msg::PointCloud2::ConstSharedPtr last_scan_ptr_;
 
