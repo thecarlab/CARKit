@@ -2,6 +2,8 @@
 
 set -e
 
+source ~/.bashrc
+
 echo "======================================="
 echo "Build NavOS workspace"
 echo "======================================="
@@ -66,7 +68,7 @@ source ~/NavOS/install/setup.bash
 source ~/sensors_ws/install/setup.bash
 
 echo ""
-echo "[FINAL 2/2] Creating udev rules for rplidar..."
+echo "[FINAL 2/2] Creating udev rules for rplidar (make sure lidar is connected)..."
 sudo chmod 777 /dev/ttyUSB0
 
 
