@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.5)
 project(graph_based_slam)
 
+# fix pcl policy warning
+if(POLICY CMP0074)
+  cmake_policy(SET CMP0074 NEW)
+endif()
+
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 99)
