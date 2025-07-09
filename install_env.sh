@@ -74,12 +74,13 @@ echo "[8/8] Adding ROS 2 environment sourcing to .bashrc (for user $SUDO_USER)..
 ROS_SETUP_LINE="source /opt/ros/humble/setup.bash"
 BASHRC="/home/$SUDO_USER/.bashrc"
 
-if ! grep -Fxq "$ROS_SETUP_LINE" "$BASHRC"; then
+if ! grep -Eq 'source .*/opt/ros/humble/setup' "$BASHRC"; then
   echo "$ROS_SETUP_LINE" >> "$BASHRC"
   echo "✅ Added ROS environment sourcing to $BASHRC"
 else
   echo "✅ ROS sourcing already present in $BASHRC"
 fi
+
 echo ""
 echo "Source ROS2  for following installation"
 source /opt/ros/humble/setup.bash
