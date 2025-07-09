@@ -69,5 +69,3 @@ Below is a list of the original upstream repositories. We highly recommend visit
 - lidarslam_ros2: [original here](https://github.com/rsasaki0109/lidarslam_ros2)
 
 - lidar_localization_ros2: [original here](https://github.com/rsasaki0109/lidar_localization_ros2)
-
-- sllidar_ros2: [original here](https://github.com/Slamtec/sllidar_ros2)
