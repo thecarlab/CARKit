@@ -24,7 +24,7 @@ chmod +x ./build_ws.sh
 
 2. Local environment setup, 20 mins expected.
 ```
-./install_env.sh
+sudo ./install_env.sh
 ```
 
 3. Workspace build and installation, 30 mins expected.
