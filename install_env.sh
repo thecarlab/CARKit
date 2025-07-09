@@ -109,7 +109,7 @@ apt install -y libeigen3-dev libspdlog-dev libsuitesparse-dev qtdeclarative5-dev
 
 echo ""
 echo "[4/4] Installing g2o lib"
-apt install -y ros-humble-libg20
+apt install -y ros-humble-libg2o
 
 echo ""
 echo "=================================================="
