@@ -97,20 +97,24 @@ echo "=================================================="
 
 
 echo ""
-echo "[1/4] Installing ackermann msgs"
+echo "[1/5] Installing ackermann msgs"
 apt install -y ros-humble-ackermann-msgs
 
 echo ""
-echo "[2/4] Installing PCL lib"
+echo "[2/5] Installing PCL lib"
 apt install -y ros-humble-pcl-ros
 
 echo ""
-echo "[3/4] Installing g2o pre-request lib"
+echo "[3/5] Installing g2o pre-request lib"
 apt install -y libeigen3-dev libspdlog-dev libsuitesparse-dev qtdeclarative5-dev qt5-qmake libqglviewer-dev-qt5
 
 echo ""
-echo "[4/4] Installing g2o lib"
+echo "[4/5] Installing g2o lib"
 apt install -y ros-humble-libg2o
+
+echo ""
+echo "[5/5] Installing realsense dependencies"
+apt install -y ros-humble-diagnostic-updater
 
 echo ""
 echo "=================================================="
