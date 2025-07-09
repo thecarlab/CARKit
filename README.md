@@ -13,6 +13,26 @@ TODO
 - [ ] Tutorial write
 - [ ] Other vehicle test
 
+## Installing on Jetson Orin Nano
+
+1. Allow .sh files to be executable.
+```
+cd ~/NavOS
+chmod +x ./install_env.sh
+chmod +x ./build_ws.sh
+```
+
+2. Local environment setup, 20 mins expected.
+```
+./install_env.sh
+```
+
+3. Workspace build and installation, 30 mins expected.
+```
+./build_ws.sh
+```
+
+
 ## Launch System and Sensors
 
 1. Start F1tenth System in the container
