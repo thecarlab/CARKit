@@ -9,9 +9,9 @@ TODO
 - [x] Pure Pusit ROS2 Implementation
 - [x] Stop sign and pedestrian sign detection
 - [x] Final Integration
-- [ ] Code clean
+- [x] Code clean
 - [ ] Tutorial write
-- [ ] Other vehicle test
+- [ ] Other vehicle test (finsh 2/4)
 
 ## Installing on Jetson Orin Nano
 
