@@ -32,8 +32,41 @@ sudo ./install_env.sh
 ./build_ws.sh
 ```
 
+4. Docker pull all needed containers.
+```
+docker pull williamhecoin/ada_academy:perception2025v1
+docker pull ariiees/ada:foxy-f1tenth
+```
 
-## Launch System and Sensors
+6. Install modified f1tenth workspace.
+```
+git clone https://github.com/thecarlab/ada_system.git
+cd ~/ada_system
+chmod +x ./run_container.sh
+./run_container.sh
+```
+
+## NavOS System Launch
+1. Control and Perception Container Launch
+
+[Terminal 1]
+```
+cd ~/NavOS/src/ada/launch
+./start.sh
+```
+
+2. Whole system launch
+
+[Terminal 2]
+```
+sudo -i
+source /opt/ros/humble/setup.bash
+source /home/YOUR_USR_NAME/NavOS/install/setup.bash
+source /home/YOUR_USR_NAME/sensor_ws/install/setup.bash
+ros2 launch ada ada_system.launch.py
+```
+
+## Separate Modules and Sensors Launch
 
 1. Start F1tenth System in the container
 ```
@@ -65,20 +98,6 @@ In the container, do:
 ```
 source install/setup.bash
 ros2 run ada_perception perception_node
-```
-
-## NavOS Algorithm Launch
-1. Control and Perception Container Launch
-```
-cd ros2_ws/src/ada/launch
-./start.sh
-```
-
-2. Localization, pure pusit, and stop sign control launch
-```
-cd ros2_ws/
-source install/setup.bash
-ros2 run ada ada_system.launch.py
 ```
 
 ## Reference
