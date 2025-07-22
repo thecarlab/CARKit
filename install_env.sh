@@ -92,7 +92,7 @@ echo "=================================================="
 
 echo ""
 echo "=================================================="
-echo "NavOS Env Install Script"
+echo "CARKit Env Install Script"
 echo "=================================================="
 
 
@@ -118,6 +118,6 @@ apt install -y ros-humble-diagnostic-updater
 
 echo ""
 echo "=================================================="
-echo "✅ NavOS Env installation complete!"
+echo "✅ CARKit Env installation complete!"
 echo "=================================================="
 
