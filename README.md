@@ -1,23 +1,8 @@
-# ADA Demo Tutorial
-
-TODO
-
-- [x] System Setup
-- [x] Playground Setting
-- [x] Localization choosing: Lidar vs. Camera
-- [x] Map Building
-- [x] Pure Pusit ROS2 Implementation
-- [x] Stop sign and pedestrian sign detection
-- [x] Final Integration
-- [x] Code clean
-- [ ] Tutorial write
-- [ ] Other vehicle test (finsh 2/4)
-
 ## Installing on Jetson Orin Nano
 
 1. Allow .sh files to be executable.
 ```
-cd ~/NavOS
+cd ~/CARKit
 chmod +x ./install_env.sh
 chmod +x ./build_ws.sh
 ```
@@ -46,12 +31,12 @@ chmod +x ./run_container.sh
 ./run_container.sh
 ```
 
-## NavOS System Launch
+## CARKit System Launch
 1. Control and Perception Container Launch
 
 [Terminal 1]
 ```
-cd ~/NavOS/src/ada/launch
+cd ~/CARKit/src/ada/launch
 ./start.sh
 ```
 
@@ -61,7 +46,7 @@ cd ~/NavOS/src/ada/launch
 ```
 sudo -i
 source /opt/ros/humble/setup.bash
-source /home/YOUR_USR_NAME/NavOS/install/setup.bash
+source /home/YOUR_USR_NAME/CARKit/install/setup.bash
 source /home/YOUR_USR_NAME/sensor_ws/install/setup.bash
 ros2 launch ada ada_system.launch.py
 ```
