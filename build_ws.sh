@@ -5,24 +5,24 @@ set -e
 source ~/.bashrc
 
 echo "======================================="
-echo "Build NavOS workspace"
+echo "Build CARKit workspace"
 echo "======================================="
 
 echo "[1/2] Building workspace with colcon (15 mins expected)..."
-cd ~/NavOS
+cd ~/CARKit
 colcon build --symlink-install --executor sequential
 
-SOURCE_LINE="source ~/NavOS/install/setup.bash"
+SOURCE_LINE="source ~/CARKit/install/setup.bash"
 if ! grep -Fxq "$SOURCE_LINE" ~/.bashrc; then
     echo "[2/2] Adding source line to ~/.bashrc..."
     echo "$SOURCE_LINE" >> ~/.bashrc
-    echo "✅ NavOS path added to ~/.bashrc: $SOURCE_LINE"
+    echo "✅ CARKit path added to ~/.bashrc: $SOURCE_LINE"
 else
-    echo "✅ ~/.bashrc already contains the NavOS path."
+    echo "✅ ~/.bashrc already contains the CARKit path."
 fi
 
 echo "======================================="
-echo "✅ NavOS Installation Complete!"
+echo "✅ CARKit Installation Complete!"
 echo "======================================="
 
 echo ""
@@ -64,7 +64,7 @@ echo "======================================="
 
 echo ""
 echo "[FINAL 1/2] Sourcing the workspace in this shell..."
-source ~/NavOS/install/setup.bash
+source ~/CARKit/install/setup.bash
 source ~/sensors_ws/install/setup.bash
 
 echo ""
