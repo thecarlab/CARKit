@@ -76,13 +76,17 @@ ros2 launch realsense2_camera rs_launch.py enable_color:=true enable_depth:=true
 ```
 4. Launch Perception Yolo in the container
 ```
-cd perception_ws/python_examples
+cd ~/CARKit/src/perception/util
 ./run_container.sh
 ```
 In the container, do:
 ```
+cd perception_ws/util
+.setup.bash
+cd perception_ws
+colcon build --symlink-install
 source install/setup.bash
-ros2 run ada_perception perception_node
+ros2 run perception perception_node
 ```
 
 ## Reference
