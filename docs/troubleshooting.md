@@ -6,9 +6,11 @@
 - Missing `realsense2_camera` or `sllidar_ros2`: run `./carkit/setup_vendor_repos.sh`.
 - `fatal: detected dubious ownership` in a sensor driver repo: pull the latest `develop` branch and rerun `./docker/build_workspace.sh`. The setup script marks the cloned sensor driver folders as safe for the root user inside Docker.
 - `git pull` refuses to overwrite `carkit/mapping/ndt_omp_ros2`: remove the old cloned NDT folder with `rm -rf carkit/mapping/ndt_omp_ros2`, then pull again. NDT is now vendored in CARKit instead of cloned by the setup script.
+- `rosdep` cannot locate packages such as `python3-requests`, `python3-tqdm`, or `ros-humble-xacro`: pull the latest `develop` branch and rerun `./docker/build_workspace.sh`. The script now refreshes apt indexes before running `rosdep install`.
+- `rosdep` cannot locate `ros-humble-librealsense2`: the build script skips the `librealsense2` rosdep key by default because that package is not consistently available on Jetson ROS apt repositories. If your local RealSense driver build needs a custom SDK install, install it on the image or pass a different `ROSDEP_SKIP_KEYS` value.
 - LiDAR permission denied: confirm the device path, then add a persistent udev rule or temporarily run `sudo chmod 666 /dev/ttyUSB0`.
 - RViz does not open in Docker: run `xhost +si:localuser:root`, mount `/tmp/.X11-unix`, and pass `DISPLAY`.
 - YOLO model load fails: verify the `model_path` parameter points to an installed model file. TensorRT engine files may be hardware/runtime specific.
 - Docker build fails with `Cannot uninstall sympy 1.9`: rebuild with the current `docker/Dockerfile.jetson`. The image installs `ultralytics` with pip constraints and `--ignore-installed` so pip does not try to remove apt-owned Python packages from the Jetson base image.
 - Docker build warns that `colcon-core` requires `setuptools<80`: rebuild with the current `docker/Dockerfile.jetson`. The image pins `setuptools<80` before and during the `ultralytics` install.
-- `rosdep` cannot resolve a dependency: update rosdep first with `rosdep update`; unresolved external package keys should be marked TODO rather than guessed.
+- `rosdep` cannot resolve another dependency: update rosdep first with `rosdep update`; unresolved external package keys should be marked TODO rather than guessed.

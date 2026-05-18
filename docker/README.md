@@ -38,3 +38,13 @@ Never put Docker Hub credentials in this repository.
 ## Python ML Packages
 
 The Dockerfile installs `ultralytics` with pip constraints instead of a plain `pip install ultralytics`. This avoids a Jetson/Ubuntu build failure where pip tries to uninstall apt-owned `sympy 1.9`, keeps NumPy below 2.x for ROS 2 Humble and Jetson compatibility, and keeps `setuptools<80` so `colcon-core` remains compatible.
+
+## Rosdep Notes
+
+`build_workspace.sh` refreshes apt indexes before running `rosdep install` because the Docker image removes apt lists to keep the image smaller. It also skips the `librealsense2` rosdep key by default since `ros-humble-librealsense2` is not consistently available on Jetson ROS apt repositories.
+
+Override skipped keys if needed:
+
+```bash
+ROSDEP_SKIP_KEYS="" ./docker/build_workspace.sh
+```
