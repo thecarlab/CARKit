@@ -4,7 +4,6 @@ services:
     container_name: carkit
     privileged: true
     network_mode: host
-    runtime: nvidia
     ipc: host
     shm_size: 6g
     environment:

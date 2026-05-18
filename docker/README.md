@@ -21,7 +21,7 @@ ros2 launch carkit_bringup carkit.launch.py
 
 ## Scripts
 
-- `run_jetson.sh`: starts the container with host networking, NVIDIA runtime, `/dev`, `/dev/shm`, and X11 display mounts.
+- `run_jetson.sh`: starts the container with host networking, NVIDIA runtime when registered, `/dev`, `/dev/shm`, and X11 display mounts.
 - `build_workspace.sh`: clones external source packages, runs `rosdep`, builds with `colcon`, and lists CARKit packages.
 - `publish_image.sh`: maintainer-only helper to build and push `ariiees/carkit:latest`.
 - `test_workspace_in_docker.sh`: pulls/runs the image, builds this checkout, and checks launch arguments.
