@@ -19,6 +19,7 @@ Removed from active source:
 
 External setup:
 
-- RealSense, SLLiDAR, and refreshable third-party repositories are listed in `carkit/vendor.repos`.
-- Run `./carkit/setup_vendor_repos.sh` to clone them into the required local paths.
+- RealSense and SLLiDAR sensor drivers are listed in `carkit/vendor.repos`.
+- Run `./carkit/setup_vendor_repos.sh` to clone the sensor drivers into the required local paths.
+- `ndt_omp_ros2` is vendored under `carkit/mapping/ndt_omp_ros2` without upstream `.git` metadata because CARKit carries local mapping integration changes.
 - `install_env.sh` and `build_ws.sh` were removed. CARKit now uses the Docker-only workflow: pull `ariiees/carkit:latest`, mount the repo, and run `./docker/build_workspace.sh` inside the container.

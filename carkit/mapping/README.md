@@ -1,19 +1,17 @@
 # Mapping
 
-Mapping uses CARKit wrappers around LiDAR scan matching and graph-based SLAM. The external `ndt_omp_ros2` package is cloned into this folder by `./carkit/setup_vendor_repos.sh`.
+Mapping uses CARKit wrappers around LiDAR scan matching and graph-based SLAM. The `ndt_omp_ros2` package is vendored directly under this folder without its upstream `.git` metadata because CARKit carries local integration changes for mapping.
 
 Packages:
 
 - `carkit_scanmatcher`
 - `carkit_graph_based_slam`
 - `carkit_lidarslam`
-- `ndt_omp_ros2` after external fetch
+- `ndt_omp_ros2`
 
-## Fetch Third-Party NDT
+## Third-Party NDT
 
-```bash
-./carkit/setup_vendor_repos.sh
-```
+`carkit/mapping/ndt_omp_ros2` is already part of this repository. Keep its upstream license and README in place when changing it.
 
 ## Launch Full Mapping
 
