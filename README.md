@@ -102,6 +102,12 @@ source install/setup.bash
 
 The build script runs the third-party clone script again if needed, installs dependencies with `rosdep`, builds the workspace with `colcon`, and checks that CARKit packages are visible.
 
+The default build is tuned for an 8GB Jetson Orin Nano: one package and one compiler job at a time. On a larger machine, you can raise parallelism:
+
+```bash
+BUILD_JOBS=2 PARALLEL_WORKERS=2 ./docker/build_workspace.sh
+```
+
 ## Step 6: Run CARKit
 
 Launch the full CARKit stack:

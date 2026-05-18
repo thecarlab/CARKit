@@ -4,10 +4,15 @@ set -euo pipefail
 
 WORKSPACE="${WORKSPACE:-/workspaces/CARKit}"
 ROSDEP_SKIP_KEYS="${ROSDEP_SKIP_KEYS:-librealsense2}"
+BUILD_JOBS="${BUILD_JOBS:-1}"
+PARALLEL_WORKERS="${PARALLEL_WORKERS:-1}"
 ROSDEP_SKIP_ARGS=()
 if [ -n "${ROSDEP_SKIP_KEYS}" ]; then
   read -r -a ROSDEP_SKIP_ARGS <<< "${ROSDEP_SKIP_KEYS}"
 fi
+export MAKEFLAGS="-j${BUILD_JOBS} -l${BUILD_JOBS}"
+export CMAKE_BUILD_PARALLEL_LEVEL="${BUILD_JOBS}"
+export NINJAFLAGS="-j${BUILD_JOBS}"
 
 cd "$WORKSPACE"
 
@@ -32,7 +37,10 @@ if [ "${#ROSDEP_SKIP_ARGS[@]}" -gt 0 ]; then
 fi
 "${ROSDEP_INSTALL_CMD[@]}"
 
-colcon build --symlink-install --executor sequential
+colcon build --symlink-install \
+  --executor sequential \
+  --parallel-workers "${PARALLEL_WORKERS}" \
+  --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 set +u
 source install/setup.bash
