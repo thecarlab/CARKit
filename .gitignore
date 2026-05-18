@@ -1,0 +1,30 @@
+build/
+install/
+log/
+.colcon/
+coverage/
+*.pyc
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local editor/system files.
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local environment and secrets.
+.env
+.env.*
+*.pem
+*.key
+*.token
+dockerhub*
+
+# External sources fetched by carkit/setup_vendor_repos.sh.
+carkit/sensors/realsense-ros/
+carkit/sensors/sllidar_ros2/
+carkit/mapping/ndt_omp_ros2/

@@ -1,0 +1,83 @@
+ARG BASE_IMAGE=nvcr.io/nvidia/l4t-jetpack:r36.4.0
+FROM ${BASE_IMAGE}
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DISTRO=humble
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+SHELL ["/bin/bash", "-c"]
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    gnupg \
+    locales \
+    lsb-release \
+    software-properties-common \
+    sudo \
+    && locale-gen en_US en_US.UTF-8 \
+    && add-apt-repository universe \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN export ROS_APT_SOURCE_VERSION="$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F tag_name | awk -F\\\" '{print $4}')" \
+    && export OS_CODENAME="$(. /etc/os-release && echo ${VERSION_CODENAME})" \
+    && curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.${OS_CODENAME}_all.deb" \
+    && dpkg -i /tmp/ros2-apt-source.deb \
+    && rm /tmp/ros2-apt-source.deb
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    libeigen3-dev \
+    libqglviewer-dev-qt5 \
+    libspdlog-dev \
+    libsuitesparse-dev \
+    libyaml-cpp-dev \
+    python3-colcon-common-extensions \
+    python3-matplotlib \
+    python3-numpy \
+    python3-pip \
+    python3-rosdep \
+    python3-vcstool \
+    qt5-qmake \
+    qtdeclarative5-dev \
+    ros-${ROS_DISTRO}-ackermann-msgs \
+    ros-${ROS_DISTRO}-cv-bridge \
+    ros-${ROS_DISTRO}-desktop \
+    ros-${ROS_DISTRO}-diagnostic-updater \
+    ros-${ROS_DISTRO}-interactive-markers \
+    ros-${ROS_DISTRO}-laser-geometry \
+    ros-${ROS_DISTRO}-libg2o \
+    ros-${ROS_DISTRO}-pcl-conversions \
+    ros-${ROS_DISTRO}-pcl-ros \
+    ros-${ROS_DISTRO}-tf-transformations \
+    ros-${ROS_DISTRO}-tf2-eigen \
+    ros-${ROS_DISTRO}-tf2-geometry-msgs \
+    ros-${ROS_DISTRO}-tf2-sensor-msgs \
+    ros-${ROS_DISTRO}-visualization-msgs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ultralytics pulls PyTorch dependencies that require a newer SymPy than the
+# apt-owned Ubuntu package. Ignore installed distutils packages instead of
+# asking pip to uninstall files owned by the Jetson base image. Keep setuptools
+# below 80 because colcon-core requires setuptools<80.
+RUN python3 -m pip install --no-cache-dir --upgrade pip 'setuptools<80' wheel \
+    && printf '%s\n' \
+      'numpy<2' \
+      'sympy>=1.13.3' \
+      'setuptools<80' \
+      > /tmp/carkit-pip-constraints.txt \
+    && python3 -m pip install --no-cache-dir --root-user-action=ignore --ignore-installed \
+      --constraint /tmp/carkit-pip-constraints.txt \
+      ultralytics \
+    && rm /tmp/carkit-pip-constraints.txt
+
+RUN rosdep init 2>/dev/null || true
+
+WORKDIR /workspaces/CARKit
+
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]
