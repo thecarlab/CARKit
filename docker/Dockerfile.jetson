@@ -37,7 +37,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-matplotlib \
     python3-numpy \
     python3-pip \
+    python3-requests \
     python3-rosdep \
+    python3-tqdm \
     python3-vcstool \
     qt5-qmake \
     qtdeclarative5-dev \
@@ -55,6 +57,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-${ROS_DISTRO}-tf2-geometry-msgs \
     ros-${ROS_DISTRO}-tf2-sensor-msgs \
     ros-${ROS_DISTRO}-visualization-msgs \
+    ros-${ROS_DISTRO}-xacro \
     && rm -rf /var/lib/apt/lists/*
 
 # Ultralytics pulls PyTorch dependencies that require a newer SymPy than the
