@@ -27,4 +27,3 @@ dockerhub*
 # External sources fetched by carkit/setup_vendor_repos.sh.
 carkit/sensors/realsense-ros/
 carkit/sensors/sllidar_ros2/
-carkit/mapping/ndt_omp_ros2/

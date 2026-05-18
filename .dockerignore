@@ -24,4 +24,3 @@ dockerhub*
 # External workspaces are fetched in the mounted checkout, not baked into the environment image.
 carkit/sensors/realsense-ros/
 carkit/sensors/sllidar_ros2/
-carkit/mapping/ndt_omp_ros2/

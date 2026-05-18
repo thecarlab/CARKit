@@ -4,6 +4,8 @@
 - `docker: command not found`: install Docker on the Jetson host before pulling `ariiees/carkit:latest`.
 - `unknown or invalid runtime name: nvidia`: Docker is not configured with the NVIDIA runtime. The `docker/run_jetson.sh` script now falls back without `--runtime nvidia`; if GPU or TensorRT access fails, install and configure `nvidia-container-toolkit` on the Jetson host.
 - Missing `realsense2_camera` or `sllidar_ros2`: run `./carkit/setup_vendor_repos.sh`.
+- `fatal: detected dubious ownership` in a sensor driver repo: pull the latest `develop` branch and rerun `./docker/build_workspace.sh`. The setup script marks the cloned sensor driver folders as safe for the root user inside Docker.
+- `git pull` refuses to overwrite `carkit/mapping/ndt_omp_ros2`: remove the old cloned NDT folder with `rm -rf carkit/mapping/ndt_omp_ros2`, then pull again. NDT is now vendored in CARKit instead of cloned by the setup script.
 - LiDAR permission denied: confirm the device path, then add a persistent udev rule or temporarily run `sudo chmod 666 /dev/ttyUSB0`.
 - RViz does not open in Docker: run `xhost +si:localuser:root`, mount `/tmp/.X11-unix`, and pass `DISPLAY`.
 - YOLO model load fails: verify the `model_path` parameter points to an installed model file. TensorRT engine files may be hardware/runtime specific.

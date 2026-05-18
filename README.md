@@ -43,7 +43,7 @@ All later commands assume you are in this `CARKit` folder.
 
 ## Step 2: Clone Third-Party Source
 
-CARKit keeps large third-party sensor and mapping packages out of git. Clone them into the required local folders before starting the Docker build workflow:
+CARKit keeps large sensor driver packages out of git. Clone them into the required local folders before starting the Docker build workflow:
 
 ```bash
 ./carkit/setup_vendor_repos.sh
@@ -53,9 +53,10 @@ This reads [carkit/vendor.repos](carkit/vendor.repos) and clones:
 
 - `IntelRealSense/realsense-ros` -> `carkit/sensors/realsense-ros`
 - `Slamtec/sllidar_ros2` -> `carkit/sensors/sllidar_ros2`
-- `rsasaki0109/ndt_omp_ros2` -> `carkit/mapping/ndt_omp_ros2`
 
-These folders are ignored by git. If you need to refresh them later, update or remove the local folder and run the script again.
+These sensor driver folders are ignored by git. If you need to refresh them later, update or remove the local folder and run the script again.
+
+`carkit/mapping/ndt_omp_ros2` is vendored directly in this repository because CARKit carries local integration changes for mapping. It is not cloned by the setup script.
 
 ## Step 3: Pull The Docker Environment
 
