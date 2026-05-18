@@ -24,7 +24,8 @@ fi
 rosdep update
 ROSDEP_INSTALL_CMD=(
   rosdep install --from-paths carkit --ignore-src -r -y
-  --dependency-types build_export buildtool_export buildtool build exec
+  --dependency-types build_export --dependency-types buildtool_export
+  --dependency-types buildtool --dependency-types build --dependency-types exec
 )
 if [ "${#ROSDEP_SKIP_ARGS[@]}" -gt 0 ]; then
   ROSDEP_INSTALL_CMD+=(--skip-keys "${ROSDEP_SKIP_ARGS[@]}")
