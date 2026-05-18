@@ -19,6 +19,8 @@ source install/setup.bash
 ros2 launch carkit_bringup carkit.launch.py
 ```
 
+`build_workspace.sh` defaults to `BUILD_JOBS=1` and `PARALLEL_WORKERS=1` to avoid out-of-memory failures on an 8GB Jetson Orin Nano. Increase those environment variables only on systems with more memory.
+
 ## Scripts
 
 - `run_jetson.sh`: starts the container with host networking, NVIDIA runtime when registered, `/dev`, `/dev/shm`, and X11 display mounts.
