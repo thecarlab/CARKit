@@ -22,6 +22,14 @@ set +u
 source /opt/ros/${ROS_DISTRO:-humble}/setup.bash
 set -u
 
+if ! ldconfig -p 2>/dev/null | grep -q 'librealsense2\.so'; then
+  printf '%s\n' \
+    "CARKit error: librealsense2 SDK is not installed in this Docker image." \
+    "Rebuild the image with the current docker/Dockerfile.jetson, then rerun this script:" \
+    "  docker build -f docker/Dockerfile.jetson -t ariiees/carkit:latest ." >&2
+  exit 1
+fi
+
 if [ "$(id -u)" -eq 0 ]; then
   apt-get update
 fi

@@ -2,6 +2,8 @@
 
 CARKit uses `ariiees/carkit:latest` as the single environment image. The image contains ROS 2 Humble, build tools, RViz, Python tools, and common CARKit system dependencies. It does not contain a baked copy of the CARKit workspace.
 
+The image builds and installs the native `librealsense2` SDK from source for Jetson, then the mounted workspace builds `realsense2_camera` from the cloned `realsense-ros` source.
+
 ## User Flow
 
 ```bash

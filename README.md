@@ -68,6 +68,12 @@ docker pull ariiees/carkit:latest
 
 This image contains ROS 2 Humble, RViz, colcon, rosdep, build tools, Python dependencies, and common sensor/mapping/control dependencies. It does not contain your CARKit checkout; your local repo is mounted into the container.
 
+If you maintain the image locally, rebuild it after Dockerfile changes:
+
+```bash
+docker build -f docker/Dockerfile.jetson -t ariiees/carkit:latest .
+```
+
 ## Step 4: Start The Docker Container
 
 From the CARKit repo on the Jetson host:
