@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>carkit_vehicle_control</name>
+  <name>carkit_human_control</name>
   <version>0.0.0</version>
-  <description>CARKit vehicle command launch and utility nodes</description>
+  <description>CARKit human control launch and utility nodes</description>
   <maintainer email="ada@todo.todo">CARKit maintainers</maintainer>
   <license>Apache-2.0</license>
 

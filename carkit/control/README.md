@@ -1,10 +1,25 @@
 # Control
 
-Control contains path tracking and emergency braking.
+Control contains path tracking, emergency braking, and human driving entry points.
 
 Packages:
 
 - `carkit_pure_pursuit`
+- `carkit_human_control`
+
+## Human Control
+
+Launch controller handoff:
+
+```bash
+ros2 launch carkit_human_control controller.launch.py
+```
+
+Launch keyboard control:
+
+```bash
+ros2 launch carkit_human_control keyboard.launch.py
+```
 
 ## Pure Pursuit
 

@@ -139,14 +139,14 @@ ros2 topic echo /camera/camera/color/image_raw --once
 ros2 topic echo /ackermann_cmd --once
 ```
 
-## Vehicle Control
+## Human Control
 
 ```bash
 # Controller: starts the vendored F1TENTH joystick, mux, and VESC stack.
-ros2 launch carkit_vehicle_control controller.launch.py
+ros2 launch carkit_human_control controller.launch.py
 
 # Keyboard: starts the VESC stack and publishes Ackermann commands from the keyboard.
-ros2 launch carkit_vehicle_control keyboard.launch.py
+ros2 launch carkit_human_control keyboard.launch.py
 ```
 
 Both launches use the F1TENTH/ADA control source vendored under `carkit/vehicle/f1tenth_system`. Keep `vehicle_command_topic:=/ackermann_cmd` for the included VESC path. The F1TENTH mux still accepts autonomy commands on `/drive` internally, but `/ackermann_cmd` is the low-level VESC command consumed by `vesc_ackermann`.
@@ -204,8 +204,8 @@ carkit/
   localization/   LiDAR NDT localization
   mapping/        LiDAR scan matching and graph SLAM
   planning/       behavior nodes such as stop sign handling
-  control/        path tracking and emergency brake
-  vehicle/        F1TENTH/VESC vehicle control and CARKit keyboard launch
+  control/        path tracking, emergency brake, and human control launch
+  vehicle/        F1TENTH/VESC vehicle stack
   bringup/        full-stack launch, maps, waypoints, RViz
   interfaces/     custom ROS 2 messages
   tools/          classroom demo and utility nodes
@@ -233,8 +233,8 @@ source install/setup.bash
 ros2 pkg list | grep carkit
 ros2 launch carkit_bringup carkit.launch.py --show-args
 ros2 launch carkit_bringup carkit_ada_control.launch.py --show-args
-ros2 launch carkit_vehicle_control controller.launch.py --show-args
-ros2 launch carkit_vehicle_control keyboard.launch.py --show-args
+ros2 launch carkit_human_control controller.launch.py --show-args
+ros2 launch carkit_human_control keyboard.launch.py --show-args
 ```
 
 Sensor checks:
