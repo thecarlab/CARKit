@@ -1,10 +1,9 @@
 # Vehicle
 
-Vehicle contains CARKit launch modes for driving the physical platform through the vendored F1TENTH/ADA VESC stack.
+Vehicle contains the vendored F1TENTH/ADA VESC stack used by CARKit human and autonomous control launches.
 
 Packages:
 
-- `carkit_vehicle_control`: CARKit launch wrappers and keyboard Ackermann node.
 - `f1tenth_system`: vendored F1TENTH controller, Ackermann mux, teleop, and VESC packages imported from `thecarlab/ada_system`.
 
 CARKit standard vehicle command topic:
@@ -26,7 +25,7 @@ Use this when driving with the physical gamepad/controller. This launch starts t
 - `vesc_driver_node`
 
 ```bash
-ros2 launch carkit_vehicle_control controller.launch.py
+ros2 launch carkit_human_control controller.launch.py
 ```
 
 Inputs:
@@ -60,7 +59,7 @@ Important parameters:
 Use this when you want simple keyboard control without the controller stack. This launch starts the VESC bridge/driver and CARKit's keyboard Ackermann publisher.
 
 ```bash
-ros2 launch carkit_vehicle_control keyboard.launch.py
+ros2 launch carkit_human_control keyboard.launch.py
 ```
 
 Keyboard controls:
@@ -88,8 +87,8 @@ After building inside Docker:
 
 ```bash
 source install/setup.bash
-ros2 launch carkit_vehicle_control controller.launch.py --show-args
-ros2 launch carkit_vehicle_control keyboard.launch.py --show-args
+ros2 launch carkit_human_control controller.launch.py --show-args
+ros2 launch carkit_human_control keyboard.launch.py --show-args
 ros2 topic echo /ackermann_cmd --once
 ```
 

@@ -18,7 +18,7 @@ Removed from active source:
 
 - Tracked `__pycache__` and `*.pyc` files.
 - Backup header `lidar_localization_component.hpp.orig`.
-- Old CARKit bringup wrappers `control_mux.launch.py` and `f1tenth_control.launch.py`; vehicle control now lives in `carkit_vehicle_control`.
+- Old CARKit bringup wrappers `control_mux.launch.py` and `f1tenth_control.launch.py`; human control now lives in `carkit_human_control`.
 - Old vehicle helper launch files `controller_only.launch.py` and `ackermann_input.launch.py`, plus the temporary `ackermann_relay` node.
 - Upstream CI folders and the old standalone F1TENTH container helper script from the vendored control tree.
 

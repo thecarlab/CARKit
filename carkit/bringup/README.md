@@ -51,8 +51,8 @@ Use CARKit/ADA control when you want the autonomy stack to run the path tracker,
 For physical vehicle control, use the two vehicle launch files:
 
 ```bash
-ros2 launch carkit_vehicle_control controller.launch.py
-ros2 launch carkit_vehicle_control keyboard.launch.py
+ros2 launch carkit_human_control controller.launch.py
+ros2 launch carkit_human_control keyboard.launch.py
 ```
 
 ### CARKit ADA Control

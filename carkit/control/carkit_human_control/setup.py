@@ -3,7 +3,7 @@ import os
 
 from setuptools import find_packages, setup
 
-package_name = 'carkit_vehicle_control'
+package_name = 'carkit_human_control'
 
 setup(
     name=package_name,
@@ -19,11 +19,11 @@ setup(
     zip_safe=True,
     maintainer='CARKit maintainers',
     maintainer_email='ada@todo.todo',
-    description='CARKit vehicle command launch and utility nodes',
+    description='CARKit human control launch and utility nodes',
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
-            'keyboard_ackermann = carkit_vehicle_control.keyboard_ackermann:main',
+            'keyboard_ackermann = carkit_human_control.keyboard_ackermann:main',
         ],
     },
 )

@@ -27,7 +27,7 @@ def generate_launch_description():
     )
 
     keyboard = Node(
-        package='carkit_vehicle_control',
+        package='carkit_human_control',
         executable='keyboard_ackermann',
         name='keyboard_ackermann',
         output='screen',

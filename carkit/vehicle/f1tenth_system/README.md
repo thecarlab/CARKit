@@ -3,8 +3,8 @@
 CARKit note: this vendored folder is built inside the current CARKit Docker image (`ariiees/carkit:latest`). Do not use the old standalone F1TENTH/Foxy container instructions below for CARKit bringup. Use:
 
 ```bash
-ros2 launch carkit_vehicle_control controller.launch.py
-ros2 launch carkit_vehicle_control keyboard.launch.py
+ros2 launch carkit_human_control controller.launch.py
+ros2 launch carkit_human_control keyboard.launch.py
 ```
 
 Drivers onboard f1tenth race cars. This branch is under development for migration to ROS2.
