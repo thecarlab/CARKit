@@ -141,22 +141,29 @@ ros2 topic echo /ackermann_cmd --once
 
 ## Control Bringup Choices
 
-CARKit includes two control-only bringups.
-
-Use the F1TENTH controller bringup when your vehicle already has a low-level F1TENTH ROS 2 controller package:
-
-```bash
-ros2 launch carkit_bringup f1tenth_control.launch.py \
-  f1tenth_package:=f1tenth_stack \
-  f1tenth_launch:=bringup_launch.py \
-  vehicle_command_topic:=/drive
-```
+CARKit includes three control-only bringups.
 
 Use the CARKit/ADA control bringup when you want CARKit to run the path tracker, command mux, stop sign behavior, and optional demo nodes:
 
 ```bash
 ros2 launch carkit_bringup carkit_ada_control.launch.py \
   vehicle_command_topic:=/ackermann_cmd
+```
+
+Use the command mux only when you just need CARKit command arbitration:
+
+```bash
+ros2 launch carkit_bringup control_mux.launch.py \
+  vehicle_command_topic:=/ackermann_cmd
+```
+
+Use the F1TENTH controller bringup only when you have also installed an external package such as `f1tenth_stack` into this workspace or sourced its overlay:
+
+```bash
+ros2 launch carkit_bringup f1tenth_control.launch.py \
+  f1tenth_package:=f1tenth_stack \
+  f1tenth_launch:=bringup_launch.py \
+  vehicle_command_topic:=/drive
 ```
 
 For demo nodes:
