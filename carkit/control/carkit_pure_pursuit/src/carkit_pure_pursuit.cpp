@@ -49,7 +49,8 @@ PurePursuitController::PurePursuitController()
         std::bind(&PurePursuitController::reverseCallback, this, std::placeholders::_1));
     
     autonomous_control_sub_ = this->create_subscription<std_msgs::msg::Int8>(
-        "/enable_autonomous_control", 10,
+        "/enable_autonomous_control",
+        10,
         std::bind(&PurePursuitController::autonomousControlCallback, this, std::placeholders::_1));
     
     // Create publishers
@@ -105,23 +106,27 @@ void PurePursuitController::reverseCallback(const std_msgs::msg::Bool::SharedPtr
 
 void PurePursuitController::autonomousControlCallback(const std_msgs::msg::Int8::SharedPtr msg)
 {
-        if (!autonomous_control_enabled_)
-        {
-            autonomous_control_enabled_ = true;
-            RCLCPP_INFO(this->get_logger(), "Autonomous control enabled");
-        }
-        else
-        {
-            autonomous_control_enabled_ = false;
-            RCLCPP_INFO(this->get_logger(), "Autonomous control disabled");
-            // Publish zero command when disabling
-            ackermann_msgs::msg::AckermannDriveStamped cmd_vel;
-            cmd_vel.header.stamp = this->get_clock()->now();
-            cmd_vel.header.frame_id = "base_link";
-            cmd_vel.drive.speed = 0.0;
-            cmd_vel.drive.steering_angle = 0.0;
-            cmd_vel_pub_->publish(cmd_vel);
-        }
+    const bool enable_autonomous_control = msg->data != 0;
+    if (enable_autonomous_control == autonomous_control_enabled_)
+    {
+        return;
+    }
+
+    autonomous_control_enabled_ = enable_autonomous_control;
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Autonomous control %s",
+        autonomous_control_enabled_ ? "enabled" : "disabled");
+
+    if (!autonomous_control_enabled_)
+    {
+        ackermann_msgs::msg::AckermannDriveStamped cmd_vel;
+        cmd_vel.header.stamp = this->get_clock()->now();
+        cmd_vel.header.frame_id = "base_link";
+        cmd_vel.drive.speed = 0.0;
+        cmd_vel.drive.steering_angle = 0.0;
+        cmd_vel_pub_->publish(cmd_vel);
+    }
 }
 
 void PurePursuitController::controlLoop()

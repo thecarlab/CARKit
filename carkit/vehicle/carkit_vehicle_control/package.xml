@@ -12,8 +12,9 @@
   <depend>launch_ros</depend>
   <depend>rclpy</depend>
 
-  <exec_depend>carkit_command_mux</exec_depend>
   <exec_depend>f1tenth_stack</exec_depend>
+  <exec_depend>carkit_bringup</exec_depend>
+  <exec_depend>carkit_pure_pursuit</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>vesc_ackermann</exec_depend>
   <exec_depend>vesc_driver</exec_depend>

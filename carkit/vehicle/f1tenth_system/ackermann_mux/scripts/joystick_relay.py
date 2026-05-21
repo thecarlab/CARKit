@@ -30,6 +30,7 @@ import numpy as np
 from geometry_msgs.msg import Twist
 from rclpy.action import ActionServer
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy
 from std_msgs.msg import Bool
 from twist_mux_msgs.action import JoyPriority, JoyTurbo
 from visualization_msgs.msg import Marker
@@ -223,8 +224,11 @@ class JoystickRelay(Node):
         self._subscriber = self.create_subscription(
             Twist, 'joy_vel_in', self._forward_cmd, 1)
 
-        # TODO Latch
-        self._pub_priority = self.create_publisher(Bool, 'joy_priority', 1)
+        latching_qos = QoSProfile(
+            depth=1,
+            durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL)
+        self._pub_priority = self.create_publisher(
+            Bool, 'joy_priority', qos_profile=latching_qos)
 
         # Wait for subscribers and publish initial joy_priority:
         self._pub_priority.publish(self._current_priority)

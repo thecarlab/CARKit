@@ -14,15 +14,15 @@ Autonomy flow:
 /cloud_in + map.pcd -> carkit_lidar_localization -> /pcl_pose
 /pcl_pose + /follow_path -> carkit_pure_pursuit -> /purepursuit_cmd
 /yolo/detections -> carkit_behaviors -> /stopsign_cmd
-/joy_cmd + /purepursuit_cmd + /emergency_cmd + /stopsign_cmd -> carkit_command_mux -> /ackermann_cmd
+/teleop + /drive + /purepursuit_cmd + /emergency_cmd + /stopsign_cmd -> ackermann_mux -> /ackermann_cmd
 ```
 
 Vehicle command modes:
 
 ```text
 controller.launch.py:
-  gamepad -> joy_node -> joy_teleop -> ackermann_mux -> /joy_cmd
-  /joy_cmd + CARKit autonomy command topics -> carkit_command_mux -> /ackermann_cmd
+  gamepad -> joy_node -> joy_teleop -> ackermann_mux -> /ackermann_cmd
+  CARKit autonomy command topics -> ackermann_mux -> /ackermann_cmd
   /ackermann_cmd -> vesc_ackermann -> vesc_driver -> vehicle
 
 keyboard.launch.py:
@@ -33,7 +33,7 @@ Control bringup options:
 
 ```text
 carkit_ada_control.launch.py:
-  CARKit pure pursuit + behaviors + command mux + optional ADA demos -> /ackermann_cmd
+  CARKit pure pursuit + behaviors + ackermann_mux + optional ADA demos -> /ackermann_cmd
 ```
 
 Mapping flow:

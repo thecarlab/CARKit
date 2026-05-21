@@ -1,11 +1,10 @@
 # Control
 
-Control contains path tracking, emergency braking, and command muxing.
+Control contains path tracking and emergency braking.
 
 Packages:
 
 - `carkit_pure_pursuit`
-- `carkit_command_mux`
 
 ## Pure Pursuit
 
@@ -21,37 +20,18 @@ Enable autonomous control:
 ros2 topic pub /enable_autonomous_control std_msgs/msg/Int8 "{data: 1}" --once
 ```
 
+Disable autonomous control for manual controller mode:
+
+```bash
+ros2 topic pub /enable_autonomous_control std_msgs/msg/Int8 "{data: 0}" --once
+```
+
 Test:
 
 ```bash
 ros2 topic echo /follow_path --once
 ros2 topic echo /purepursuit_cmd --once
 ```
-
-## Command Mux
-
-Launch:
-
-```bash
-ros2 run carkit_command_mux carkit_command_mux_node
-```
-
-Test:
-
-```bash
-ros2 topic echo /ackermann_cmd --once
-```
-
-Inputs:
-
-- `/joy_cmd`
-- `/purepursuit_cmd`
-- `/emergency_cmd`
-- `/stopsign_cmd`
-
-Output:
-
-- `/ackermann_cmd` (`ackermann_msgs/AckermannDriveStamped`)
 
 ## Emergency Brake
 

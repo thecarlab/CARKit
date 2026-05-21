@@ -60,8 +60,12 @@ def generate_launch_description():
         'mux_config',
         default_value=mux_config,
         description='Descriptions for ackermann mux configs')
+    vehicle_command_topic_la = DeclareLaunchArgument(
+        'vehicle_command_topic',
+        default_value='/ackermann_cmd',
+        description='Ackermann command topic consumed by the vehicle controller')
 
-    ld = LaunchDescription([joy_la, vesc_la, mux_la])
+    ld = LaunchDescription([joy_la, vesc_la, mux_la, vehicle_command_topic_la])
 
     joy_node = Node(
         package='joy',
@@ -98,7 +102,7 @@ def generate_launch_description():
         executable='ackermann_mux',
         name='ackermann_mux',
         parameters=[LaunchConfiguration('mux_config')],
-        remappings=[('ackermann_cmd', 'joy_cmd')]
+        remappings=[('ackermann_cmd', LaunchConfiguration('vehicle_command_topic'))]
     )
     static_tf_node = Node(
         package='tf2_ros',

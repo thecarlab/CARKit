@@ -22,6 +22,11 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory('carkit_bringup')
     pure_pursuit_dir = get_package_share_directory('carkit_pure_pursuit')
     default_waypoints = os.path.join(bringup_dir, 'waypoints', 'waypoints.yaml')
+    default_mux_config = os.path.join(
+        get_package_share_directory('f1tenth_stack'),
+        'config',
+        'mux.yaml'
+    )
 
     waypoints_file_arg = DeclareLaunchArgument(
         'waypoints_file',
@@ -33,6 +38,11 @@ def generate_launch_description():
         default_value='/ackermann_cmd',
         description='Final Ackermann command topic sent to the vehicle adapter/controller'
     )
+    mux_config_arg = DeclareLaunchArgument(
+        'mux_config',
+        default_value=default_mux_config,
+        description='F1TENTH Ackermann mux config'
+    )
     start_pure_pursuit_arg = DeclareLaunchArgument(
         'start_pure_pursuit',
         default_value='true',
@@ -41,7 +51,7 @@ def generate_launch_description():
     start_command_mux_arg = DeclareLaunchArgument(
         'start_command_mux',
         default_value='true',
-        description='Start CARKit command mux'
+        description='Start F1TENTH Ackermann mux'
     )
     start_stop_sign_arg = DeclareLaunchArgument(
         'start_stop_sign',
@@ -81,10 +91,11 @@ def generate_launch_description():
     )
 
     command_mux = Node(
-        package='carkit_command_mux',
-        executable='carkit_command_mux_node',
-        name='carkit_command_mux_node',
+        package='ackermann_mux',
+        executable='ackermann_mux',
+        name='ackermann_mux',
         output='screen',
+        parameters=[LaunchConfiguration('mux_config')],
         remappings=[
             ('ackermann_cmd', LaunchConfiguration('vehicle_command_topic')),
         ],
@@ -143,6 +154,7 @@ def generate_launch_description():
     return LaunchDescription([
         waypoints_file_arg,
         vehicle_command_topic_arg,
+        mux_config_arg,
         start_pure_pursuit_arg,
         start_command_mux_arg,
         start_stop_sign_arg,

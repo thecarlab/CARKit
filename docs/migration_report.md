@@ -5,7 +5,7 @@ Moved and renamed:
 - `src/ada` -> `carkit/tools/carkit_tools` and full-stack launch -> `carkit/bringup/carkit_bringup`.
 - `src/perception` -> `carkit/perception/carkit_perception`.
 - `src/util` -> `carkit/sensors/carkit_sensor_transforms`; stop sign behavior moved to `carkit/planning/carkit_behaviors`.
-- `src/control_center` -> `carkit/control/carkit_command_mux`.
+- F1TENTH `ackermann_mux` remains the command mux under `carkit/vehicle/f1tenth_system`.
 - `src/pure_pursuit_controller` -> `carkit/control/carkit_pure_pursuit`.
 - `src/lidar_localization_ros2` -> `carkit/localization/carkit_lidar_localization`.
 - `lidarslam_msgs` -> `carkit/interfaces/carkit_lidarslam_msgs`.

@@ -41,6 +41,7 @@ from rclpy.node import Node
 from rclpy.parameter import PARAMETER_SEPARATOR_STRING
 from rosidl_runtime_py import set_message_fields
 import sensor_msgs.msg
+import std_msgs.msg
 
 
 class JoyTeleopException(Exception):
@@ -187,7 +188,7 @@ class JoyTeleopTopicCommand(JoyTeleopCommand):
 
         self.pub = node.create_publisher(self.topic_type, config['topic_name'], qos)
 
-    def run(self, node: Node, joy_state: sensor_msgs.msg.Joy) -> None:
+    def run(self, node: Node, joy_state: sensor_msgs.msg.Joy, force_active: bool = False) -> None:
         # The logic for responding to this joystick press is:
         # 1.  Save off the current state of active.
         # 2.  Update the current state of active based on buttons and axes.
@@ -199,7 +200,10 @@ class JoyTeleopTopicCommand(JoyTeleopCommand):
         #     continue to be published without debouncing.
 
         last_active = self.active
-        self.update_active_from_buttons_and_axes(joy_state)
+        if force_active:
+            self.active = True
+        else:
+            self.update_active_from_buttons_and_axes(joy_state)
         if not self.active:
             return
         if self.msg_value is not None and last_active == self.active:
@@ -213,10 +217,12 @@ class JoyTeleopTopicCommand(JoyTeleopCommand):
             msg = self.topic_type()
 
             for mapping, values in self.axis_mappings.items():
+
                 if 'axis' in values:
                     if len(joy_state.axes) > values['axis']:
                         val = joy_state.axes[values['axis']] * values.get('scale', 1.0) + \
                             values.get('offset', 0.0)
+
                     else:
                         node.get_logger().error('Joystick has only {} axes (indexed from 0),'
                                                 'but #{} was referenced in config.'.format(
@@ -359,6 +365,21 @@ class JoyTeleop(Node):
                          automatically_declare_parameters_from_overrides=True)
 
         self.commands = []
+        self.manual_control_enabled = self._get_bool_parameter('manual_mode_initial', False)
+        self.manual_mode_button = self._get_optional_int_parameter('manual_mode_button')
+        self.manual_command_names = set(self._get_list_parameter(
+            'manual_command_names', ['human_control']))
+        self._last_mode_button_pressed = False
+        autonomy_mode_qos = rclpy.qos.QoSProfile(
+            history=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=rclpy.qos.QoSReliabilityPolicy.RELIABLE,
+            durability=rclpy.qos.QoSDurabilityPolicy.VOLATILE)
+        self._autonomy_mode_pub = self.create_publisher(
+            std_msgs.msg.Int8,
+            self._get_string_parameter('autonomy_enable_topic', 'enable_autonomous_control'),
+            autonomy_mode_qos)
+        self._autonomy_mode_timer = self.create_timer(1.0, self._publish_autonomy_mode)
 
         names = []
 
@@ -391,6 +412,7 @@ class JoyTeleop(Node):
                                    durability=rclpy.qos.QoSDurabilityPolicy.VOLATILE)
         self._subscription = self.create_subscription(
             sensor_msgs.msg.Joy, 'joy', self.joy_callback, qos)
+        self._publish_autonomy_mode()
 
     def retrieve_config(self):
         config = {}
@@ -409,8 +431,52 @@ class JoyTeleop(Node):
             self.insert_dict(dictionary[split[0]], split[2], value)
 
     def joy_callback(self, msg: sensor_msgs.msg.Joy) -> None:
+        self._update_manual_mode(msg)
         for command in self.commands:
+            if command.name in self.manual_command_names:
+                if self.manual_control_enabled and isinstance(command, JoyTeleopTopicCommand):
+                    command.run(self, msg, force_active=True)
+                continue
+
             command.run(self, msg)
+
+    def _update_manual_mode(self, msg: sensor_msgs.msg.Joy) -> None:
+        if self.manual_mode_button is None or len(msg.buttons) <= self.manual_mode_button:
+            return
+
+        mode_button_pressed = msg.buttons[self.manual_mode_button] == 1
+        if mode_button_pressed and not self._last_mode_button_pressed:
+            self.manual_control_enabled = not self.manual_control_enabled
+            mode = 'manual controller' if self.manual_control_enabled else 'autonomous'
+            self.get_logger().info('L1 mode toggle: %s', mode)
+            self._publish_autonomy_mode()
+
+        self._last_mode_button_pressed = mode_button_pressed
+
+    def _publish_autonomy_mode(self) -> None:
+        msg = std_msgs.msg.Int8()
+        msg.data = 0 if self.manual_control_enabled else 1
+        self._autonomy_mode_pub.publish(msg)
+
+    def _get_optional_int_parameter(self, name: str) -> typing.Optional[int]:
+        if self.has_parameter(name):
+            return int(self.get_parameter(name).value)
+        return None
+
+    def _get_bool_parameter(self, name: str, default: bool) -> bool:
+        if self.has_parameter(name):
+            return bool(self.get_parameter(name).value)
+        return default
+
+    def _get_string_parameter(self, name: str, default: str) -> str:
+        if self.has_parameter(name):
+            return str(self.get_parameter(name).value)
+        return default
+
+    def _get_list_parameter(self, name: str, default: typing.List[str]) -> typing.List[str]:
+        if self.has_parameter(name):
+            return list(self.get_parameter(name).value)
+        return default
 
 
 def main(args=None):
