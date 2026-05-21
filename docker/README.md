@@ -1,8 +1,10 @@
 # Docker
 
-CARKit uses `ariiees/carkit:latest` as the single environment image. The image contains ROS 2 Humble, build tools, RViz, Python tools, and common CARKit system dependencies. It does not contain a baked copy of the CARKit workspace.
+CARKit uses `ariiees/carkit:latest` as the single environment image. The image contains ROS 2 Humble, build tools, RViz, Python tools, RealSense SDK, and common CARKit system dependencies. It also includes the ROS dependencies needed to build the vendored F1TENTH/ADA control stack. It does not contain a baked copy of the CARKit workspace.
 
 The image builds and installs the native `librealsense2` SDK from source for Jetson, then the mounted workspace builds `realsense2_camera` from the cloned `realsense-ros` source.
+
+The former CARKit control container (`ariiees/ada:foxy-f1tenth`) is no longer used. Its F1TENTH/ADA source is vendored in this repository under `carkit/vehicle/f1tenth_system` and builds inside this same Humble image.
 
 ## User Flow
 

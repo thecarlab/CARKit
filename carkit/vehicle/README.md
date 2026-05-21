@@ -1,70 +1,60 @@
 # Vehicle
 
-Vehicle contains the CARKit-facing command interface for the physical platform.
+Vehicle contains CARKit launch modes for driving the physical platform through the vendored F1TENTH/ADA VESC stack.
 
-Package:
+Packages:
 
-- `carkit_vehicle_control`
+- `carkit_vehicle_control`: CARKit launch wrappers and keyboard Ackermann node.
+- `f1tenth_system`: vendored F1TENTH controller, Ackermann mux, teleop, and VESC packages imported from `thecarlab/ada_system`.
 
-CARKit standard command topic:
+CARKit standard vehicle command topic:
 
 - `/ackermann_cmd` (`ackermann_msgs/AckermannDriveStamped`)
 
-## Function 1: Controller Only
+The F1TENTH mux accepts autonomy commands on `/drive` and controller commands through joystick teleop. The final command to the VESC bridge is `/ackermann_cmd`.
 
-Use this when a hand controller publishes `ackermann_msgs/AckermannDriveStamped` on `/joy_cmd`, and you want controller commands to go directly to the low-level vehicle command topic through the CARKit mux.
+## 1. Controller
+
+Use this when driving with the physical gamepad/controller. This launch starts the vendored F1TENTH stack:
+
+- `joy_node`
+- `joy_teleop`
+- `ackermann_mux`
+- `ackermann_to_vesc_node`
+- `vesc_to_odom_node`
+- `vesc_driver_node`
+- CARKit command mux
 
 ```bash
-ros2 launch carkit_vehicle_control controller_only.launch.py \
-  vehicle_command_topic:=/ackermann_cmd
-```
-
-If your low-level controller expects `/drive`:
-
-```bash
-ros2 launch carkit_vehicle_control controller_only.launch.py \
-  vehicle_command_topic:=/drive
+ros2 launch carkit_vehicle_control controller.launch.py
 ```
 
 Inputs:
 
+- gamepad device through `joy_node`
+- `/drive` (`ackermann_msgs/AckermannDriveStamped`) for autonomous command input to the F1TENTH mux
+- `/purepursuit_cmd`, `/emergency_cmd`, `/stopsign_cmd` through the CARKit command mux when those nodes are running
+
+Outputs:
+
 - `/joy_cmd` (`ackermann_msgs/AckermannDriveStamped`)
+- `/ackermann_cmd` (`ackermann_msgs/AckermannDriveStamped`)
+- `/odom` (`nav_msgs/Odometry`)
+- VESC serial commands through the configured VESC device
 
-Output:
+Important parameters:
 
-- `/ackermann_cmd` by default, or `vehicle_command_topic` (`ackermann_msgs/AckermannDriveStamped`)
+- `joy_config`: defaults to `f1tenth_stack/config/joy_teleop.yaml`
+- `vesc_config`: defaults to `f1tenth_stack/config/vesc.yaml`
+- `mux_config`: defaults to `f1tenth_stack/config/mux.yaml`
+- `vehicle_command_topic`: defaults to `/ackermann_cmd`
 
-Test:
+## 2. Keyboard
 
-```bash
-ros2 topic echo /joy_cmd --once
-ros2 topic echo /ackermann_cmd --once
-```
-
-## Function 2: Ackermann Command Input
-
-Use this when the autonomy stack publishes `/ackermann_cmd`, or when keyboard control should publish `/ackermann_cmd`.
-
-If the vehicle consumes `/ackermann_cmd` directly:
+Use this when you want simple keyboard control without the controller stack. This launch starts the VESC bridge/driver and CARKit's keyboard Ackermann publisher.
 
 ```bash
-ros2 launch carkit_vehicle_control ackermann_input.launch.py
-```
-
-If the vehicle consumes `/drive`, relay CARKit commands to `/drive`:
-
-```bash
-ros2 launch carkit_vehicle_control ackermann_input.launch.py \
-  input_topic:=/ackermann_cmd \
-  vehicle_command_topic:=/drive
-```
-
-Start keyboard Ackermann control:
-
-```bash
-ros2 launch carkit_vehicle_control ackermann_input.launch.py \
-  start_keyboard:=true \
-  keyboard_topic:=/ackermann_cmd
+ros2 launch carkit_vehicle_control keyboard.launch.py
 ```
 
 Keyboard controls:
@@ -75,14 +65,26 @@ Keyboard controls:
 - `space`: stop
 - `q`: quit
 
-Inputs:
+Outputs:
 
-- `/ackermann_cmd` (`ackermann_msgs/AckermannDriveStamped`) from autonomy or keyboard
+- `/ackermann_cmd` (`ackermann_msgs/AckermannDriveStamped`)
+- `/odom` (`nav_msgs/Odometry`)
+- VESC serial commands through the configured VESC device
 
-Output:
+Important parameters:
 
-- `/ackermann_cmd` by default, or `vehicle_command_topic` (`ackermann_msgs/AckermannDriveStamped`)
+- `vehicle_command_topic`: defaults to `/ackermann_cmd`
+- `vesc_config`: defaults to `f1tenth_stack/config/vesc.yaml`
 
-## Notes
+## Test
 
-CARKit does not know your final hardware transport by default. If your platform needs serial, CAN, VESC, or another actuator protocol, add a vehicle adapter that subscribes to `/ackermann_cmd` or `/drive` and talks to the hardware.
+After building inside Docker:
+
+```bash
+source install/setup.bash
+ros2 launch carkit_vehicle_control controller.launch.py --show-args
+ros2 launch carkit_vehicle_control keyboard.launch.py --show-args
+ros2 topic echo /ackermann_cmd --once
+```
+
+Before driving, confirm the VESC serial device in `carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml` matches the hardware visible inside Docker.

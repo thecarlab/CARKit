@@ -1,6 +1,6 @@
 # CARKit
 
-CARKit is a ROS 2 Humble education stack for small Ackermann autonomous vehicles. It is designed for a Jetson Orin Nano with a 2D LiDAR, Intel RealSense camera, and an F1TENTH-style or CARKit/ADA vehicle controller.
+CARKit is a ROS 2 Humble education stack for small Ackermann autonomous vehicles. It is designed for a Jetson Orin Nano with a 2D LiDAR, Intel RealSense camera, and the CARKit/F1TENTH VESC vehicle control stack.
 
 CARKit uses one Docker image for the full build and runtime environment:
 
@@ -66,7 +66,7 @@ Pull the CARKit environment image on the Jetson host:
 docker pull ariiees/carkit:latest
 ```
 
-This image contains ROS 2 Humble, RViz, colcon, rosdep, build tools, Python dependencies, and common sensor/mapping/control dependencies. It does not contain your CARKit checkout; your local repo is mounted into the container.
+This image contains ROS 2 Humble, RViz, colcon, rosdep, build tools, Python dependencies, RealSense SDK, and common sensor/mapping/control dependencies, including the F1TENTH/VESC dependencies used by CARKit vehicle launch. It does not contain your CARKit checkout; your local repo is mounted into the container.
 
 If you maintain the image locally, rebuild it after Dockerfile changes:
 
@@ -139,49 +139,25 @@ ros2 topic echo /camera/camera/color/image_raw --once
 ros2 topic echo /ackermann_cmd --once
 ```
 
-## Control Bringup Choices
-
-CARKit includes three control-only bringups.
-
-For physical vehicle command output, CARKit supports two vehicle-control functions:
+## Vehicle Control
 
 ```bash
-# Function 1: hand controller publishes /joy_cmd, CARKit mux outputs vehicle command.
-ros2 launch carkit_vehicle_control controller_only.launch.py \
-  vehicle_command_topic:=/ackermann_cmd
+# Controller: starts the vendored F1TENTH joystick, mux, and VESC stack.
+ros2 launch carkit_vehicle_control controller.launch.py
 
-# Function 2: autonomy or keyboard publishes /ackermann_cmd.
-ros2 launch carkit_vehicle_control ackermann_input.launch.py \
-  input_topic:=/ackermann_cmd \
-  vehicle_command_topic:=/ackermann_cmd
-
-# Keyboard Ackermann control on /ackermann_cmd.
-ros2 launch carkit_vehicle_control ackermann_input.launch.py \
-  start_keyboard:=true \
-  keyboard_topic:=/ackermann_cmd
+# Keyboard: starts the VESC stack and publishes Ackermann commands from the keyboard.
+ros2 launch carkit_vehicle_control keyboard.launch.py
 ```
+
+Both launches use the F1TENTH/ADA control source vendored under `carkit/vehicle/f1tenth_system`. Keep `vehicle_command_topic:=/ackermann_cmd` for the included VESC path. The F1TENTH mux still accepts autonomy commands on `/drive` internally, but `/ackermann_cmd` is the low-level VESC command consumed by `vesc_ackermann`.
+
+## Autonomy Bringup
 
 Use the CARKit/ADA control bringup when you want CARKit to run the path tracker, command mux, stop sign behavior, and optional demo nodes:
 
 ```bash
 ros2 launch carkit_bringup carkit_ada_control.launch.py \
   vehicle_command_topic:=/ackermann_cmd
-```
-
-Use the command mux only when you just need CARKit command arbitration:
-
-```bash
-ros2 launch carkit_bringup control_mux.launch.py \
-  vehicle_command_topic:=/ackermann_cmd
-```
-
-Use the F1TENTH controller bringup only when you have also installed an external package such as `f1tenth_stack` into this workspace or sourced its overlay:
-
-```bash
-ros2 launch carkit_bringup f1tenth_control.launch.py \
-  f1tenth_package:=f1tenth_stack \
-  f1tenth_launch:=bringup_launch.py \
-  vehicle_command_topic:=/drive
 ```
 
 For demo nodes:
@@ -229,7 +205,7 @@ carkit/
   mapping/        LiDAR scan matching and graph SLAM
   planning/       behavior nodes such as stop sign handling
   control/        path tracking, emergency brake, command mux
-  vehicle/        vehicle adapters, currently TODO
+  vehicle/        F1TENTH/VESC vehicle control and CARKit keyboard launch
   bringup/        full-stack launch, maps, waypoints, RViz
   interfaces/     custom ROS 2 messages
   tools/          classroom demo and utility nodes
@@ -256,8 +232,9 @@ Inside Docker after build:
 source install/setup.bash
 ros2 pkg list | grep carkit
 ros2 launch carkit_bringup carkit.launch.py --show-args
-ros2 launch carkit_bringup f1tenth_control.launch.py --show-args
 ros2 launch carkit_bringup carkit_ada_control.launch.py --show-args
+ros2 launch carkit_vehicle_control controller.launch.py --show-args
+ros2 launch carkit_vehicle_control keyboard.launch.py --show-args
 ```
 
 Sensor checks:
