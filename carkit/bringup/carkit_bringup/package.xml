@@ -13,7 +13,8 @@
   <exec_depend>carkit_sensor_transforms</exec_depend>
   <exec_depend>carkit_lidar_localization</exec_depend>
   <exec_depend>carkit_pure_pursuit</exec_depend>
-  <exec_depend>carkit_command_mux</exec_depend>
+  <exec_depend>ackermann_mux</exec_depend>
+  <exec_depend>f1tenth_stack</exec_depend>
   <exec_depend>carkit_behaviors</exec_depend>
   <exec_depend>carkit_perception</exec_depend>
   <exec_depend>carkit_tools</exec_depend>

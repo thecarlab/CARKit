@@ -38,6 +38,8 @@ fi
 
 docker run --rm -it \
   --name carkit \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /etc/timezone:/etc/timezone:ro \
   "${DOCKER_GPU_ARGS[@]}" \
   --privileged \
   --network host \

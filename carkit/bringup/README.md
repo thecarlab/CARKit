@@ -41,12 +41,12 @@ Full bringup starts:
 - LiDAR localization
 - pure pursuit
 - stop sign behavior
-- command mux
+- F1TENTH Ackermann mux
 - RViz
 
 ## Control Bringup
 
-Use CARKit/ADA control when you want the autonomy stack to run the path tracker, command mux, stop sign behavior, and optional demo nodes.
+Use CARKit/ADA control when you want the autonomy stack to run the path tracker, F1TENTH Ackermann mux, stop sign behavior, and optional demo nodes.
 
 For physical vehicle control, use the two vehicle launch files:
 
@@ -83,7 +83,6 @@ Inputs:
 - `/follow_path` (`nav_msgs/Path`)
 - `/enable_autonomous_control` (`std_msgs/Int8`)
 - `/reverse_mode` (`std_msgs/Int8`)
-- `/joy_cmd` (`ackermann_msgs/AckermannDriveStamped`)
 - `/purepursuit_cmd` (`ackermann_msgs/AckermannDriveStamped`)
 - `/emergency_cmd` (`ackermann_msgs/AckermannDriveStamped`)
 - `/stopsign_cmd` (`ackermann_msgs/AckermannDriveStamped`)
@@ -95,8 +94,8 @@ Output:
 
 Dependencies:
 
+- `ackermann_mux`
 - `carkit_pure_pursuit`
-- `carkit_command_mux`
 - `carkit_behaviors`
 - `carkit_tools`
 

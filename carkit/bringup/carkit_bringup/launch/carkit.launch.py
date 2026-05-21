@@ -20,6 +20,11 @@ def generate_launch_description():
     pure_pursuit_dir = get_package_share_directory('carkit_pure_pursuit')
     default_rviz = os.path.join(bringup_dir, 'rviz', 'localization.rviz')
     default_waypoints = os.path.join(bringup_dir, 'waypoints', 'waypoints.yaml')
+    default_mux_config = os.path.join(
+        get_package_share_directory('f1tenth_stack'),
+        'config',
+        'mux.yaml'
+    )
 
     rviz_config_arg = DeclareLaunchArgument(
         'rviz_config',
@@ -30,6 +35,11 @@ def generate_launch_description():
         'waypoints_file',
         default_value=default_waypoints,
         description='Path to the CARKit waypoints YAML'
+    )
+    mux_config_arg = DeclareLaunchArgument(
+        'mux_config',
+        default_value=default_mux_config,
+        description='F1TENTH Ackermann mux config'
     )
     
     # Launch sllidar_s1
@@ -87,12 +97,13 @@ def generate_launch_description():
         ]
     )
     
-    # Launch control center node
-    carkit_command_mux_node = Node(
-        package='carkit_command_mux',
-        executable='carkit_command_mux_node',
-        name='carkit_command_mux_node',
-        output='screen'
+    # Launch F1TENTH Ackermann mux.
+    ackermann_mux_node = Node(
+        package='ackermann_mux',
+        executable='ackermann_mux',
+        name='ackermann_mux',
+        output='screen',
+        parameters=[LaunchConfiguration('mux_config')]
     )
     
     # Launch stop sign behavior node
@@ -123,10 +134,11 @@ def generate_launch_description():
     return LaunchDescription([
         rviz_config_arg,
         waypoints_file_arg,
+        mux_config_arg,
         rviz_node,
         sllidar_launch,
         realsense_launch,
-        carkit_command_mux_node,
+        ackermann_mux_node,
         lidar_transform_node,
         lidar_localization_launch, 
         pure_pursuit_launch,

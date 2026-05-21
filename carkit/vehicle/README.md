@@ -20,10 +20,10 @@ Use this when driving with the physical gamepad/controller. This launch starts t
 - `joy_node`
 - `joy_teleop`
 - `ackermann_mux`
+- `carkit_pure_pursuit` by default, for autonomous handoff
 - `ackermann_to_vesc_node`
 - `vesc_to_odom_node`
 - `vesc_driver_node`
-- CARKit command mux
 
 ```bash
 ros2 launch carkit_vehicle_control controller.launch.py
@@ -33,11 +33,15 @@ Inputs:
 
 - gamepad device through `joy_node`
 - `/drive` (`ackermann_msgs/AckermannDriveStamped`) for autonomous command input to the F1TENTH mux
-- `/purepursuit_cmd`, `/emergency_cmd`, `/stopsign_cmd` through the CARKit command mux when those nodes are running
+- `/purepursuit_cmd`, `/emergency_cmd`, `/stopsign_cmd` through the F1TENTH mux when those nodes are running
+
+PS4 controller mode:
+
+- Press `L1` once to latch manual controller mode.
+- Press `L1` again to return to autonomous mode through pure pursuit.
 
 Outputs:
 
-- `/joy_cmd` (`ackermann_msgs/AckermannDriveStamped`)
 - `/ackermann_cmd` (`ackermann_msgs/AckermannDriveStamped`)
 - `/odom` (`nav_msgs/Odometry`)
 - VESC serial commands through the configured VESC device
@@ -48,6 +52,8 @@ Important parameters:
 - `vesc_config`: defaults to `f1tenth_stack/config/vesc.yaml`
 - `mux_config`: defaults to `f1tenth_stack/config/mux.yaml`
 - `vehicle_command_topic`: defaults to `/ackermann_cmd`
+- `start_av_stack`: defaults to `true`
+- `waypoints_file`: defaults to `carkit_bringup/waypoints/waypoints.yaml`
 
 ## 2. Keyboard
 

@@ -2,9 +2,9 @@
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -41,6 +41,29 @@ def generate_launch_description():
         ]),
         description='F1TENTH Ackermann mux config'
     )
+    start_av_stack_arg = DeclareLaunchArgument(
+        'start_av_stack',
+        default_value='true',
+        description='Start CARKit pure pursuit so L1 can switch back to autonomous driving'
+    )
+    pure_pursuit_config_arg = DeclareLaunchArgument(
+        'pure_pursuit_config',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('carkit_pure_pursuit'),
+            'config',
+            'pure_pursuit_params.yaml',
+        ]),
+        description='CARKit pure pursuit config'
+    )
+    waypoints_file_arg = DeclareLaunchArgument(
+        'waypoints_file',
+        default_value=PathJoinSubstitution([
+            FindPackageShare('carkit_bringup'),
+            'waypoints',
+            'waypoints.yaml',
+        ]),
+        description='Waypoint YAML used by CARKit pure pursuit'
+    )
 
     f1tenth_bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -54,17 +77,24 @@ def generate_launch_description():
             'joy_config': LaunchConfiguration('joy_config'),
             'vesc_config': LaunchConfiguration('vesc_config'),
             'mux_config': LaunchConfiguration('mux_config'),
+            'vehicle_command_topic': LaunchConfiguration('vehicle_command_topic'),
         }.items(),
     )
 
-    command_mux = Node(
-        package='carkit_command_mux',
-        executable='carkit_command_mux_node',
-        name='carkit_controller_command_mux',
-        output='screen',
-        remappings=[
-            ('ackermann_cmd', LaunchConfiguration('vehicle_command_topic')),
-        ],
+    pure_pursuit = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('carkit_pure_pursuit'),
+                'launch',
+                'pure_pursuit_system.launch.py',
+            ])
+        ),
+        launch_arguments={
+            'config_file': LaunchConfiguration('pure_pursuit_config'),
+            'waypoints_file': LaunchConfiguration('waypoints_file'),
+            'frame_id': 'map',
+        }.items(),
+        condition=IfCondition(LaunchConfiguration('start_av_stack')),
     )
 
     return LaunchDescription([
@@ -72,6 +102,9 @@ def generate_launch_description():
         joy_config_arg,
         vesc_config_arg,
         mux_config_arg,
+        start_av_stack_arg,
+        pure_pursuit_config_arg,
+        waypoints_file_arg,
         f1tenth_bringup,
-        command_mux,
+        pure_pursuit,
     ])

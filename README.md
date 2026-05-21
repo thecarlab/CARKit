@@ -128,7 +128,7 @@ Launch the full CARKit stack:
 ros2 launch carkit_bringup carkit.launch.py
 ```
 
-The full stack starts LiDAR, RealSense, sensor transforms, LiDAR localization, pure pursuit, stop sign behavior, command mux, and RViz.
+The full stack starts LiDAR, RealSense, sensor transforms, LiDAR localization, pure pursuit, stop sign behavior, the F1TENTH Ackermann mux, and RViz.
 
 Check important topics:
 
@@ -153,7 +153,7 @@ Both launches use the F1TENTH/ADA control source vendored under `carkit/vehicle/
 
 ## Autonomy Bringup
 
-Use the CARKit/ADA control bringup when you want CARKit to run the path tracker, command mux, stop sign behavior, and optional demo nodes:
+Use the CARKit/ADA control bringup when you want CARKit to run the path tracker, F1TENTH Ackermann mux, stop sign behavior, and optional demo nodes:
 
 ```bash
 ros2 launch carkit_bringup carkit_ada_control.launch.py \
@@ -190,7 +190,7 @@ ros2 launch carkit_lidarslam lidarslam.launch.py
 # Control and behavior
 ros2 launch carkit_pure_pursuit pure_pursuit_system.launch.py waypoints_file:=carkit/bringup/waypoints/waypoints.yaml
 ros2 run carkit_behaviors stop_sign_behavior_node
-ros2 run carkit_command_mux carkit_command_mux_node
+ros2 run ackermann_mux ackermann_mux --ros-args --params-file carkit/vehicle/f1tenth_system/f1tenth_stack/config/mux.yaml
 ```
 
 Each module folder has its own `README.md` with topics, launch commands, dependencies, and test commands.
@@ -204,7 +204,7 @@ carkit/
   localization/   LiDAR NDT localization
   mapping/        LiDAR scan matching and graph SLAM
   planning/       behavior nodes such as stop sign handling
-  control/        path tracking, emergency brake, command mux
+  control/        path tracking and emergency brake
   vehicle/        F1TENTH/VESC vehicle control and CARKit keyboard launch
   bringup/        full-stack launch, maps, waypoints, RViz
   interfaces/     custom ROS 2 messages
@@ -220,7 +220,7 @@ docs/             topic graph, troubleshooting, migration notes
 - `/camera/camera/imu` -> `carkit_sensor_transforms` -> `/imu_transformed`
 - `/cloud_in` + map -> `carkit_lidar_localization` -> `/pcl_pose`
 - `/pcl_pose` + `/follow_path` -> `carkit_pure_pursuit` -> `/purepursuit_cmd`
-- `/joy_cmd`, `/purepursuit_cmd`, `/emergency_cmd`, `/stopsign_cmd` -> `carkit_command_mux` -> `/ackermann_cmd`
+- `/teleop`, `/drive`, `/purepursuit_cmd`, `/emergency_cmd`, `/stopsign_cmd` -> `ackermann_mux` -> `/ackermann_cmd`
 
 See [docs/topic_graph.md](docs/topic_graph.md) for more detail.
 
