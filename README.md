@@ -143,6 +143,24 @@ ros2 topic echo /ackermann_cmd --once
 
 CARKit includes three control-only bringups.
 
+For physical vehicle command output, CARKit supports two vehicle-control functions:
+
+```bash
+# Function 1: hand controller publishes /joy_cmd, CARKit mux outputs vehicle command.
+ros2 launch carkit_vehicle_control controller_only.launch.py \
+  vehicle_command_topic:=/ackermann_cmd
+
+# Function 2: autonomy or keyboard publishes /ackermann_cmd.
+ros2 launch carkit_vehicle_control ackermann_input.launch.py \
+  input_topic:=/ackermann_cmd \
+  vehicle_command_topic:=/ackermann_cmd
+
+# Keyboard Ackermann control on /ackermann_cmd.
+ros2 launch carkit_vehicle_control ackermann_input.launch.py \
+  start_keyboard:=true \
+  keyboard_topic:=/ackermann_cmd
+```
+
 Use the CARKit/ADA control bringup when you want CARKit to run the path tracker, command mux, stop sign behavior, and optional demo nodes:
 
 ```bash
