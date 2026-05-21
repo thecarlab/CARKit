@@ -17,6 +17,17 @@ Autonomy flow:
 /joy_cmd + /purepursuit_cmd + /emergency_cmd + /stopsign_cmd -> carkit_command_mux -> /ackermann_cmd
 ```
 
+Vehicle command modes:
+
+```text
+controller_only.launch.py:
+  /joy_cmd -> carkit_command_mux -> /ackermann_cmd or /drive
+
+ackermann_input.launch.py:
+  autonomy /ackermann_cmd -> optional carkit_vehicle_control relay -> /ackermann_cmd or /drive
+  keyboard_ackermann -> /ackermann_cmd -> optional relay -> /drive
+```
+
 Control bringup options:
 
 ```text
