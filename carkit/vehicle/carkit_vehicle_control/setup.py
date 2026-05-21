@@ -23,7 +23,6 @@ setup(
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
-            'ackermann_relay = carkit_vehicle_control.ackermann_relay:main',
             'keyboard_ackermann = carkit_vehicle_control.keyboard_ackermann:main',
         ],
     },

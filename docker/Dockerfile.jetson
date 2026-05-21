@@ -49,23 +49,34 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip \
     python3-requests \
     python3-rosdep \
+    python3-tk \
     python3-tqdm \
     python3-vcstool \
     qt5-qmake \
     qtdeclarative5-dev \
+    ros-${ROS_DISTRO}-ament-cmake-auto \
     ros-${ROS_DISTRO}-ackermann-msgs \
+    ros-${ROS_DISTRO}-asio-cmake-module \
+    ros-${ROS_DISTRO}-control-msgs \
     ros-${ROS_DISTRO}-cv-bridge \
     ros-${ROS_DISTRO}-desktop \
     ros-${ROS_DISTRO}-diagnostic-updater \
     ros-${ROS_DISTRO}-interactive-markers \
+    ros-${ROS_DISTRO}-joy \
     ros-${ROS_DISTRO}-laser-geometry \
+    ros-${ROS_DISTRO}-launch-xml \
     ros-${ROS_DISTRO}-libg2o \
     ros-${ROS_DISTRO}-pcl-conversions \
     ros-${ROS_DISTRO}-pcl-ros \
+    ros-${ROS_DISTRO}-rosbridge-server \
+    ros-${ROS_DISTRO}-rosidl-default-generators \
+    ros-${ROS_DISTRO}-serial-driver \
     ros-${ROS_DISTRO}-tf-transformations \
     ros-${ROS_DISTRO}-tf2-eigen \
     ros-${ROS_DISTRO}-tf2-geometry-msgs \
     ros-${ROS_DISTRO}-tf2-sensor-msgs \
+    ros-${ROS_DISTRO}-trajectory-msgs \
+    ros-${ROS_DISTRO}-urg-node \
     ros-${ROS_DISTRO}-visualization-msgs \
     ros-${ROS_DISTRO}-xacro \
     && rm -rf /var/lib/apt/lists/*

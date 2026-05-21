@@ -20,20 +20,18 @@ Autonomy flow:
 Vehicle command modes:
 
 ```text
-controller_only.launch.py:
-  /joy_cmd -> carkit_command_mux -> /ackermann_cmd or /drive
+controller.launch.py:
+  gamepad -> joy_node -> joy_teleop -> ackermann_mux -> /joy_cmd
+  /joy_cmd + CARKit autonomy command topics -> carkit_command_mux -> /ackermann_cmd
+  /ackermann_cmd -> vesc_ackermann -> vesc_driver -> vehicle
 
-ackermann_input.launch.py:
-  autonomy /ackermann_cmd -> optional carkit_vehicle_control relay -> /ackermann_cmd or /drive
-  keyboard_ackermann -> /ackermann_cmd -> optional relay -> /drive
+keyboard.launch.py:
+  keyboard_ackermann -> /ackermann_cmd -> vesc_ackermann -> vesc_driver -> vehicle
 ```
 
 Control bringup options:
 
 ```text
-f1tenth_control.launch.py:
-  external F1TENTH bringup + optional CARKit mux/bridge -> /drive
-
 carkit_ada_control.launch.py:
   CARKit pure pursuit + behaviors + command mux + optional ADA demos -> /ackermann_cmd
 ```
