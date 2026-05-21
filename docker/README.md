@@ -13,6 +13,8 @@ docker pull ariiees/carkit:latest
 ./docker/run_jetson.sh
 ```
 
+`run_jetson.sh` pulls `ariiees/carkit:latest` by default before launching. Use `PULL_IMAGE=never ./docker/run_jetson.sh` when testing a local image that should not be refreshed from Docker Hub.
+
 Inside Docker:
 
 ```bash
@@ -25,7 +27,7 @@ ros2 launch carkit_bringup carkit.launch.py
 
 ## Scripts
 
-- `run_jetson.sh`: starts the container with host networking, NVIDIA runtime when registered, `/dev`, `/dev/shm`, and X11 display mounts.
+- `run_jetson.sh`: refreshes the image by default, then starts the container with host networking, NVIDIA runtime when registered, `/dev`, `/dev/shm`, and X11 display mounts.
 - `build_workspace.sh`: clones external source packages, runs `rosdep`, builds with `colcon`, and lists CARKit packages.
 - `publish_image.sh`: maintainer-only helper to build and push `ariiees/carkit:latest`.
 - `test_workspace_in_docker.sh`: pulls/runs the image, builds this checkout, and checks launch arguments.

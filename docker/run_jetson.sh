@@ -4,12 +4,26 @@ set -euo pipefail
 
 IMAGE="${IMAGE:-ariiees/carkit:latest}"
 WORKSPACE="${WORKSPACE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+PULL_IMAGE="${PULL_IMAGE:-always}"
 
 xhost +si:localuser:root >/dev/null 2>&1 || true
 
-if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
-  docker pull "${IMAGE}"
-fi
+case "${PULL_IMAGE}" in
+  always)
+    docker pull "${IMAGE}"
+    ;;
+  missing)
+    if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
+      docker pull "${IMAGE}"
+    fi
+    ;;
+  never)
+    ;;
+  *)
+    echo "PULL_IMAGE must be one of: always, missing, never" >&2
+    exit 1
+    ;;
+esac
 
 DOCKER_GPU_ARGS=()
 DOCKER_RUNTIMES="$(docker info --format '{{json .Runtimes}}' 2>/dev/null || true)"

@@ -82,6 +82,12 @@ From the CARKit repo on the Jetson host:
 ./docker/run_jetson.sh
 ```
 
+By default, the run script pulls `ariiees/carkit:latest` before starting so stale local images do not hide environment updates. To use a local image without pulling:
+
+```bash
+PULL_IMAGE=never ./docker/run_jetson.sh
+```
+
 The run script starts the container with:
 
 - host networking for ROS 2 discovery
