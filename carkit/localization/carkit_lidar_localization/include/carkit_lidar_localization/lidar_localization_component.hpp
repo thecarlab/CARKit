@@ -75,6 +75,8 @@ public:
     path_pub_;
   rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr
     initial_map_pub_;
+  rclcpp_lifecycle::LifecyclePublisher<sensor_msgs::msg::PointCloud2>::SharedPtr
+    map_pub_;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::ConstSharedPtr
     map_sub_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::ConstSharedPtr

@@ -54,6 +54,7 @@ CallbackReturn PCLLocalization::on_activate(const rclcpp_lifecycle::State &)
   pose_pub_->on_activate();
   path_pub_->on_activate();
   initial_map_pub_->on_activate();
+  map_pub_->on_activate();
 
   if (set_initial_pose_) {
     auto msg = std::make_shared<geometry_msgs::msg::PoseWithCovarianceStamped>();
@@ -94,6 +95,7 @@ CallbackReturn PCLLocalization::on_activate(const rclcpp_lifecycle::State &)
     pcl::toROSMsg(*map_cloud_ptr, *map_msg_ptr);
     map_msg_ptr->header.frame_id = global_frame_id_;
     initial_map_pub_->publish(*map_msg_ptr);
+    map_pub_->publish(*map_msg_ptr);
     RCLCPP_INFO(get_logger(), "Initial Map Published");
 
     registration_->setInputTarget(map_cloud_ptr);
@@ -112,6 +114,7 @@ CallbackReturn PCLLocalization::on_deactivate(const rclcpp_lifecycle::State &)
   pose_pub_->on_deactivate();
   path_pub_->on_deactivate();
   initial_map_pub_->on_deactivate();
+  map_pub_->on_deactivate();
 
   RCLCPP_INFO(get_logger(), "Deactivating end");
   return CallbackReturn::SUCCESS;
@@ -122,6 +125,7 @@ CallbackReturn PCLLocalization::on_cleanup(const rclcpp_lifecycle::State &)
   RCLCPP_INFO(get_logger(), "Cleaning Up");
   initial_pose_sub_.reset();
   initial_map_pub_.reset();
+  map_pub_.reset();
   path_pub_.reset();
   pose_pub_.reset();
   cloud_sub_.reset();
@@ -200,6 +204,9 @@ void PCLLocalization::initializePubSub()
   initial_map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
     "initial_map",
     rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
+  map_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>(
+    "map",
+    rclcpp::QoS(rclcpp::KeepLast(1)).transient_local().reliable());
 
   initial_pose_sub_ = create_subscription<geometry_msgs::msg::PoseWithCovarianceStamped>(
     "initialpose", rclcpp::SystemDefaultsQoS(),
@@ -269,12 +276,20 @@ void PCLLocalization::mapReceived(const sensor_msgs::msg::PointCloud2::SharedPtr
 
 void PCLLocalization::cloudReceived(const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
 {
-  if (!map_recieved_ || !initialpose_recieved_) {
+  if (!map_recieved_) {
     RCLCPP_WARN_THROTTLE(
       this->get_logger(),
       *this->get_clock(),
       2000,
-      "Waiting for map and initial pose. Set the initial pose in RViz with the 2D Pose Estimate tool.");
+      "Waiting for a map. Check map_path or publish /map.");
+    return;
+  }
+  if (!initialpose_recieved_) {
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      2000,
+      "Map is loaded. Waiting for initial pose. Set it in RViz with the 2D Pose Estimate tool.");
     return;}
   //RCLCPP_INFO(get_logger(), "cloudReceived");
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>);
