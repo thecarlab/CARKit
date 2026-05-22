@@ -36,8 +36,8 @@ Inputs:
 
 PS4 controller mode:
 
-- Press `L1` once to latch manual controller mode.
-- Press `L1` again to return to autonomous mode through pure pursuit.
+- Press `L1` to select manual controller mode.
+- Press `R1` to return to autonomous mode through pure pursuit.
 
 Outputs:
 

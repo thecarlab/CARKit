@@ -367,9 +367,11 @@ class JoyTeleop(Node):
         self.commands = []
         self.manual_control_enabled = self._get_bool_parameter('manual_mode_initial', False)
         self.manual_mode_button = self._get_optional_int_parameter('manual_mode_button')
+        self.autonomous_mode_button = self._get_optional_int_parameter('autonomous_mode_button')
         self.manual_command_names = set(self._get_list_parameter(
             'manual_command_names', ['human_control']))
-        self._last_mode_button_pressed = False
+        self._last_manual_button_pressed = False
+        self._last_autonomous_button_pressed = False
         autonomy_mode_qos = rclpy.qos.QoSProfile(
             history=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
             depth=1,
@@ -441,17 +443,29 @@ class JoyTeleop(Node):
             command.run(self, msg)
 
     def _update_manual_mode(self, msg: sensor_msgs.msg.Joy) -> None:
-        if self.manual_mode_button is None or len(msg.buttons) <= self.manual_mode_button:
+        manual_button_pressed = self._button_pressed(msg, self.manual_mode_button)
+        autonomous_button_pressed = self._button_pressed(msg, self.autonomous_mode_button)
+
+        if manual_button_pressed and not self._last_manual_button_pressed:
+            self._set_manual_control(True, 'L1')
+
+        if autonomous_button_pressed and not self._last_autonomous_button_pressed:
+            self._set_manual_control(False, 'R1')
+
+        self._last_manual_button_pressed = manual_button_pressed
+        self._last_autonomous_button_pressed = autonomous_button_pressed
+
+    def _button_pressed(self, msg: sensor_msgs.msg.Joy, button: typing.Optional[int]) -> bool:
+        return button is not None and len(msg.buttons) > button and msg.buttons[button] == 1
+
+    def _set_manual_control(self, enabled: bool, button_name: str) -> None:
+        if self.manual_control_enabled == enabled:
             return
 
-        mode_button_pressed = msg.buttons[self.manual_mode_button] == 1
-        if mode_button_pressed and not self._last_mode_button_pressed:
-            self.manual_control_enabled = not self.manual_control_enabled
-            mode = 'manual controller' if self.manual_control_enabled else 'autonomous'
-            self.get_logger().info(f'L1 mode toggle: {mode}')
-            self._publish_autonomy_mode()
-
-        self._last_mode_button_pressed = mode_button_pressed
+        self.manual_control_enabled = enabled
+        mode = 'manual controller' if self.manual_control_enabled else 'autonomous'
+        self.get_logger().info(f'{button_name} mode select: {mode}')
+        self._publish_autonomy_mode()
 
     def _publish_autonomy_mode(self) -> None:
         msg = std_msgs.msg.Int8()
