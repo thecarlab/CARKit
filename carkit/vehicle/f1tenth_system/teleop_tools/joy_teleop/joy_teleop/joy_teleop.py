@@ -448,7 +448,7 @@ class JoyTeleop(Node):
         if mode_button_pressed and not self._last_mode_button_pressed:
             self.manual_control_enabled = not self.manual_control_enabled
             mode = 'manual controller' if self.manual_control_enabled else 'autonomous'
-            self.get_logger().info('L1 mode toggle: %s', mode)
+            self.get_logger().info(f'L1 mode toggle: {mode}')
             self._publish_autonomy_mode()
 
         self._last_mode_button_pressed = mode_button_pressed

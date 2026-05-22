@@ -67,7 +67,7 @@ class IncrementerServer(Node):
         self._value = state.actual.positions
         self._goal = JointTrajectory()
         self._goal.joint_names = state.joint_names
-        self.get_logger().info('Connected to %s', controller_ns)
+        self.get_logger().info(f'Connected to {controller_ns}')
 
     def _as_cb(self, goal):
         self.increment_by(goal.increment_by)
@@ -90,7 +90,7 @@ class IncrementerServer(Node):
         state = self._wait_for_new_message()
         self._value = state.actual.positions
         self._value = [x + y for x, y in zip(self._value, increment)]
-        self.get_logger().info('Sent goal of %s', str(self._value))
+        self.get_logger().info(f'Sent goal of {self._value}')
         point = JointTrajectoryPoint()
         point.positions = self._value
         point.time_from_start = Duration(seconds=0.1)

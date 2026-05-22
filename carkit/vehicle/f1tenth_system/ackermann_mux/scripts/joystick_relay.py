@@ -266,8 +266,8 @@ class JoystickRelay(Node):
 
     def _toggle_priority(self):
         self._current_priority = not self._current_priority
-        self.get_logger().info("Toggled joy_priority, current status is: %s",
-                               self._current_priority)
+        self.get_logger().info(
+            f"Toggled joy_priority, current status is: {self._current_priority}")
         self._pub_priority.publish(self._current_priority)
         self._marker.update(self._current_priority)
 
