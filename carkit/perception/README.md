@@ -26,11 +26,12 @@ image view loaded:
 ros2 launch carkit_perception perception.launch.py
 ```
 
-If the TensorRT engine does not load on your machine, run with the PyTorch model:
+The default model is the PyTorch `.pt` file because it works without TensorRT.
+Use the TensorRT engine only on systems that already have TensorRT installed:
 
 ```bash
 ros2 launch carkit_perception perception.launch.py \
-  model_path:=/workspaces/CARKit/carkit/perception/carkit_perception/models/yolo11n.pt
+  model_path:=/workspaces/CARKit/carkit/perception/carkit_perception/models/yolo11n.engine
 ```
 
 Run only the node without RViz:
@@ -43,7 +44,7 @@ Override model or topics:
 
 ```bash
 ros2 run carkit_perception perception_node --ros-args \
-  -p model_path:=/workspaces/CARKit/carkit/perception/carkit_perception/models/yolo11n.engine \
+  -p model_path:=/workspaces/CARKit/carkit/perception/carkit_perception/models/yolo11n.pt \
   -p image_topic:=/camera/camera/color/image_raw
 ```
 

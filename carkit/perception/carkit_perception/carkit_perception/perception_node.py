@@ -2,6 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from cv_bridge import CvBridge
@@ -21,7 +22,7 @@ class PerceptionNode(Node):
         default_model = os.path.join(
             get_package_share_directory("carkit_perception"),
             "models",
-            "yolo11n.engine",
+            "yolo11n.pt",
         )
         self.declare_parameter("model_path", default_model)
         self.declare_parameter("image_topic", "/camera/camera/color/image_raw")
@@ -34,21 +35,21 @@ class PerceptionNode(Node):
         detection_topic = self.get_parameter("detection_topic").get_parameter_value().string_value
 
         # Load YOLO model after parameters are declared so launches can override it.
-        self.model = YOLO(model_path)
+        self.model = YOLO(model_path, task="detect")
 
         # Subscribers
         self.subscription = self.create_subscription(
             Image,
             image_topic,
             self.image_callback,
-            10
+            qos_profile_sensor_data
         )
 
         # Publishers
         self.image_publisher = self.create_publisher(
             Image,
             inference_image_topic,
-            10
+            qos_profile_sensor_data
         )
         self.detection_publisher = self.create_publisher(
             String,
