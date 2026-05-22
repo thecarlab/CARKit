@@ -8,6 +8,7 @@ joy:
 joy_teleop:
   ros__parameters:
     manual_mode_button: 4
+    autonomous_mode_button: 5
     manual_mode_initial: false
     manual_command_names: [human_control]
     autonomy_enable_topic: enable_autonomous_control
