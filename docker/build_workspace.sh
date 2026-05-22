@@ -39,8 +39,15 @@ if ! ldconfig -p 2>/dev/null | grep -q 'librealsense2\.so' \
   exit 1
 fi
 
+APT_GET=()
 if [ "$(id -u)" -eq 0 ]; then
-  apt-get update
+  APT_GET=(apt-get)
+elif command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+  APT_GET=(sudo apt-get)
+fi
+
+if [ "${#APT_GET[@]}" -gt 0 ]; then
+  "${APT_GET[@]}" update
 fi
 
 rosdep update

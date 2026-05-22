@@ -17,6 +17,22 @@ docker pull ariiees/carkit:latest
 
 `run_jetson.sh` pulls `ariiees/carkit:latest` by default before launching. Use `PULL_IMAGE=never ./docker/run_jetson.sh` when testing a local image that should not be refreshed from Docker Hub.
 
+The container runs commands as your host UID/GID by default, so files generated
+inside Docker stay editable from the local file browser and editor. On startup,
+the script also repairs ownership for common generated paths from older
+root-run containers: `build/`, `install/`, `log/`, `map/`, root-level
+`map.pcd`, root-level `pose_graph.g2o`, and cloned sensor driver folders.
+
+Overrides:
+
+```bash
+# Legacy root behavior, not recommended for normal development.
+CARKIT_RUN_AS_ROOT=1 ./docker/run_jetson.sh
+
+# Do not repair old generated-file ownership on startup.
+CARKIT_FIX_PERMISSIONS_ON_START=0 ./docker/run_jetson.sh
+```
+
 Inside Docker:
 
 ```bash
@@ -29,7 +45,7 @@ ros2 launch carkit_bringup carkit.launch.py
 
 ## Scripts
 
-- `run_jetson.sh`: refreshes the image by default, then starts the container with host networking, NVIDIA runtime when registered, `/dev`, `/dev/shm`, and X11 display mounts.
+- `run_jetson.sh`: refreshes the image by default, then starts the container with host networking, NVIDIA runtime when registered, `/dev`, `/dev/shm`, X11 display mounts, and host-user file ownership.
 - `build_workspace.sh`: clones external source packages, runs `rosdep`, builds with `colcon`, and lists CARKit packages.
 - `publish_image.sh`: maintainer-only helper to build and push `ariiees/carkit:latest`.
 - `test_workspace_in_docker.sh`: pulls/runs the image, builds this checkout, and checks launch arguments.

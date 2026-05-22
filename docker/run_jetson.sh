@@ -5,8 +5,12 @@ set -euo pipefail
 IMAGE="${IMAGE:-ariiees/carkit:latest}"
 WORKSPACE="${WORKSPACE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PULL_IMAGE="${PULL_IMAGE:-always}"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+HOST_USER="${USER:-carkit}"
 
 xhost +si:localuser:root >/dev/null 2>&1 || true
+xhost +si:localuser:"${HOST_USER}" >/dev/null 2>&1 || true
 
 case "${PULL_IMAGE}" in
   always)
@@ -40,6 +44,12 @@ docker run --rm -it \
   --name carkit \
   -v /etc/localtime:/etc/localtime:ro \
   -v /etc/timezone:/etc/timezone:ro \
+  -e TZ="America/New_York" \
+  -e CARKIT_HOST_UID="${HOST_UID}" \
+  -e CARKIT_HOST_GID="${HOST_GID}" \
+  -e CARKIT_HOST_USER="${HOST_USER}" \
+  -e CARKIT_FIX_PERMISSIONS_ON_START="${CARKIT_FIX_PERMISSIONS_ON_START:-1}" \
+  -e CARKIT_RUN_AS_ROOT="${CARKIT_RUN_AS_ROOT:-0}" \
   "${DOCKER_GPU_ARGS[@]}" \
   --privileged \
   --network host \
@@ -51,6 +61,7 @@ docker run --rm -it \
   -v /dev:/dev \
   -v /dev/shm:/dev/shm \
   -v "${WORKSPACE}:/workspaces/CARKit" \
+  -v "${WORKSPACE}/docker/entrypoint.sh:/entrypoint.sh:ro" \
   -w /workspaces/CARKit \
   "${IMAGE}" \
   bash

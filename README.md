@@ -269,6 +269,7 @@ See [docs/troubleshooting.md](docs/troubleshooting.md).
 Common fixes:
 
 - If Docker permission is denied, add your user to the `docker` group and start a new shell.
+- If Docker-generated files show a lock icon on the host, pull the latest branch and rerun `./docker/run_jetson.sh`. CARKit now runs the container as your host user by default and repairs common generated folder ownership on startup.
 - If third-party packages are missing, run `./carkit/setup_vendor_repos.sh` on the host or inside Docker, then rebuild.
 - If RViz does not open, verify `DISPLAY`, `/tmp/.X11-unix`, and `xhost +si:localuser:root`.
 - If a sensor topic is missing, confirm the hardware is visible under `/dev` inside the container.
