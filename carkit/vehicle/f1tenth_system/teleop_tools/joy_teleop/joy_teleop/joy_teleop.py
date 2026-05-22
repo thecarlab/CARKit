@@ -366,12 +366,12 @@ class JoyTeleop(Node):
 
         self.commands = []
         self.manual_control_enabled = self._get_bool_parameter('manual_mode_initial', False)
-        self.manual_mode_button = self._get_optional_int_parameter('manual_mode_button')
-        self.autonomous_mode_button = self._get_optional_int_parameter('autonomous_mode_button')
+        self.mode_toggle_button = self._get_optional_int_parameter(
+            'mode_toggle_button',
+            self._get_optional_int_parameter('manual_mode_button'))
         self.manual_command_names = set(self._get_list_parameter(
             'manual_command_names', ['human_control']))
-        self._last_manual_button_pressed = False
-        self._last_autonomous_button_pressed = False
+        self._last_mode_toggle_button_pressed = False
         autonomy_mode_qos = rclpy.qos.QoSProfile(
             history=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
             depth=1,
@@ -415,6 +415,7 @@ class JoyTeleop(Node):
         self._subscription = self.create_subscription(
             sensor_msgs.msg.Joy, 'joy', self.joy_callback, qos)
         self._publish_autonomy_mode()
+        self._log_active_control('startup')
 
     def retrieve_config(self):
         config = {}
@@ -443,39 +444,32 @@ class JoyTeleop(Node):
             command.run(self, msg)
 
     def _update_manual_mode(self, msg: sensor_msgs.msg.Joy) -> None:
-        manual_button_pressed = self._button_pressed(msg, self.manual_mode_button)
-        autonomous_button_pressed = self._button_pressed(msg, self.autonomous_mode_button)
+        mode_toggle_button_pressed = self._button_pressed(msg, self.mode_toggle_button)
 
-        if manual_button_pressed and not self._last_manual_button_pressed:
-            self._set_manual_control(True, 'L1')
+        if mode_toggle_button_pressed and not self._last_mode_toggle_button_pressed:
+            self.manual_control_enabled = not self.manual_control_enabled
+            self._publish_autonomy_mode()
+            self._log_active_control('L1')
 
-        if autonomous_button_pressed and not self._last_autonomous_button_pressed:
-            self._set_manual_control(False, 'R1')
-
-        self._last_manual_button_pressed = manual_button_pressed
-        self._last_autonomous_button_pressed = autonomous_button_pressed
+        self._last_mode_toggle_button_pressed = mode_toggle_button_pressed
 
     def _button_pressed(self, msg: sensor_msgs.msg.Joy, button: typing.Optional[int]) -> bool:
         return button is not None and len(msg.buttons) > button and msg.buttons[button] == 1
 
-    def _set_manual_control(self, enabled: bool, button_name: str) -> None:
-        if self.manual_control_enabled == enabled:
-            return
-
-        self.manual_control_enabled = enabled
-        mode = 'manual controller' if self.manual_control_enabled else 'autonomous'
-        self.get_logger().info(f'{button_name} mode select: {mode}')
-        self._publish_autonomy_mode()
+    def _log_active_control(self, source: str) -> None:
+        controller = 'controller' if self.manual_control_enabled else 'AV stack'
+        self.get_logger().info(f'{source}: {controller} is controlling the vehicle')
 
     def _publish_autonomy_mode(self) -> None:
         msg = std_msgs.msg.Int8()
         msg.data = 0 if self.manual_control_enabled else 1
         self._autonomy_mode_pub.publish(msg)
 
-    def _get_optional_int_parameter(self, name: str) -> typing.Optional[int]:
+    def _get_optional_int_parameter(
+            self, name: str, default: typing.Optional[int] = None) -> typing.Optional[int]:
         if self.has_parameter(name):
             return int(self.get_parameter(name).value)
-        return None
+        return default
 
     def _get_bool_parameter(self, name: str, default: bool) -> bool:
         if self.has_parameter(name):
