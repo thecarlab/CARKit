@@ -14,6 +14,11 @@ This opens RViz by default. Use the `2D Pose Estimate` tool in RViz to publish
 `/initialpose`; localization starts publishing `/pcl_pose` after both the map
 and initial pose are available.
 
+RViz shows the saved map on `/map` and `/initial_map`. The live `/cloud_in`
+display is shown in the sensor frame until the first initial pose is set; after
+localization publishes `map -> base_link`, the cloud can be compared against
+the map in the `map` frame.
+
 Use a custom map:
 
 ```bash
