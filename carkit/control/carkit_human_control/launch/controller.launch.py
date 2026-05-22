@@ -44,7 +44,7 @@ def generate_launch_description():
     start_av_stack_arg = DeclareLaunchArgument(
         'start_av_stack',
         default_value='true',
-        description='Start CARKit pure pursuit so R1 can switch back to autonomous driving'
+        description='Start CARKit pure pursuit so L1 can switch to autonomous driving'
     )
     pure_pursuit_config_arg = DeclareLaunchArgument(
         'pure_pursuit_config',
