@@ -38,4 +38,5 @@ carkit_graph_based_slam:
       range_of_searching_loop_closure: 20.0
       search_submap_num: 4
       use_save_map_in_loop: true
+      map_save_directory: "/workspaces/CARKit/map"
       debug_flag: true

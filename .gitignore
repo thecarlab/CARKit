@@ -27,3 +27,7 @@ dockerhub*
 # External sources fetched by carkit/setup_vendor_repos.sh.
 carkit/sensors/realsense-ros/
 carkit/sensors/sllidar_ros2/
+
+# Generated maps. Keep map/.gitkeep so the output folder exists.
+map/*
+!map/.gitkeep
