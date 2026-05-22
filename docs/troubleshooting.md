@@ -3,6 +3,7 @@
 - `colcon: command not found`: install `python3-colcon-common-extensions` or use the CARKit Docker image.
 - `docker: command not found`: install Docker on the Jetson host before pulling `ariiees/carkit:latest`.
 - `unknown or invalid runtime name: nvidia`: Docker is not configured with the NVIDIA runtime. The `docker/run_jetson.sh` script now falls back without `--runtime nvidia`; if GPU or TensorRT access fails, install and configure `nvidia-container-toolkit` on the Jetson host.
+- Files created by Docker show a lock icon on the host: pull the latest `develop` branch and start with `./docker/run_jetson.sh`. The script now runs the container as your host UID/GID and repairs ownership for common generated folders on startup. Keep `CARKIT_RUN_AS_ROOT` unset for normal development.
 - Missing `realsense2_camera` or `sllidar_ros2`: run `./carkit/setup_vendor_repos.sh`.
 - `fatal: detected dubious ownership` in a sensor driver repo: pull the latest `develop` branch and rerun `./docker/build_workspace.sh`. The setup script marks the cloned sensor driver folders as safe for the root user inside Docker.
 - `git pull` refuses to overwrite `carkit/mapping/ndt_omp_ros2`: remove the old cloned NDT folder with `rm -rf carkit/mapping/ndt_omp_ros2`, then pull again. NDT is now vendored in CARKit instead of cloned by the setup script.
