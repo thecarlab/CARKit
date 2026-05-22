@@ -43,8 +43,8 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'model_path',
-            default_value=os.path.join(package_share, 'models', 'yolo11n.engine'),
-            description='YOLO model path. Use yolo11n.pt if the TensorRT engine is not compatible.',
+            default_value=os.path.join(package_share, 'models', 'yolo11n.pt'),
+            description='YOLO model path. Use yolo11n.engine only on systems with TensorRT installed.',
         ),
         DeclareLaunchArgument(
             'image_topic',
