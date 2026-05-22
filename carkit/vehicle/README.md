@@ -37,7 +37,7 @@ Inputs:
 PS4 controller mode:
 
 - Controller/manual mode is active immediately after launch.
-- Press `L1` to toggle between controller/manual mode and autonomous mode through pure pursuit.
+- Press `R1` to toggle between controller/manual mode and autonomous mode through pure pursuit.
 
 Outputs:
 
