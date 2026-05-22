@@ -1,5 +1,6 @@
 #include "carkit_graph_based_slam/carkit_graph_based_slam_component.h"
 #include <chrono>
+#include <filesystem>
 
 using namespace std::chrono_literals;
 
@@ -40,6 +41,8 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   get_parameter("num_adjacent_pose_cnstraints", num_adjacent_pose_cnstraints_);
   declare_parameter("use_save_map_in_loop", true);
   get_parameter("use_save_map_in_loop", use_save_map_in_loop_);
+  declare_parameter("map_save_directory", "/workspaces/CARKit/map");
+  get_parameter("map_save_directory", map_save_directory_);
   declare_parameter("debug_flag", false);
   get_parameter("debug_flag", debug_flag_);
 
@@ -55,6 +58,7 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
   std::cout << "search_submap_num:" << search_submap_num_ << std::endl;
   std::cout << "num_adjacent_pose_cnstraints:" << num_adjacent_pose_cnstraints_ << std::endl;
   std::cout << "use_save_map_in_loop:" << std::boolalpha << use_save_map_in_loop_ << std::endl;
+  std::cout << "map_save_directory:" << map_save_directory_ << std::endl;
   std::cout << "debug_flag:" << std::boolalpha << debug_flag_ << std::endl;
   std::cout << "------------------" << std::endl;
 
@@ -92,9 +96,12 @@ GraphBasedSlamComponent::GraphBasedSlamComponent(const rclcpp::NodeOptions & opt
       const std::shared_ptr<std_srvs::srv::Empty::Request> request,
       const std::shared_ptr<std_srvs::srv::Empty::Response> response) -> void
     {
-      std::cout << "Received an request to save the map" << std::endl;
+      (void)request_header;
+      (void)request;
+      (void)response;
+      RCLCPP_INFO(get_logger(), "Received a request to save the map");
       if (initial_map_array_received_ == false) {
-        std::cout << "initial map is not received" << std::endl;
+        RCLCPP_WARN(get_logger(), "Cannot save map: initial map is not received yet");
         return;
       }
       doPoseAdjustment(map_array_msg_, true);
@@ -316,7 +323,6 @@ void GraphBasedSlamComponent::doPoseAdjustment(
 
   optimizer.initializeOptimization();
   optimizer.optimize(10);
-  optimizer.save("pose_graph.g2o");
 
   /* modified_map publish */
   std::cout << "modified_map publish" << std::endl;
@@ -366,7 +372,34 @@ void GraphBasedSlamComponent::doPoseAdjustment(
   pcl::toROSMsg(*map_ptr, *map_msg_ptr);
   map_msg_ptr->header.frame_id = "map";
   modified_map_pub_->publish(*map_msg_ptr);
-  if (do_save_map) {pcl::io::savePCDFileASCII("map.pcd", *map_ptr);} // too heavy
+  if (do_save_map) {
+    std::error_code error_code;
+    const std::filesystem::path save_directory(map_save_directory_);
+    std::filesystem::create_directories(save_directory, error_code);
+    if (error_code) {
+      RCLCPP_ERROR(
+        get_logger(),
+        "Failed to create map save directory '%s': %s",
+        save_directory.string().c_str(),
+        error_code.message().c_str());
+      return;
+    }
+
+    const auto map_path = save_directory / "map.pcd";
+    const auto pose_graph_path = save_directory / "pose_graph.g2o";
+
+    if (!optimizer.save(pose_graph_path.string().c_str())) {
+      RCLCPP_ERROR(get_logger(), "Failed to save pose graph to '%s'", pose_graph_path.string().c_str());
+    }
+
+    const int save_result = pcl::io::savePCDFileASCII(map_path.string(), *map_ptr);
+    if (save_result == 0) {
+      RCLCPP_INFO(get_logger(), "Saved map to '%s'", map_path.string().c_str());
+      RCLCPP_INFO(get_logger(), "Saved pose graph to '%s'", pose_graph_path.string().c_str());
+    } else {
+      RCLCPP_ERROR(get_logger(), "Failed to save map to '%s'", map_path.string().c_str());
+    }
+  }
 
 }
 

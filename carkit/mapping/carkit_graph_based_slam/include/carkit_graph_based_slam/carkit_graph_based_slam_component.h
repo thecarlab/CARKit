@@ -86,6 +86,7 @@ extern "C" {
 #include "g2o/types/slam3d/parameter_se3_offset.h"
 
 #include <mutex>
+#include <string>
 
 namespace graphslam
 {
@@ -129,6 +130,7 @@ private:
     // pose graph optimization parameter
     int num_adjacent_pose_cnstraints_;
     bool use_save_map_in_loop_ {true};
+    std::string map_save_directory_ {"/workspaces/CARKit/map"};
 
     bool initial_map_array_received_ {false};
     bool is_map_array_updated_ {false};

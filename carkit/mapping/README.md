@@ -39,8 +39,8 @@ Save the generated map:
 ros2 service call /map_save std_srvs/srv/Empty
 ```
 
-The save service writes `map.pcd` and `pose_graph.g2o` in the directory where
-the mapping launch process was started.
+The save service writes `map.pcd` and `pose_graph.g2o` under the CARKit
+workspace `map/` folder.
 
 ## Launch Parts
 
@@ -60,12 +60,19 @@ ros2 topic echo /map --once
 ros2 topic echo /map_array --once
 ros2 service list | grep map_save
 ros2 service call /map_save std_srvs/srv/Empty
-ls -lh map.pcd pose_graph.g2o
+ls -lh /workspaces/CARKit/map/map.pcd /workspaces/CARKit/map/pose_graph.g2o
 ```
 
 If RViz is blank, first confirm `/cloud_in` is publishing and that RViz fixed
 frame is `map`. If `/map_save` prints `initial map is not received`, move the
 car until `/map_array` publishes at least once.
+
+The `/map_save` service writes:
+
+- `/workspaces/CARKit/map/map.pcd`
+- `/workspaces/CARKit/map/pose_graph.g2o`
+
+Override the save folder with the `map_save_directory` parameter if you are running outside the standard CARKit Docker mount.
 
 Inputs:
 
@@ -81,3 +88,4 @@ Outputs:
 - `/path` (`nav_msgs/Path`)
 - `/modified_map` (`sensor_msgs/PointCloud2`)
 - `/modified_path` (`nav_msgs/Path`)
+- `/map_save` (`std_srvs/srv/Empty`)
