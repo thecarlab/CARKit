@@ -79,7 +79,15 @@ CallbackReturn PCLLocalization::on_activate(const rclcpp_lifecycle::State &)
 
   if (use_pcd_map_) {
     pcl::PointCloud<pcl::PointXYZI>::Ptr map_cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>);
-    pcl::io::loadPCDFile(map_path_, *map_cloud_ptr);
+    const int load_result = pcl::io::loadPCDFile(map_path_, *map_cloud_ptr);
+    if (load_result < 0 || map_cloud_ptr->empty()) {
+      RCLCPP_ERROR(
+        get_logger(),
+        "Failed to load PCD map '%s'. Pass map_path:=/workspaces/CARKit/map.pcd or map_path:=/workspaces/CARKit/map/map.pcd",
+        map_path_.c_str());
+      map_recieved_ = false;
+      return CallbackReturn::SUCCESS;
+    }
     RCLCPP_INFO(get_logger(), "Map Size %ld", map_cloud_ptr->size());
 
     sensor_msgs::msg::PointCloud2::SharedPtr map_msg_ptr(new sensor_msgs::msg::PointCloud2);
@@ -262,7 +270,11 @@ void PCLLocalization::mapReceived(const sensor_msgs::msg::PointCloud2::SharedPtr
 void PCLLocalization::cloudReceived(const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg)
 {
   if (!map_recieved_ || !initialpose_recieved_) {
-    RCLCPP_WARN(this->get_logger(), "map not received or initialpose not received!");
+    RCLCPP_WARN_THROTTLE(
+      this->get_logger(),
+      *this->get_clock(),
+      2000,
+      "Waiting for map and initial pose. Set the initial pose in RViz with the 2D Pose Estimate tool.");
     return;}
   //RCLCPP_INFO(get_logger(), "cloudReceived");
   pcl::PointCloud<pcl::PointXYZI>::Ptr cloud_ptr(new pcl::PointCloud<pcl::PointXYZI>);

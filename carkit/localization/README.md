@@ -10,10 +10,34 @@ NDT LiDAR localization against a PCD map.
 ros2 launch carkit_lidar_localization lidar_localization.launch.py
 ```
 
+This opens RViz by default. Use the `2D Pose Estimate` tool in RViz to publish
+`/initialpose`; localization starts publishing `/pcl_pose` after both the map
+and initial pose are available.
+
 Use a custom map:
 
 ```bash
 ros2 launch carkit_lidar_localization lidar_localization.launch.py map_path:=/path/to/map.pcd
+```
+
+Use the previous root-level generated map from the CARKit Docker workspace:
+
+```bash
+ros2 launch carkit_lidar_localization lidar_localization.launch.py \
+  map_path:=/workspaces/CARKit/map.pcd
+```
+
+Use the newer saved-map location:
+
+```bash
+ros2 launch carkit_lidar_localization lidar_localization.launch.py \
+  map_path:=/workspaces/CARKit/map/map.pcd
+```
+
+Disable RViz for headless tests:
+
+```bash
+ros2 launch carkit_lidar_localization lidar_localization.launch.py use_rviz:=false
 ```
 
 ## Test
