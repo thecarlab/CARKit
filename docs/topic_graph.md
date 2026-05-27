@@ -34,6 +34,15 @@ Control bringup options:
 ```text
 carkit_ada_control.launch.py:
   CARKit pure pursuit + behaviors + ackermann_mux + optional ADA demos -> /ackermann_cmd
+
+carkit_nav2_av.launch.py mode:=mapping:
+  /scan + /odom + base_link->laser TF -> slam_toolbox -> /map
+  nav2_map_server map_saver_cli -> map.yaml + map.pgm
+
+carkit_nav2_av.launch.py mode:=navigation:
+  /scan + saved map.yaml + /initialpose + /odom -> AMCL/Nav2
+  Nav2 /cmd_vel -> carkit_navigation twist_to_ackermann -> /drive
+  /drive + /stopsign_cmd -> ackermann_mux -> /ackermann_cmd
 ```
 
 Mapping flow:

@@ -105,3 +105,66 @@ Test:
 ros2 launch carkit_bringup carkit_ada_control.launch.py --show-args
 ros2 topic echo /ackermann_cmd --once
 ```
+
+## Nav2 AV Bringup
+
+Use the Nav2 AV workflow when you want RViz initial pose, RViz goal pose,
+2D SLAM/maps, Nav2 obstacle avoidance, and Ackermann output through the
+existing CARKit mux.
+
+Create a 2D map directly with SLAM Toolbox:
+
+```bash
+ros2 launch carkit_bringup carkit_nav2_av.launch.py mode:=mapping
+```
+
+On the physical car, SLAM and Nav2 also need `/odom`. Start the existing
+controller/VESC launch for odometry, then disable the duplicate laser TF in
+the Nav2 mapping launch:
+
+```bash
+ros2 launch carkit_human_control controller.launch.py start_av_stack:=false
+ros2 launch carkit_bringup carkit_nav2_av.launch.py \
+  mode:=mapping \
+  start_static_tf:=false
+```
+
+Save the map from another terminal:
+
+```bash
+ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/carkit/planning/carkit_navigation/maps/map
+```
+
+Navigate with the saved map:
+
+```bash
+ros2 launch carkit_bringup carkit_nav2_av.launch.py \
+  mode:=navigation \
+  map:=/workspaces/CARKit/carkit/planning/carkit_navigation/maps/map.yaml
+```
+
+If you also start the existing controller/VESC launch for real vehicle
+odometry and low-level drive output, avoid duplicate mux and static TF nodes:
+
+```bash
+ros2 launch carkit_human_control controller.launch.py start_av_stack:=false
+ros2 launch carkit_bringup carkit_nav2_av.launch.py \
+  mode:=navigation \
+  start_command_mux:=false \
+  start_static_tf:=false \
+  map:=/workspaces/CARKit/carkit/planning/carkit_navigation/maps/map.yaml
+```
+
+Nav2 inputs:
+
+- `/scan` (`sensor_msgs/LaserScan`)
+- `/odom` (`nav_msgs/Odometry`) for `odom -> base_link`
+- `/initialpose` (`geometry_msgs/PoseWithCovarianceStamped`)
+- `/goal_pose` or Nav2 RViz goal action
+
+Nav2 outputs:
+
+- `/map` (`nav_msgs/OccupancyGrid`) in mapping mode
+- `/cmd_vel` (`geometry_msgs/Twist`)
+- `/drive` (`ackermann_msgs/AckermannDriveStamped`)
+- `/ackermann_cmd` through the existing mux when `start_command_mux:=true`

@@ -34,6 +34,7 @@ def generate_launch_description():
         emulate_tty=True,
         parameters=[{
             'output_topic': LaunchConfiguration('vehicle_command_topic'),
+            'max_steering_angle': 0.27,
         }],
     )
 
@@ -65,7 +66,7 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_laser',
-        arguments=['0.27', '0.0', '0.11', '0.0', '0.0', '0.0', 'base_link', 'laser'],
+        arguments=['0.27', '0.0', '0.11', '3.141592653589793', '0.0', '0.0', 'base_link', 'laser'],
     )
 
     return LaunchDescription([

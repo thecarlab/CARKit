@@ -167,6 +167,38 @@ ros2 launch carkit_bringup carkit_ada_control.launch.py ada_demo:=demo1
 ros2 launch carkit_bringup carkit_ada_control.launch.py ada_demo:=demo2
 ```
 
+## Nav2 AV Bringup
+
+Use the Nav2 AV bringup when you want a more standard AV workflow with RViz
+initial pose, RViz goal pose, 2D SLAM/maps, Nav2 planning, local obstacle
+avoidance, and Ackermann output.
+
+Map directly to a 2D occupancy map:
+
+```bash
+ros2 launch carkit_bringup carkit_nav2_av.launch.py mode:=mapping
+ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/carkit/planning/carkit_navigation/maps/map
+```
+
+On the physical car, run the existing controller/VESC launch too so SLAM and
+Nav2 receive `/odom`:
+
+```bash
+ros2 launch carkit_human_control controller.launch.py start_av_stack:=false
+ros2 launch carkit_bringup carkit_nav2_av.launch.py mode:=mapping start_static_tf:=false
+```
+
+Navigate with the saved map:
+
+```bash
+ros2 launch carkit_bringup carkit_nav2_av.launch.py \
+  mode:=navigation \
+  map:=/workspaces/CARKit/carkit/planning/carkit_navigation/maps/map.yaml
+```
+
+This Nav2 workflow is additive. The existing NDT/PCD localization, LiDAR SLAM,
+pure pursuit, and demo launches remain available.
+
 ## Run Individual Modules
 
 After building and sourcing `install/setup.bash` inside Docker:
@@ -203,7 +235,7 @@ carkit/
   perception/     YOLO camera perception
   localization/   LiDAR NDT localization
   mapping/        LiDAR scan matching and graph SLAM
-  planning/       behavior nodes such as stop sign handling
+  planning/       Nav2 workflow and behavior nodes such as stop sign handling
   control/        path tracking, emergency brake, and human control launch
   vehicle/        F1TENTH/VESC vehicle stack
   bringup/        full-stack launch, maps, waypoints, RViz
@@ -221,6 +253,7 @@ docs/             topic graph, troubleshooting, migration notes
 - `/cloud_in` + map -> `carkit_lidar_localization` -> `/pcl_pose`
 - `/pcl_pose` + `/follow_path` -> `carkit_pure_pursuit` -> `/purepursuit_cmd`
 - `/teleop`, `/drive`, `/purepursuit_cmd`, `/emergency_cmd`, `/stopsign_cmd` -> `ackermann_mux` -> `/ackermann_cmd`
+- Nav2 AV mode: `/scan` + `/odom` -> `slam_toolbox` or `Nav2 AMCL`; Nav2 `/cmd_vel` -> `carkit_navigation` -> `/drive`
 
 See [docs/topic_graph.md](docs/topic_graph.md) for more detail.
 
@@ -232,6 +265,7 @@ Inside Docker after build:
 source install/setup.bash
 ros2 pkg list | grep carkit
 ros2 launch carkit_bringup carkit.launch.py --show-args
+ros2 launch carkit_bringup carkit_nav2_av.launch.py --show-args
 ros2 launch carkit_bringup carkit_ada_control.launch.py --show-args
 ros2 launch carkit_human_control controller.launch.py --show-args
 ros2 launch carkit_human_control keyboard.launch.py --show-args
