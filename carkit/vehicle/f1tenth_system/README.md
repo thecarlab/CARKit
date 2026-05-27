@@ -95,6 +95,8 @@ On Logitech F-710 joysticks, the LB button is the deadman's switch for teleop, a
 1. Parameters:
    - speed_to_erpm_gain
    - speed_to_erpm_offset
+   - odom_speed_sign
+   - odom_steering_sign
    - steering_angle_to_servo_gain
    - steering_angle_to_servo_offset
 2. Publishes to:

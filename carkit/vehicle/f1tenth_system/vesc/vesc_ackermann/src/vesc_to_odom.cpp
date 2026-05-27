@@ -63,6 +63,8 @@ VescToOdom::VescToOdom(const rclcpp::NodeOptions & options)
 
   speed_to_erpm_gain_ = declare_parameter<double>("speed_to_erpm_gain", 4614.0);
   speed_to_erpm_offset_ = declare_parameter<double>("speed_to_erpm_offset", 0.0);
+  odom_speed_sign_ = declare_parameter<double>("odom_speed_sign", -1.0);
+  RCLCPP_INFO(get_logger(), "VESC odom speed sign: %.1f", odom_speed_sign_);
 
   if (use_servo_cmd_) {
     steering_to_servo_gain_ =
@@ -100,7 +102,8 @@ void VescToOdom::vescStateCallback(const VescStateStamped::SharedPtr state)
   }
 
   // convert to engineering units
-  double current_speed = (-state->state.speed - speed_to_erpm_offset_) / speed_to_erpm_gain_;
+  double current_speed =
+    (odom_speed_sign_ * state->state.speed - speed_to_erpm_offset_) / speed_to_erpm_gain_;
   if (std::fabs(current_speed) < 0.05) {
     current_speed = 0.0;
   }

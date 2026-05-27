@@ -17,6 +17,7 @@
   <exec_depend>f1tenth_stack</exec_depend>
   <exec_depend>carkit_behaviors</exec_depend>
   <exec_depend>carkit_perception</exec_depend>
+  <exec_depend>carkit_navigation</exec_depend>
   <exec_depend>carkit_tools</exec_depend>
   <exec_depend>realsense2_camera</exec_depend>
   <exec_depend>sllidar_ros2</exec_depend>
