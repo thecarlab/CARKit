@@ -56,4 +56,9 @@ if [ -f /workspaces/CARKit/install/setup.bash ]; then
   source /workspaces/CARKit/install/setup.bash
 fi
 
+
+grep -qxF '[ -f /workspaces/CARKit/install/setup.bash ] && source /workspaces/CARKit/install/setup.bash' /root/.bashrc \
+  || echo '[ -f /workspaces/CARKit/install/setup.bash ] && source /workspaces/CARKit/install/setup.bash' >> /root/.bashrc
+
+
 exec "$@"
