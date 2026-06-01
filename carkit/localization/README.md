@@ -1,68 +1,48 @@
 # Localization
 
-Package: `carkit_lidar_localization`
+Package: `carkit_navigation`
 
-NDT LiDAR localization against a PCD map.
+AMCL localization against a saved 2D occupancy grid map for Nav2 navigation.
 
 ## Launch
 
 ```bash
-ros2 launch carkit_lidar_localization lidar_localization.launch.py
+# Terminal 1: VESC odometry
+ros2 launch carkit_human_control controller.launch.py start_av_stack:=false
+
+# Terminal 2: Nav2 navigation (includes AMCL)
+ros2 launch carkit_bringup carkit_nav2_av.launch.py \
+  mode:=navigation \
+  start_command_mux:=false \
+  start_static_tf:=false \
+  map:=/workspaces/CARKit/carkit/planning/carkit_navigation/maps/map.yaml
 ```
 
-This opens RViz by default. Use the `2D Pose Estimate` tool in RViz to publish
-`/initialpose`; localization starts publishing `/pcl_pose` after both the map
-and initial pose are available.
+In RViz, use **2D Pose Estimate** to set the initial pose. AMCL starts publishing the `map → odom` TF once the initial pose is received.
 
-RViz shows the saved map on `/map` and `/initial_map`. The live `/cloud_in`
-display is shown in the sensor frame until the first initial pose is set; after
-localization publishes `map -> base_link`, the cloud can be compared against
-the map in the `map` frame.
+## Config
 
-Use a custom map:
+`carkit/planning/carkit_navigation/config/nav2_params.yaml`
 
-```bash
-ros2 launch carkit_lidar_localization lidar_localization.launch.py map_path:=/path/to/map.pcd
-```
+## Inputs
 
-Use the previous root-level generated map from the CARKit Docker workspace:
+- `/scan` (`sensor_msgs/LaserScan`)
+- `/odom` (`nav_msgs/Odometry`)
+- `/initialpose` (`geometry_msgs/PoseWithCovarianceStamped`) — set via RViz
 
-```bash
-ros2 launch carkit_lidar_localization lidar_localization.launch.py \
-  map_path:=/workspaces/CARKit/map.pcd
-```
+## Outputs
 
-Use the newer saved-map location:
-
-```bash
-ros2 launch carkit_lidar_localization lidar_localization.launch.py \
-  map_path:=/workspaces/CARKit/map/map.pcd
-```
-
-Disable RViz for headless tests:
-
-```bash
-ros2 launch carkit_lidar_localization lidar_localization.launch.py use_rviz:=false
-```
+- `map → odom` TF
+- `/amcl_pose` (`geometry_msgs/PoseWithCovarianceStamped`)
 
 ## Test
 
-Start SLLiDAR and `carkit_sensor_transforms` first, then:
-
 ```bash
-ros2 topic echo /cloud_in --once
-ros2 topic echo /pcl_pose --once
-ros2 topic echo /initial_map --once
+ros2 topic echo /amcl_pose --once
+ros2 run tf2_ros tf2_echo map base_link
 ```
 
-Inputs:
+## Troubleshooting
 
-- `/cloud_in` (`sensor_msgs/PointCloud2`)
-- `/initialpose` (`geometry_msgs/PoseWithCovarianceStamped`)
-- `/map` (`sensor_msgs/PointCloud2`) when not using `map_path`
-
-Outputs:
-
-- `/pcl_pose` (`geometry_msgs/PoseWithCovarianceStamped`)
-- `/path` (`nav_msgs/Path`)
-- `/initial_map` (`sensor_msgs/PointCloud2`)
+- **`map` frame does not exist**: wait 10–15 seconds after launch before setting the initial pose
+- **Heading drift**: calibrate VESC wheel parameters in `carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`
