@@ -2,35 +2,31 @@
 
 Package: `carkit_navigation`
 
-Clean Nav2 workflow for CARKit. This package does not replace the existing
-NDT/PCD localization, mapping, pure pursuit, or demo modules.
+Nav2 autonomous navigation using SLAM Toolbox (mapping) and AMCL (localization).
 
-## Mapping
-
-```bash
-ros2 launch carkit_bringup carkit_nav2_av.launch.py mode:=mapping
-ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/carkit/planning/carkit_navigation/maps/map
-```
-
-Mapping uses `/scan`, `/odom`, `base_link -> laser` TF, and SLAM Toolbox.
-On the physical car, start `carkit_human_control controller.launch.py
-start_av_stack:=false` to provide VESC odometry.
-
-## Navigation
+## Step 1: Build a Map
 
 ```bash
+# Terminal 1: VESC odometry
+ros2 launch carkit_human_control controller.launch.py start_av_stack:=false
+
+# Terminal 2: SLAM mapping
 ros2 launch carkit_bringup carkit_nav2_av.launch.py \
-  mode:=navigation \
-  map:=/workspaces/CARKit/carkit/planning/carkit_navigation/maps/map.yaml
+  mode:=mapping \
+  start_static_tf:=false
+
+# Terminal 3: Save map when done
+ros2 run nav2_map_server map_saver_cli \
+  -f /workspaces/CARKit/carkit/planning/carkit_navigation/maps/map
 ```
 
-Navigation uses the saved 2D map, AMCL, Nav2, `/cmd_vel`, and the
-Twist-to-Ackermann bridge to publish `/drive`.
-
-If another launch already starts the Ackermann mux or laser TF, disable the
-duplicates:
+## Step 2: Navigate
 
 ```bash
+# Terminal 1: VESC odometry
+ros2 launch carkit_human_control controller.launch.py start_av_stack:=false
+
+# Terminal 2: Nav2 navigation
 ros2 launch carkit_bringup carkit_nav2_av.launch.py \
   mode:=navigation \
   start_command_mux:=false \
@@ -38,16 +34,24 @@ ros2 launch carkit_bringup carkit_nav2_av.launch.py \
   map:=/workspaces/CARKit/carkit/planning/carkit_navigation/maps/map.yaml
 ```
 
+In RViz: set **2D Pose Estimate**, wait for particles to converge, then send a **Nav2 Goal**.
+
+## Key Launch Arguments
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `mode` | `navigation` | `mapping` or `navigation` |
+| `map` | `maps/map.yaml` | Map file for navigation |
+| `start_static_tf` | `true` | Set `false` if VESC launch already publishes TF |
+| `start_command_mux` | `true` | Set `false` if VESC launch already starts mux |
+
 ## Topics
 
-Inputs:
+Inputs: `/scan`, `/odom`, `/initialpose`, `/goal_pose`
 
-- `/scan` (`sensor_msgs/LaserScan`)
-- `/odom` (`nav_msgs/Odometry`)
-- `/initialpose` (`geometry_msgs/PoseWithCovarianceStamped`)
+Outputs: `/map` (mapping), `/drive`, `/ackermann_cmd` (navigation)
 
-Outputs:
+## Available Maps
 
-- `/map` (`nav_msgs/OccupancyGrid`) in mapping mode
-- `/cmd_vel` (`geometry_msgs/Twist`) from Nav2
-- `/drive` (`ackermann_msgs/AckermannDriveStamped`)
+- `maps/map.yaml` — default map
+- `maps/map_3f.yaml` — Fintech 3rd floor
