@@ -102,7 +102,7 @@ def generate_launch_description():
     slam = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
-                FindPackageShare('carkit_navigation'),
+                FindPackageShare('carkit_slam'),
                 'launch',
                 'slam.launch.py',
             ])
@@ -118,7 +118,7 @@ def generate_launch_description():
     nav2 = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
-                FindPackageShare('carkit_navigation'),
+                FindPackageShare('carkit_amcl'),
                 'launch',
                 'nav2.launch.py',
             ])
@@ -159,7 +159,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'map',
             default_value=PathJoinSubstitution([
-                FindPackageShare('carkit_navigation'),
+                FindPackageShare('carkit_slam'),
                 'maps',
                 'map.yaml',
             ]),
@@ -167,7 +167,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'params_file',
             default_value=PathJoinSubstitution([
-                FindPackageShare('carkit_navigation'),
+                FindPackageShare('carkit_amcl'),
                 'config',
                 'nav2_params.yaml',
             ]),
@@ -175,7 +175,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'slam_params_file',
             default_value=PathJoinSubstitution([
-                FindPackageShare('carkit_navigation'),
+                FindPackageShare('carkit_slam'),
                 'config',
                 'slam_toolbox_params.yaml',
             ]),

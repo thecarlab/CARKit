@@ -1,6 +1,6 @@
 # Mapping
 
-Package: `carkit_navigation`
+Package: `carkit_slam`
 
 2D occupancy grid mapping using SLAM Toolbox for Nav2 navigation.
 
@@ -21,7 +21,7 @@ Drive the car through the environment. Save the map when done:
 ```bash
 # Terminal 3
 ros2 run nav2_map_server map_saver_cli \
-  -f /workspaces/CARKit/carkit/planning/carkit_navigation/maps/map
+  -f /workspaces/CARKit/carkit/mapping/carkit_slam/maps/map
 ```
 
 ## Inputs
@@ -31,4 +31,13 @@ ros2 run nav2_map_server map_saver_cli \
 
 ## Output
 
-- `map.pgm` + `map.yaml` saved to `carkit/planning/carkit_navigation/maps/`
+- `map.pgm` + `map.yaml` saved to `carkit/mapping/carkit_slam/maps/`
+
+## Config
+
+`carkit/mapping/carkit_slam/config/slam_toolbox_params.yaml`
+
+## Available Maps
+
+- `maps/map.yaml` — default map
+- `maps/map_3f.yaml` — Fintech 3rd floor
