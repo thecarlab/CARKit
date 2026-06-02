@@ -87,7 +87,7 @@ def generate_launch_description():
     )
 
     odom_tf = Node(
-        package='carkit_navigation',
+        package='carkit_amcl',
         executable='odom_tf_broadcaster',
         name='odom_tf_broadcaster',
         output='screen',
