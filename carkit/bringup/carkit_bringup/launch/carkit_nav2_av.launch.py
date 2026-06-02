@@ -39,7 +39,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'map',
             default_value=PathJoinSubstitution([
-                FindPackageShare('carkit_navigation'),
+                FindPackageShare('carkit_slam'),
                 'maps',
                 'map.yaml',
             ]),
