@@ -56,7 +56,7 @@ This reads [carkit/vendor.repos](carkit/vendor.repos) and clones:
 
 These sensor driver folders are ignored by git. If you need to refresh them later, update or remove the local folder and run the script again.
 
-`carkit/mapping/ndt_omp_ros2` is vendored directly in this repository because CARKit carries local integration changes for mapping. It is not cloned by the setup script.
+All CARKit mapping and localization packages are included directly in this repository.
 
 ## Step 3: Pull The Docker Environment
 
@@ -128,7 +128,7 @@ Launch the full CARKit stack:
 ros2 launch carkit_bringup carkit.launch.py
 ```
 
-The full stack starts LiDAR, RealSense, sensor transforms, LiDAR localization, pure pursuit, stop sign behavior, the F1TENTH Ackermann mux, and RViz.
+The full stack starts LiDAR, RealSense, sensor transforms, stop sign behavior, the F1TENTH Ackermann mux, and RViz. For autonomous navigation use the Nav2 AV bringup below.
 
 Check important topics:
 
@@ -173,31 +173,34 @@ Use the Nav2 AV bringup when you want a more standard AV workflow with RViz
 initial pose, RViz goal pose, 2D SLAM/maps, Nav2 planning, local obstacle
 avoidance, and Ackermann output.
 
-Map directly to a 2D occupancy map:
+Build a 2D occupancy map on the physical car:
 
 ```bash
-ros2 launch carkit_bringup carkit_nav2_av.launch.py mode:=mapping
-ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/carkit/planning/carkit_navigation/maps/map
-```
-
-On the physical car, run the existing controller/VESC launch too so SLAM and
-Nav2 receive `/odom`:
-
-```bash
+# Terminal 1: VESC odometry
 ros2 launch carkit_human_control controller.launch.py start_av_stack:=false
+
+# Terminal 2: SLAM mapping
 ros2 launch carkit_bringup carkit_nav2_av.launch.py mode:=mapping start_static_tf:=false
+
+# Terminal 3: Save map when done
+ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/carkit/mapping/carkit_slam/maps/map
 ```
 
 Navigate with the saved map:
 
 ```bash
+# Terminal 1: VESC odometry
+ros2 launch carkit_human_control controller.launch.py start_av_stack:=false
+
+# Terminal 2: Nav2 navigation
 ros2 launch carkit_bringup carkit_nav2_av.launch.py \
   mode:=navigation \
-  map:=/workspaces/CARKit/carkit/planning/carkit_navigation/maps/map.yaml
+  start_command_mux:=false \
+  start_static_tf:=false \
+  map:=/workspaces/CARKit/carkit/mapping/carkit_slam/maps/map.yaml
 ```
 
-This Nav2 workflow is additive. The existing NDT/PCD localization, LiDAR SLAM,
-pure pursuit, and demo launches remain available.
+In RViz: set **2D Pose Estimate**, wait for AMCL particles to converge, then send a **Nav2 Goal**.
 
 ## Run Individual Modules
 
@@ -215,9 +218,11 @@ ros2 run carkit_sensor_transforms imu_transformer_node
 # Perception
 ros2 run carkit_perception perception_node
 
-# Localization and mapping
-ros2 launch carkit_lidar_localization lidar_localization.launch.py
-ros2 launch carkit_lidarslam lidarslam.launch.py
+# Mapping (SLAM Toolbox)
+ros2 launch carkit_slam slam.launch.py
+
+# Localization (AMCL + Nav2)
+ros2 launch carkit_amcl nav2.launch.py
 
 # Control and behavior
 ros2 launch carkit_pure_pursuit pure_pursuit_system.launch.py waypoints_file:=carkit/bringup/waypoints/waypoints.yaml
@@ -233,8 +238,8 @@ Each module folder has its own `README.md` with topics, launch commands, depende
 carkit/
   sensors/        sensor drivers and sensor transform nodes
   perception/     YOLO camera perception
-  localization/   LiDAR NDT localization
-  mapping/        LiDAR scan matching and graph SLAM
+  localization/   AMCL localization and Nav2 navigation nodes
+  mapping/        SLAM Toolbox 2D mapping and saved maps
   planning/       Nav2 workflow and behavior nodes such as stop sign handling
   control/        path tracking, emergency brake, and human control launch
   vehicle/        F1TENTH/VESC vehicle stack
@@ -250,10 +255,10 @@ docs/             topic graph, troubleshooting, migration notes
 - `/scan` -> `carkit_sensor_transforms` -> `/cloud_in`
 - `/camera/camera/color/image_raw` -> `carkit_perception` -> `/yolo/detections`
 - `/camera/camera/imu` -> `carkit_sensor_transforms` -> `/imu_transformed`
-- `/cloud_in` + map -> `carkit_lidar_localization` -> `/pcl_pose`
-- `/pcl_pose` + `/follow_path` -> `carkit_pure_pursuit` -> `/purepursuit_cmd`
-- `/teleop`, `/drive`, `/purepursuit_cmd`, `/emergency_cmd`, `/stopsign_cmd` -> `ackermann_mux` -> `/ackermann_cmd`
-- Nav2 AV mode: `/scan` + `/odom` -> `slam_toolbox` or `Nav2 AMCL`; Nav2 `/cmd_vel` -> `carkit_navigation` -> `/drive`
+- Nav2 mapping: `/scan` + `/odom` -> `carkit_slam` (SLAM Toolbox) -> `/map`
+- Nav2 navigation: `/scan` + `/odom` -> `carkit_amcl` (AMCL) -> `map → odom` TF
+- Nav2 `/cmd_vel` -> `carkit_amcl` (twist_to_ackermann) -> `/drive`
+- `/drive`, `/teleop`, `/stopsign_cmd` -> `ackermann_mux` -> `/ackermann_cmd`
 
 See [docs/topic_graph.md](docs/topic_graph.md) for more detail.
 
