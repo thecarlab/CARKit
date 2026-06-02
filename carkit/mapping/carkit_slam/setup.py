@@ -3,7 +3,7 @@ import os
 
 from setuptools import find_packages, setup
 
-package_name = 'carkit_navigation'
+package_name = 'carkit_slam'
 
 setup(
     name=package_name,
@@ -14,12 +14,14 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*')),
+        (os.path.join('share', package_name, 'maps'), glob('maps/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='CARKit maintainers',
     maintainer_email='ada@todo.todo',
-    description='CARKit Nav2 bringup orchestration',
+    description='CARKit Nav2 SLAM Toolbox mapping workflow',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={

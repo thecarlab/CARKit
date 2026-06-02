@@ -1,6 +1,6 @@
 # Localization
 
-Package: `carkit_navigation`
+Package: `carkit_amcl`
 
 AMCL localization against a saved 2D occupancy grid map for Nav2 navigation.
 
@@ -15,14 +15,19 @@ ros2 launch carkit_bringup carkit_nav2_av.launch.py \
   mode:=navigation \
   start_command_mux:=false \
   start_static_tf:=false \
-  map:=/workspaces/CARKit/carkit/planning/carkit_navigation/maps/map.yaml
+  map:=/workspaces/CARKit/carkit/mapping/carkit_slam/maps/map.yaml
 ```
 
 In RViz, use **2D Pose Estimate** to set the initial pose. AMCL starts publishing the `map → odom` TF once the initial pose is received.
 
 ## Config
 
-`carkit/planning/carkit_navigation/config/nav2_params.yaml`
+`carkit/localization/carkit_amcl/config/nav2_params.yaml`
+
+## Nodes
+
+- `twist_to_ackermann` — converts Nav2 `/cmd_vel` to `/drive`
+- `odom_tf_broadcaster` — broadcasts `odom → base_link` TF from `/odom`
 
 ## Inputs
 
@@ -34,6 +39,7 @@ In RViz, use **2D Pose Estimate** to set the initial pose. AMCL starts publishin
 
 - `map → odom` TF
 - `/amcl_pose` (`geometry_msgs/PoseWithCovarianceStamped`)
+- `/drive` (`ackermann_msgs/AckermannDriveStamped`)
 
 ## Test
 
