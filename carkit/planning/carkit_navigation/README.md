@@ -13,7 +13,7 @@ ros2 launch carkit_bringup carkit_nav2_av.launch.py mode:=mapping
 # Navigation
 ros2 launch carkit_bringup carkit_nav2_av.launch.py \
   mode:=navigation \
-  map:=/workspaces/CARKit/carkit/mapping/carkit_slam/maps/map.yaml
+  map:=/workspaces/CARKit/carkit/mapping/carkit_slam/maps/map_3f.yaml
 ```
 
 See `carkit/mapping/README.md` and `carkit/localization/README.md` for full workflow details.

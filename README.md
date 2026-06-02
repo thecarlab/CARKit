@@ -183,7 +183,7 @@ ros2 launch carkit_human_control controller.launch.py start_av_stack:=false
 ros2 launch carkit_bringup carkit_nav2_av.launch.py mode:=mapping start_static_tf:=false
 
 # Terminal 3: Save map when done
-ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/carkit/mapping/carkit_slam/maps/map
+ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/carkit/mapping/carkit_slam/maps/map_3f
 ```
 
 Navigate with the saved map:
@@ -197,7 +197,7 @@ ros2 launch carkit_bringup carkit_nav2_av.launch.py \
   mode:=navigation \
   start_command_mux:=false \
   start_static_tf:=false \
-  map:=/workspaces/CARKit/carkit/mapping/carkit_slam/maps/map.yaml
+  map:=/workspaces/CARKit/carkit/mapping/carkit_slam/maps/map_3f.yaml
 ```
 
 In RViz: set **2D Pose Estimate**, wait for AMCL particles to converge, then send a **Nav2 Goal**.

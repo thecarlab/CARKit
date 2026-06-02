@@ -31,7 +31,7 @@ ros2 run nav2_map_server map_saver_cli \
 
 ## Output
 
-- `map.pgm` + `map.yaml` saved to `carkit/mapping/carkit_slam/maps/`
+- `map_3f.pgm` + `map_3f.yaml` saved to `carkit/mapping/carkit_slam/maps/`
 
 ## Config
 
@@ -39,5 +39,5 @@ ros2 run nav2_map_server map_saver_cli \
 
 ## Available Maps
 
-- `maps/map.yaml` — default map
-- `maps/map_3f.yaml` — Fintech 3rd floor
+- `maps/map_3f.yaml` — Fintech 3rd floor (default)
+- `maps/map.yaml` — generic map

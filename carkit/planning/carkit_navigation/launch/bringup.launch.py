@@ -161,7 +161,7 @@ def generate_launch_description():
             default_value=PathJoinSubstitution([
                 FindPackageShare('carkit_slam'),
                 'maps',
-                'map.yaml',
+                'map_3f.yaml',
             ]),
             description='Saved 2D occupancy map YAML for navigation mode'),
         DeclareLaunchArgument(
