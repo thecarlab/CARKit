@@ -15,7 +15,7 @@ ros2 launch carkit_bringup carkit_nav2_av.launch.py \
   mode:=navigation \
   start_command_mux:=false \
   start_static_tf:=false \
-  map:=/workspaces/CARKit/carkit/mapping/carkit_slam/maps/map.yaml
+  map:=/workspaces/CARKit/carkit/mapping/carkit_slam/maps/map_3f.yaml
 ```
 
 In RViz, use **2D Pose Estimate** to set the initial pose. AMCL starts publishing the `map → odom` TF once the initial pose is received.
