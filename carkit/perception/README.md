@@ -6,7 +6,8 @@ YOLO-based camera perception for classroom demos.
 
 ## Launch
 
-Start the RealSense color camera first:
+Start the RealSense color camera and aligned depth first. The
+`align_depth.enable:=true` option is required for camera-frame 3D detections.
 
 ```bash
 ros2 launch realsense2_camera rs_launch.py enable_color:=true enable_depth:=true align_depth.enable:=true enable_sync:=true
@@ -40,6 +41,19 @@ Run only the node without RViz:
 ros2 run carkit_perception perception_node
 ```
 
+Run the 3D perception node directly. This node runs YOLO itself and uses aligned
+depth plus camera info to publish camera-frame object positions:
+
+```bash
+ros2 run carkit_perception perception_3d_node
+```
+
+Or start it from the perception launch file:
+
+```bash
+ros2 launch carkit_perception perception.launch.py start_3d:=true
+```
+
 Override model or topics:
 
 ```bash
@@ -55,6 +69,8 @@ Start RealSense first, then:
 ```bash
 ros2 topic hz /yolo/inference_image
 ros2 topic echo /yolo/detections --once
+ros2 topic echo /yolo/detection --once
+ros2 topic echo /yolo/detections_3d --once
 ros2 topic echo /yolo/inference_image --once
 ```
 
@@ -66,11 +82,15 @@ chair, or book in front of the camera.
 Inputs:
 
 - `/camera/camera/color/image_raw` (`sensor_msgs/Image`)
+- `/camera/camera/aligned_depth_to_color/image_raw` (`sensor_msgs/Image`, used by `perception_3d_node`)
+- `/camera/camera/aligned_depth_to_color/camera_info` (`sensor_msgs/CameraInfo`, used by `perception_3d_node`)
 
 Outputs:
 
 - `/yolo/inference_image` (`sensor_msgs/Image`)
-- `/yolo/detections` (`std_msgs/String`)
+- `/yolo/detections` (`std_msgs/String`, 2D detections from `perception_node`)
+- `/yolo/detection` (`std_msgs/String`, 2D detections from `perception_3d_node`)
+- `/yolo/detections_3d` (`std_msgs/String`, camera-frame 3D detections from `perception_3d_node`)
 
 Parameters:
 
@@ -78,3 +98,7 @@ Parameters:
 - `image_topic`
 - `inference_image_topic`
 - `detection_topic`
+- `depth_topic`
+- `camera_info_topic`
+- `detection_3d_topic`
+- `start_3d`
