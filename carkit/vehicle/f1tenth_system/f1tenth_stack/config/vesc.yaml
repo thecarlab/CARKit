@@ -37,8 +37,8 @@ vesc_to_odom_node:
     # Set to -1.0 if VESC feedback is negative when the vehicle drives forward.
     odom_speed_sign: 1.0
     use_servo_cmd_to_calc_angular_velocity: true
-    # car wheelbase (rear axle to front axle) measured at 32.5 cm
-    wheelbase: 0.325
+    # wheelbase (used as kinematic calibration; not necessarily geometric truth)
+    wheelbase: 0.25
 
 # No longer needed, all parameters are shared
 # vesc_driver:
