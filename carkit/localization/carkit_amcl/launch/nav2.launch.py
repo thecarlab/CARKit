@@ -68,7 +68,7 @@ def generate_launch_description():
         parameters=[{
             'cmd_vel_topic': '/cmd_vel',
             'ackermann_topic': '/drive',
-            'wheelbase': 0.25,
+            'wheelbase': 0.325,
             'max_speed': 1.5,
             'max_reverse_speed': 0.3,
             'max_steering_angle': 0.27,
