@@ -7,6 +7,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from nav2_common.launch import RewrittenYaml
 
 
 def generate_launch_description():
@@ -21,6 +22,26 @@ def generate_launch_description():
     vehicle_command_topic = LaunchConfiguration('vehicle_command_topic')
     mux_config = LaunchConfiguration('mux_config')
 
+    bt_xml_nav_to_pose = PathJoinSubstitution([
+        FindPackageShare('carkit_amcl'),
+        'behavior_trees',
+        'navigate_to_pose_ackermann.xml',
+    ])
+    bt_xml_nav_through_poses = PathJoinSubstitution([
+        FindPackageShare('carkit_amcl'),
+        'behavior_trees',
+        'navigate_through_poses_ackermann.xml',
+    ])
+
+    configured_params = RewrittenYaml(
+        source_file=params_file,
+        param_rewrites={
+            'default_nav_to_pose_bt_xml': bt_xml_nav_to_pose,
+            'default_nav_through_poses_bt_xml': bt_xml_nav_through_poses,
+        },
+        convert_types=True,
+    )
+
     nav2_bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
@@ -32,7 +53,7 @@ def generate_launch_description():
         launch_arguments={
             'slam': 'False',
             'map': map_file,
-            'params_file': params_file,
+            'params_file': configured_params,
             'use_sim_time': use_sim_time,
             'autostart': autostart,
             'use_composition': use_composition,
