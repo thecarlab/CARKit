@@ -1,3 +1,7 @@
+# TODO
+- [ ] Check the whole mapping code and localization & planning code, mapping should launch its own RViz config, localization & planning should have another RViz config. Or you can make all of them use the same RViz config, just make it clean and easy to modify.
+- [ ] Try to see if you can replace the control with a different control algorithm. Which one would be better? Use the best-performing one.
+
 # Navigation
 
 The `navigation` module contains the complete supported Nav2 workflow:
