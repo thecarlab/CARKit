@@ -1,3 +1,12 @@
+# TODO
+- [ ] A final bringup folder to contain only all launching scripts.
+- [ ] Mingyu: check perception folder TODO content.
+- [ ] Tianyang: check navigation folder TODO content.
+- [ ] Ren and Yuxin: check control folder TODO content.
+- [ ] Test all old vehicles.
+- [ ] Rebuild on two new vehicles.
+- [ ] Final 3rd floor test.
+
 # CARKit
 
 CARKit is a ROS 2 Humble education stack for small Ackermann autonomous
