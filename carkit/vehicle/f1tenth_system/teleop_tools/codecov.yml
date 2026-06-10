@@ -18,7 +18,6 @@ flags:
   unittests:
     paths:
       - joy_teleop
-      - key_teleop
       - mouse_teleop
       - teleop_tools
       - teleop_tools_msgs

@@ -36,7 +36,7 @@ setup(
     ],
     description='A text-based interface to send a robot movement commands.',
     long_description="""\
-        key_teleop provides command-line interface to send Twist commands \
+        mouse_teleop provides a pointing-device interface to send Twist commands \
         to drive a robot around.""",
     license='BSD',
     tests_require=['pytest'],

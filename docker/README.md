@@ -21,10 +21,10 @@ Before opening the interactive shell, `run_jetson.sh` verifies that the selected
 image contains the Nav2 packages used by `carkit_navigation`, including
 `nav2_bringup`, `nav2_smac_planner`, `nav2_regulated_pure_pursuit_controller`,
 and `slam_toolbox`. This prevents accidentally launching an older image that
-cannot run the Nav2 AV bringup.
+cannot run CARKit Nav2 navigation.
 
 The container runs commands as root by default. This keeps hardware access,
-ROS graph ownership, and repeated CARKit bringup terminals consistent on the
+ROS graph ownership, and repeated CARKit terminals consistent on the
 Jetson.
 
 Overrides:
@@ -45,7 +45,7 @@ Inside Docker:
 ```bash
 ./docker/build_workspace.sh
 source install/setup.bash
-ros2 launch carkit_bringup carkit.launch.py
+ros2 launch carkit_navigation navigation.launch.py
 ```
 
 `build_workspace.sh` defaults to `BUILD_JOBS=1` and `PARALLEL_WORKERS=1` to avoid out-of-memory failures on an 8GB Jetson Orin Nano. Increase those environment variables only on systems with more memory.

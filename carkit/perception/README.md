@@ -27,6 +27,9 @@ image view loaded:
 ros2 launch carkit_perception perception.launch.py
 ```
 
+The perception RViz configuration is owned by the package at
+`carkit/perception/carkit_perception/rviz/perception.rviz`.
+
 The default model is the PyTorch `.pt` file because it works without TensorRT.
 Use the TensorRT engine only on systems that already have TensorRT installed:
 
