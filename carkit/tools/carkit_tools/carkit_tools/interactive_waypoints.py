@@ -22,10 +22,10 @@ class InteractiveWaypointsNode(Node):
         self.path_pub = self.create_publisher(Path, '/follow_path', 10)
         
         # Subscribe to pcl_pose
-        self.ndt_pose_sub = self.create_subscription(
+        self.pose_sub = self.create_subscription(
             PoseWithCovarianceStamped,
             '/pcl_pose',
-            self.ndt_pose_callback,
+            self.pose_callback,
             10
         )
         
@@ -45,7 +45,7 @@ class InteractiveWaypointsNode(Node):
         # Timer to publish path periodically
         self.timer = self.create_timer(0.1, self.publish_path)  # 10Hz
     
-    def ndt_pose_callback(self, msg):
+    def pose_callback(self, msg):
         """Handle incoming pcl_pose messages"""
         self.current_pose = msg.pose.pose  # Extract the pose from PoseWithCovarianceStamped
         

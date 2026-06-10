@@ -1,22 +1,10 @@
 ackermann_mux:
   ros__parameters:
     topics:
-      emergency:
-        topic   : emergency_cmd
-        timeout : 0.2
-        priority: 255
-      stopsign:
-        topic   : stopsign_cmd
-        timeout : 0.2
-        priority: 200
       joystick:
         topic   : teleop
         timeout : 0.2
         priority: 100
-      pure_pursuit:
-        topic   : purepursuit_cmd
-        timeout : 0.2
-        priority: 50
       navigation:
         topic   : drive
         timeout : 0.2

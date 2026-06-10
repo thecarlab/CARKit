@@ -28,6 +28,9 @@ dockerhub*
 carkit/sensors/realsense-ros/
 carkit/sensors/sllidar_ros2/
 
-# Generated maps. Keep map/.gitkeep so the output folder exists.
+# Nav2 maps belong only in map/. Keep the included examples and folder marker.
 map/*
 !map/.gitkeep
+!map/*.g2o
+!map/*.pgm
+!map/*.yaml
