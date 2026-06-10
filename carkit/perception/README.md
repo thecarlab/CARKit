@@ -1,3 +1,9 @@
+# TODO
+- [ ] Add traffic light color detection
+- [ ] Small model (at least 10Hz inference frequency)
+- [ ] Link the perception results to reaction (put it under folder /control/carkit_behavior)
+- [ ] Rewrite the perception README to write the launch command, Topic Flows, and Parameters that users could tune (check navigation folder)
+
 # Perception
 
 Package: `carkit_perception`
