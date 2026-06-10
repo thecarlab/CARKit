@@ -1,3 +1,7 @@
+# TODO
+- [ ] Need two new folder: carkit_behaviors (mingyu) and carkit_control_center (Ren)
+- [ ] Main work for carkit_control_center is to link Mingyu's behaviors local control results, with Tianyang's navigation global control results. (Ren)
+
 # Joystick Control
 
 Package: `carkit_human_control`
