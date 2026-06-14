@@ -79,7 +79,7 @@ else
     "install/configure nvidia-container-toolkit for Jetson and rerun this script." >&2
 fi
 
-docker run --rm -it \
+docker run -it \
   --name carkit \
   -v /etc/localtime:/etc/localtime:ro \
   -v /etc/timezone:/etc/timezone:ro \
