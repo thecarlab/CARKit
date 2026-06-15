@@ -96,6 +96,7 @@ The behavior node consumes typed detections from `/yolo/detections_3d`.
 - A qualifying red light immediately latches a stop.
 - A qualifying green light or manual reset releases the red-light stop.
 - Yellow is reported without stopping.
+- Stop signs and traffic lights use the fixed `stop_distance` trigger.
 - A stop sign immediately requests a stop, waits for odometry speed below
   `0.05 m/s`, holds for three seconds, and enters a five-second cooldown.
 - Detections without a valid 3D position do not trigger a stop.
@@ -120,10 +121,7 @@ Common behavior parameters:
 - `traffic_light_min_confidence`
 - `stop_sign_min_confidence`
 - `max_lateral_offset`
-- `max_detection_distance`
-- `reaction_seconds`
-- `deceleration`
-- `stop_margin`
+- `stop_distance`
 - `stop_speed_threshold`
 - `stop_hold_seconds`
 - `stop_cooldown_seconds`

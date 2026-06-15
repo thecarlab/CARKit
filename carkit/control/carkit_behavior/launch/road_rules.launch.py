@@ -35,9 +35,7 @@ def generate_launch_description():
                 "stop_sign_min_confidence"
             ),
             "max_lateral_offset": LaunchConfiguration("max_lateral_offset"),
-            "max_detection_distance": LaunchConfiguration(
-                "max_detection_distance"
-            ),
+            "stop_distance": LaunchConfiguration("stop_distance"),
         }],
     )
 
@@ -57,7 +55,7 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument("stop_sign_min_confidence", default_value="0.4"),
         DeclareLaunchArgument("max_lateral_offset", default_value="1.0"),
-        DeclareLaunchArgument("max_detection_distance", default_value="5.0"),
+        DeclareLaunchArgument("stop_distance", default_value="1.0"),
         perception,
         behavior,
     ])

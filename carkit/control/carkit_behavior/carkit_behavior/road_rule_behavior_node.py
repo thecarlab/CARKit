@@ -24,7 +24,6 @@ from std_srvs.srv import Trigger
 from carkit_behavior.behavior_logic import (
     RoadRuleStateMachine,
     in_trigger_zone,
-    stopping_distance,
 )
 from carkit_perception_msgs.msg import YoloDetection3D, YoloDetection3DArray
 
@@ -41,10 +40,7 @@ class RoadRuleBehaviorNode(Node):
         self.declare_parameter("traffic_light_min_confidence", 0.5)
         self.declare_parameter("stop_sign_min_confidence", 0.4)
         self.declare_parameter("max_lateral_offset", 1.0)
-        self.declare_parameter("max_detection_distance", 5.0)
-        self.declare_parameter("reaction_seconds", 0.3)
-        self.declare_parameter("deceleration", 1.0)
-        self.declare_parameter("stop_margin", 0.6)
+        self.declare_parameter("stop_distance", 1.0)
         self.declare_parameter("stop_speed_threshold", 0.05)
         self.declare_parameter("stop_hold_seconds", 3.0)
         self.declare_parameter("stop_cooldown_seconds", 5.0)
@@ -60,16 +56,9 @@ class RoadRuleBehaviorNode(Node):
         self.max_lateral_offset = float(
             self.get_parameter("max_lateral_offset").value
         )
-        self.max_detection_distance = float(
-            self.get_parameter("max_detection_distance").value
-        )
-        self.reaction_seconds = float(
-            self.get_parameter("reaction_seconds").value
-        )
-        self.deceleration = float(self.get_parameter("deceleration").value)
-        self.stop_margin = float(self.get_parameter("stop_margin").value)
-        if self.deceleration <= 0.0:
-            raise ValueError("deceleration must be greater than zero")
+        self.stop_distance = float(self.get_parameter("stop_distance").value)
+        if self.stop_distance <= 0.0:
+            raise ValueError("stop_distance must be greater than zero")
 
         self.state_machine = RoadRuleStateMachine(
             stop_speed_threshold=float(
@@ -146,21 +135,12 @@ class RoadRuleBehaviorNode(Node):
         green_light = False
         stop_sign = False
         stop_sign_visible = False
-        trigger_distance = min(
-            self.max_detection_distance,
-            stopping_distance(
-                self.current_speed,
-                self.reaction_seconds,
-                self.deceleration,
-                self.stop_margin,
-            ),
-        )
 
         for detection in message.detections:
             if detection.class_name == "stop sign":
                 if detection.confidence >= self.stop_sign_min_confidence:
                     stop_sign_visible = True
-                    if self.in_trigger_zone(detection, trigger_distance):
+                    if self.in_stop_zone(detection):
                         stop_sign = True
                 continue
 
@@ -173,16 +153,13 @@ class RoadRuleBehaviorNode(Node):
             if (
                 detection.traffic_light_color
                 == YoloDetection3D.TRAFFIC_LIGHT_RED
-                and self.in_trigger_zone(detection, trigger_distance)
+                and self.in_stop_zone(detection)
             ):
                 red_light = True
             elif (
                 detection.traffic_light_color
                 == YoloDetection3D.TRAFFIC_LIGHT_GREEN
-                and self.in_trigger_zone(
-                    detection,
-                    self.max_detection_distance,
-                )
+                and self.in_stop_zone(detection)
             ):
                 green_light = True
 
@@ -194,17 +171,13 @@ class RoadRuleBehaviorNode(Node):
             now=self.now_seconds(),
         )
 
-    def in_trigger_zone(
-        self,
-        detection: YoloDetection3D,
-        trigger_distance: float,
-    ) -> bool:
+    def in_stop_zone(self, detection: YoloDetection3D) -> bool:
         return in_trigger_zone(
             position_valid=detection.position_valid,
             x=detection.x,
             z=detection.z,
             max_lateral_offset=self.max_lateral_offset,
-            trigger_distance=trigger_distance,
+            trigger_distance=self.stop_distance,
         )
 
     def timer_callback(self) -> None:

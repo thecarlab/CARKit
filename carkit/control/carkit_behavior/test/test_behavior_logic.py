@@ -2,7 +2,6 @@ from carkit_behavior.behavior_logic import (
     RoadRuleStateMachine,
     StopSignPhase,
     in_trigger_zone,
-    stopping_distance,
 )
 
 
@@ -61,18 +60,11 @@ def test_reset_clears_all_stops():
     assert state.stop_sign_phase == StopSignPhase.IDLE
 
 
-def test_stopping_distance_uses_reaction_braking_and_margin():
-    assert stopping_distance(1.0, 0.3, 1.0, 0.6) == 1.4
-
-
-def test_stopping_distance_rejects_nonpositive_deceleration():
-    try:
-        stopping_distance(1.0, 0.3, 0.0, 0.6)
-    except ValueError:
-        return
-    raise AssertionError("nonpositive deceleration must be rejected")
-
-
 def test_invalid_position_cannot_enter_trigger_zone():
     assert not in_trigger_zone(False, 0.0, 0.5, 1.0, 1.0)
     assert in_trigger_zone(True, 0.0, 0.5, 1.0, 1.0)
+
+
+def test_trigger_zone_uses_fixed_forward_distance():
+    assert in_trigger_zone(True, 0.0, 1.0, 1.0, 1.0)
+    assert not in_trigger_zone(True, 0.0, 1.01, 1.0, 1.0)

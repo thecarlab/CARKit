@@ -109,20 +109,6 @@ class RoadRuleStateMachine:
         return self.stop_sign_phase.value
 
 
-def stopping_distance(
-    speed: float,
-    reaction_seconds: float,
-    deceleration: float,
-    margin: float,
-) -> float:
-    if deceleration <= 0.0:
-        raise ValueError("deceleration must be greater than zero")
-    forward_speed = max(0.0, speed)
-    reaction_distance = forward_speed * reaction_seconds
-    braking_distance = forward_speed * forward_speed / (2.0 * deceleration)
-    return reaction_distance + braking_distance + margin
-
-
 def in_trigger_zone(
     position_valid: bool,
     x: float,
