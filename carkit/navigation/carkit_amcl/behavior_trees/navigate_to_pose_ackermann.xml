@@ -2,7 +2,7 @@
   Ackermann-adapted version of Nav2's default navigate_to_pose BT.
   Identical to navigate_to_pose_w_replanning_and_recovery.xml from nav2_bt_navigator,
   but with the <Spin> recovery node removed because Ackermann vehicles cannot
-  rotate in place. Recovery cycles through: clear costmaps -> wait -> back up.
+  rotate in place. Recovery cycles through: clear costmaps -> wait.
 -->
 <root main_tree_to_execute="MainTree">
   <BehaviorTree ID="MainTree">
@@ -27,7 +27,6 @@
             <ClearEntireCostmap name="ClearGlobalCostmap-Subtree" service_name="global_costmap/clear_entirely_global_costmap"/>
           </Sequence>
           <Wait wait_duration="5"/>
-          <BackUp backup_dist="0.30" backup_speed="0.05"/>
         </RoundRobin>
       </ReactiveFallback>
     </RecoveryNode>
