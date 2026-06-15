@@ -36,8 +36,6 @@ if [ "$(id -u)" -eq 0 ] && [ "${CARKIT_RUN_AS_ROOT:-0}" != "1" ] && [ -n "${CARK
       /workspaces/CARKit/install \
       /workspaces/CARKit/log \
       /workspaces/CARKit/map \
-      /workspaces/CARKit/map.pcd \
-      /workspaces/CARKit/pose_graph.g2o \
       /workspaces/CARKit/carkit/sensors/realsense-ros \
       /workspaces/CARKit/carkit/sensors/sllidar_ros2
     do

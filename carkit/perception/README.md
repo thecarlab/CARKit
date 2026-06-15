@@ -1,3 +1,9 @@
+# TODO
+- [ ] Add traffic light color detection
+- [ ] Small model (at least 10Hz inference frequency)
+- [ ] Link the perception results to reaction (put it under folder /control/carkit_behavior)
+- [ ] Rewrite the perception README to write the launch command, Topic Flows, and Parameters that users could tune (check navigation folder)
+
 # Perception
 
 Package: `carkit_perception`
@@ -26,6 +32,9 @@ image view loaded:
 ```bash
 ros2 launch carkit_perception perception.launch.py
 ```
+
+The perception RViz configuration is owned by the package at
+`carkit/perception/carkit_perception/rviz/perception.rviz`.
 
 The default model is the PyTorch `.pt` file because it works without TensorRT.
 Use the TensorRT engine only on systems that already have TensorRT installed:

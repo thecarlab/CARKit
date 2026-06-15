@@ -3,21 +3,14 @@
 <package format="3">
   <name>carkit_human_control</name>
   <version>0.0.0</version>
-  <description>CARKit human control launch and utility nodes</description>
+  <description>CARKit joystick control launch</description>
   <maintainer email="ada@todo.todo">CARKit maintainers</maintainer>
   <license>Apache-2.0</license>
 
-  <depend>ackermann_msgs</depend>
   <depend>launch</depend>
   <depend>launch_ros</depend>
-  <depend>rclpy</depend>
 
   <exec_depend>f1tenth_stack</exec_depend>
-  <exec_depend>carkit_bringup</exec_depend>
-  <exec_depend>carkit_pure_pursuit</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
-  <exec_depend>vesc_ackermann</exec_depend>
-  <exec_depend>vesc_driver</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

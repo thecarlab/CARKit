@@ -28,4 +28,4 @@ docker run --rm -t \
   -v "$ROOT_DIR:/workspaces/CARKit" \
   -w /workspaces/CARKit \
   "$IMAGE" \
-  bash -lc './docker/build_workspace.sh && source install/setup.bash && ros2 pkg list | grep carkit && ros2 launch carkit_bringup carkit.launch.py --show-args'
+  bash -lc './docker/build_workspace.sh && source install/setup.bash && ros2 pkg list | grep carkit && ros2 launch carkit_navigation navigation.launch.py --show-args'
