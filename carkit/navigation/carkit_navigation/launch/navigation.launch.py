@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription, TimerAction
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, GroupAction, IncludeLaunchDescription, TimerAction
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
@@ -114,26 +114,32 @@ def generate_launch_description():
         condition=mode_is('mapping'),
     )
 
-    nav2 = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('carkit_amcl'),
-                'launch',
-                'nav2.launch.py',
-            ])
-        ),
-        launch_arguments={
-            'map': LaunchConfiguration('map'),
-            'params_file': LaunchConfiguration('params_file'),
-            'use_sim_time': use_sim_time,
-            'autostart': LaunchConfiguration('autostart'),
-            'use_composition': LaunchConfiguration('use_composition'),
-            'start_cmd_bridge': LaunchConfiguration('start_cmd_bridge'),
-            'start_command_mux': LaunchConfiguration('start_command_mux'),
-            'vehicle_command_topic': LaunchConfiguration('vehicle_command_topic'),
-            'mux_config': LaunchConfiguration('mux_config'),
-            'use_rviz': 'false',
-        }.items(),
+    nav2 = GroupAction(
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    PathJoinSubstitution([
+                        FindPackageShare('carkit_amcl'),
+                        'launch',
+                        'nav2.launch.py',
+                    ])
+                ),
+                launch_arguments={
+                    'map': LaunchConfiguration('map'),
+                    'params_file': LaunchConfiguration('params_file'),
+                    'use_sim_time': use_sim_time,
+                    'autostart': LaunchConfiguration('autostart'),
+                    'use_composition': LaunchConfiguration('use_composition'),
+                    'start_cmd_bridge': LaunchConfiguration('start_cmd_bridge'),
+                    'start_command_mux': LaunchConfiguration('start_command_mux'),
+                    'vehicle_command_topic': LaunchConfiguration('vehicle_command_topic'),
+                    'mux_config': LaunchConfiguration('mux_config'),
+                    'use_rviz': 'false',
+                }.items(),
+            ),
+        ],
+        scoped=True,
+        forwarding=False,
         condition=mode_is('navigation'),
     )
 
@@ -201,9 +207,9 @@ def generate_launch_description():
             default_value=PathJoinSubstitution([
                 FindPackageShare('carkit_navigation'),
                 'rviz',
-                'planning.rviz',
+                'navigation.rviz',
             ]),
-            description='RViz config for Nav2 planning mode'),
+            description='RViz config for navigation mode (AMCL + planning)'),
         DeclareLaunchArgument(
             'use_rviz',
             default_value='true',

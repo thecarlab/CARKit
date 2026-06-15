@@ -129,11 +129,11 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'rviz_config',
             default_value=PathJoinSubstitution([
-                FindPackageShare('carkit_amcl'),
+                FindPackageShare('carkit_navigation'),
                 'rviz',
-                'localization.rviz',
+                'navigation.rviz',
             ]),
-            description='RViz config for AMCL localization'),
+            description='RViz config for navigation (AMCL + planning)'),
         nav2_bringup,
         cmd_bridge,
         command_mux,
