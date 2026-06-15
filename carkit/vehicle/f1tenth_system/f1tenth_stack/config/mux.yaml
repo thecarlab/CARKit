@@ -9,3 +9,7 @@ ackermann_mux:
         topic   : drive
         timeout : 0.2
         priority: 10
+      behavior:
+        topic   : behavior
+        timeout : 0.2
+        priority: 50

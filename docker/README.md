@@ -74,7 +74,39 @@ Never put Docker Hub credentials in this repository.
 
 ## Python ML Packages
 
-The Dockerfile installs `ultralytics` with pip constraints instead of a plain `pip install ultralytics`. This avoids a Jetson/Ubuntu build failure where pip tries to uninstall apt-owned `sympy 1.9`, keeps NumPy below 2.x for ROS 2 Humble and Jetson compatibility, and keeps `setuptools<80` so `colcon-core` remains compatible.
+The Jetson Dockerfile pins the ML stack used to build and run the FP16
+TensorRT engine:
+
+- NVIDIA JetPack 6.1 PyTorch
+  `2.5.0a0+872d972e41.nv24.08` with CUDA 12.6
+- Torchvision `0.20.0`, built from source inside the image against NVIDIA's
+  PyTorch wheel
+- Ultralytics `8.4.54`
+- NumPy `1.26.1`
+- ONNX `1.17.0` for the temporary PyTorch-to-ONNX export step
+
+Ultralytics is installed with `--no-deps` after its non-Torch dependencies.
+This prevents pip from replacing the NVIDIA PyTorch build with a generic CUDA
+wheel. Torchvision uses `FORCE_CUDA=1` and `MAX_JOBS=1`; the latter limits
+memory pressure while compiling on the Jetson. The image also keeps
+`setuptools<80` for `colcon-core` compatibility.
+
+The Docker build can validate imports and compiled torchvision operations, but
+CUDA device availability must be checked when the container runs with the
+NVIDIA runtime:
+
+```bash
+python3 - <<'PY'
+import torch
+import torchvision
+
+print(torch.__version__)
+print(torch.version.cuda)
+print(torch.cuda.is_available())
+print(torchvision.__version__)
+print(torchvision.extension._has_ops())
+PY
+```
 
 ## Rosdep Notes
 

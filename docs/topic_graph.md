@@ -19,3 +19,18 @@ Nav2 planner/controller -> /cmd_vel
 /drive -> ackermann_mux -> /ackermann_cmd
 /ackermann_cmd -> vesc_ackermann -> vesc_driver -> vehicle
 ```
+
+Traffic control:
+
+```text
+RealSense color + aligned depth + camera_info
+  -> carkit_perception
+  -> /yolo/detections_3d
+  -> carkit_behavior
+  -> /behavior
+  -> ackermann_mux
+  -> /ackermann_cmd
+```
+
+Ackermann mux priorities are Nav2 `/drive` `10`, behavior `/behavior` `50`,
+and joystick `/teleop` `100`.

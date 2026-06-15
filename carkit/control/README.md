@@ -1,7 +1,3 @@
-# TODO
-- [ ] Need two new folder: carkit_behaviors (mingyu) and carkit_control_center (Ren)
-- [ ] Main work for carkit_control_center is to link Mingyu's behaviors local control results, with Tianyang's navigation global control results. (Ren)
-
 # Joystick Control
 
 Package: `carkit_human_control`
@@ -33,8 +29,9 @@ ros2 launch carkit_human_control joystick.launch.py --show-args
 VESC feedback -> vesc_to_odom_node -> /odom
 ```
 
-The mux also accepts Nav2 commands on `/drive`. Joystick commands on `/teleop`
-have higher priority than navigation commands.
+The mux accepts Nav2 commands on `/drive` and road-rule stop overrides on
+`/behavior`. Priorities are navigation `10`, behavior `50`, and joystick `100`,
+so a human can always override an automated stop.
 
 ## Common Arguments
 
@@ -83,6 +80,54 @@ In `mux.yaml`:
 
 - `priority`: higher values take control over lower values
 - `timeout`: time before an inactive command source is ignored
+
+## Road-Rule Behavior
+
+Package: `carkit_behavior`
+
+After starting the RealSense camera and vehicle/Nav2 bring-up:
+
+```bash
+ros2 launch carkit_behavior road_rules.launch.py
+```
+
+The behavior node consumes typed detections from `/yolo/detections_3d`.
+
+- A qualifying red light immediately latches a stop.
+- A qualifying green light or manual reset releases the red-light stop.
+- Yellow is reported without stopping.
+- A stop sign immediately requests a stop, waits for odometry speed below
+  `0.05 m/s`, holds for three seconds, and enters a five-second cooldown.
+- Detections without a valid 3D position do not trigger a stop.
+- The behavior node publishes only zero-speed commands. It never starts motion.
+
+Normal topic flow:
+
+```text
+/yolo/detections_3d + /odom + /drive -> carkit_behavior -> /behavior
+/drive or /behavior or /teleop -> ackermann_mux -> /ackermann_cmd
+```
+
+Inspect or reset the behavior:
+
+```bash
+ros2 topic echo /carkit_behavior/state
+ros2 service call /carkit_behavior/reset std_srvs/srv/Trigger
+```
+
+Common behavior parameters:
+
+- `traffic_light_min_confidence`
+- `stop_sign_min_confidence`
+- `max_lateral_offset`
+- `max_detection_distance`
+- `reaction_seconds`
+- `deceleration`
+- `stop_margin`
+- `stop_speed_threshold`
+- `stop_hold_seconds`
+- `stop_cooldown_seconds`
+- `stop_rearm_absence_seconds`
 
 ## Verify
 
