@@ -139,7 +139,6 @@ def generate_launch_description():
             ),
         ],
         scoped=True,
-        forwarding=False,
         condition=mode_is('navigation'),
     )
 
