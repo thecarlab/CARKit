@@ -307,7 +307,7 @@ class Perception3DNode(Node):
         ) = detection.bbox
         message.traffic_light_color = TRAFFIC_LIGHT_UNKNOWN
 
-        if "traffic light" in detection.class_name.lower():
+        if detection.class_name == "traffic light":
             message.traffic_light_color = self.light_classifier.classify(
                 color_image,
                 detection.bbox,

@@ -1,0 +1,18 @@
+{
+  "created_utc": "2026-06-15T02:50:24.775243+00:00",
+  "source_model": "/workspaces/CARKit/carkit/perception/carkit_perception/models/yolo11n.pt",
+  "source_model_sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+  "engine_sha256": "59cfa1d6d1b488a32c3591108a0d05ec73c315cb5480ed8f76e76e4c1bd4fc13",
+  "precision": "FP16",
+  "batch": 1,
+  "image_size": 640,
+  "dynamic": false,
+  "platform": "Linux-5.15.185-tegra-aarch64-with-glibc2.35",
+  "machine": "aarch64",
+  "versions": {
+    "cuda": "12.6",
+    "pytorch": "2.5.0a0+872d972e41.nv24.08",
+    "tensorrt": "10.3.0",
+    "ultralytics": "8.4.54"
+  }
+}
