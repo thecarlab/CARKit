@@ -14,7 +14,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
-        (os.path.join('share', package_name, 'models'), glob('models/*')),
+        (os.path.join('share', package_name, 'models'), glob('models/*.pt')),
         (os.path.join('share', package_name, 'rviz'), glob('rviz/*.rviz')),
     ],
     install_requires=['setuptools'],
@@ -26,7 +26,6 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'perception_node = carkit_perception.perception_node:main',
             'perception_3d_node = carkit_perception.perception_3d_node:main',
         ],
     },

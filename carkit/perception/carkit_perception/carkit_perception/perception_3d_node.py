@@ -1,40 +1,57 @@
 #!/usr/bin/env python3
 
+# Copyright 2026 CARKit maintainers
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import hashlib
+import json
 import math
-from dataclasses import dataclass
-from typing import Optional
+from pathlib import Path
 
 import numpy as np
 import rclpy
-from ament_index_python.packages import get_package_share_directory
 from cv_bridge import CvBridge
+from message_filters import ApproximateTimeSynchronizer, Subscriber
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import CameraInfo, Image
-from std_msgs.msg import String
 from ultralytics import YOLO
-import os
+import ultralytics
 
-
-@dataclass
-class Detection2D:
-    label: str
-    bbox: tuple[float, float, float, float]
-    confidence: float
+from carkit_perception.perception_math import (
+    Detection2D,
+    TRAFFIC_LIGHT_UNKNOWN,
+    TrafficLightClassifier,
+    median_detection_depth,
+    project_pixel_to_camera,
+)
+from carkit_perception_msgs.msg import YoloDetection3D, YoloDetection3DArray
 
 
 class Perception3DNode(Node):
     def __init__(self) -> None:
         super().__init__("perception_3d_node")
 
-        default_model = os.path.join(
-            get_package_share_directory("carkit_perception"),
-            "models",
-            "yolo11n.pt",
+        self.declare_parameter(
+            "model_path",
+            (
+                "/workspaces/CARKit/carkit/perception/"
+                "carkit_perception/models/yolo11n_fp16.engine"
+            ),
         )
-        self.declare_parameter("model_path", default_model)
+        self.declare_parameter("image_size", 640)
         self.declare_parameter("image_topic", "/camera/camera/color/image_raw")
-        self.declare_parameter("detection_topic", "/yolo/detection")
         self.declare_parameter(
             "depth_topic",
             "/camera/camera/aligned_depth_to_color/image_raw",
@@ -43,203 +60,282 @@ class Perception3DNode(Node):
             "camera_info_topic",
             "/camera/camera/aligned_depth_to_color/camera_info",
         )
+        self.declare_parameter("inference_image_topic", "/yolo/inference_image")
         self.declare_parameter("detection_3d_topic", "/yolo/detections_3d")
         self.declare_parameter("min_confidence", 0.2)
+        self.declare_parameter("min_depth", 0.1)
+        self.declare_parameter("max_depth", 10.0)
+        self.declare_parameter("sync_queue_size", 2)
+        self.declare_parameter("sync_slop", 0.08)
+        self.declare_parameter("require_engine_metadata", True)
 
-        model_path = self.get_parameter("model_path").value
-        image_topic = self.get_parameter("image_topic").value
-        detection_topic = self.get_parameter("detection_topic").value
-        depth_topic = self.get_parameter("depth_topic").value
-        camera_info_topic = self.get_parameter("camera_info_topic").value
-        detection_3d_topic = self.get_parameter("detection_3d_topic").value
+        self.model_path = str(self.get_parameter("model_path").value)
+        self.image_size = int(self.get_parameter("image_size").value)
         self.min_confidence = float(self.get_parameter("min_confidence").value)
+        self.min_depth = float(self.get_parameter("min_depth").value)
+        self.max_depth = float(self.get_parameter("max_depth").value)
+
+        self._validate_fp16_engine()
 
         self.bridge = CvBridge()
-        self.model = YOLO(model_path, task="detect")
-        self.depth_image: Optional[np.ndarray] = None
-        self.depth_encoding: Optional[str] = None
-        self.fx: Optional[float] = None
-        self.fy: Optional[float] = None
-        self.cx: Optional[float] = None
-        self.cy: Optional[float] = None
-        self.camera_frame = "camera_color_optical_frame"
+        self.model = YOLO(self.model_path, task="detect")
+        self.light_classifier = TrafficLightClassifier()
 
-        self.image_sub = self.create_subscription(
-            Image,
-            image_topic,
-            self.image_callback,
-            qos_profile_sensor_data,
+        sensor_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
         )
-        self.depth_sub = self.create_subscription(
+        self.image_sub = Subscriber(
+            self,
             Image,
-            depth_topic,
-            self.depth_callback,
-            qos_profile_sensor_data,
+            str(self.get_parameter("image_topic").value),
+            qos_profile=sensor_qos,
         )
-        self.camera_info_sub = self.create_subscription(
+        self.depth_sub = Subscriber(
+            self,
+            Image,
+            str(self.get_parameter("depth_topic").value),
+            qos_profile=sensor_qos,
+        )
+        self.camera_info_sub = Subscriber(
+            self,
             CameraInfo,
-            camera_info_topic,
-            self.camera_info_callback,
-            qos_profile_sensor_data,
+            str(self.get_parameter("camera_info_topic").value),
+            qos_profile=sensor_qos,
         )
-        self.detection_pub = self.create_publisher(String, detection_topic, 10)
-        self.detection_3d_pub = self.create_publisher(String, detection_3d_topic, 10)
+        self.synchronizer = ApproximateTimeSynchronizer(
+            [self.image_sub, self.depth_sub, self.camera_info_sub],
+            queue_size=int(self.get_parameter("sync_queue_size").value),
+            slop=float(self.get_parameter("sync_slop").value),
+        )
+        self.synchronizer.registerCallback(self.synchronized_callback)
+
+        self.detection_pub = self.create_publisher(
+            YoloDetection3DArray,
+            str(self.get_parameter("detection_3d_topic").value),
+            10,
+        )
+        self.image_pub = self.create_publisher(
+            Image,
+            str(self.get_parameter("inference_image_topic").value),
+            sensor_qos,
+        )
 
         self.get_logger().info(
-            "Perception3DNode started. "
-            f"Running YOLO on {image_topic}; listening to {depth_topic} and "
-            f"{camera_info_topic}; publishing detections to {detection_topic} "
-            f"and camera-frame detections to {detection_3d_topic}"
+            f"Loaded FP16 TensorRT model {self.model_path}; "
+            "publishing typed detections on "
+            f"{self.get_parameter('detection_3d_topic').value}"
         )
 
-    def depth_callback(self, msg: Image) -> None:
+    def _validate_fp16_engine(self) -> None:
+        engine_path = Path(self.model_path)
+        if engine_path.suffix != ".engine":
+            raise RuntimeError("model_path must point to an FP16 TensorRT .engine file")
+        if not engine_path.is_file():
+            raise RuntimeError(
+                f"TensorRT engine not found: {engine_path}. "
+                "Run export_fp16_engine on this Jetson first."
+            )
+
         try:
-            self.depth_image = self.bridge.imgmsg_to_cv2(
-                msg,
+            import tensorrt
+            import torch
+        except ImportError as exc:
+            raise RuntimeError("TensorRT and CUDA-enabled PyTorch are required") from exc
+
+        if not torch.cuda.is_available():
+            raise RuntimeError("CUDA is unavailable; FP16 TensorRT inference cannot start")
+
+        metadata_path = engine_path.with_suffix(".json")
+        require_metadata = bool(
+            self.get_parameter("require_engine_metadata").value
+        )
+        if not metadata_path.is_file():
+            if require_metadata:
+                raise RuntimeError(f"Engine metadata not found: {metadata_path}")
+            self.get_logger().warning(f"Engine metadata not found: {metadata_path}")
+            return
+
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        engine_digest = hashlib.sha256(engine_path.read_bytes()).hexdigest()
+        if metadata.get("engine_sha256") != engine_digest:
+            raise RuntimeError("TensorRT engine hash does not match its metadata")
+        if metadata.get("precision") != "FP16":
+            raise RuntimeError("Engine metadata does not declare FP16 precision")
+        if metadata.get("batch") != 1:
+            raise RuntimeError("Only batch-one TensorRT engines are supported")
+        if metadata.get("image_size") != self.image_size:
+            raise RuntimeError(
+                "Engine image size does not match the image_size parameter"
+            )
+        exported_tensorrt = metadata.get("versions", {}).get("tensorrt")
+        if exported_tensorrt and exported_tensorrt != tensorrt.__version__:
+            raise RuntimeError(
+                "TensorRT runtime differs from the engine export runtime: "
+                f"{tensorrt.__version__} != {exported_tensorrt}"
+            )
+        expected_versions = {
+            "cuda": torch.version.cuda,
+            "pytorch": torch.__version__,
+            "ultralytics": ultralytics.__version__,
+        }
+        for name, runtime_version in expected_versions.items():
+            exported_version = metadata.get("versions", {}).get(name)
+            if exported_version and exported_version != runtime_version:
+                raise RuntimeError(
+                    f"{name} runtime differs from engine export metadata: "
+                    f"{runtime_version} != {exported_version}"
+                )
+
+    def synchronized_callback(
+        self,
+        image_msg: Image,
+        depth_msg: Image,
+        camera_info_msg: CameraInfo,
+    ) -> None:
+        try:
+            color_image = self.bridge.imgmsg_to_cv2(
+                image_msg,
+                desired_encoding="bgr8",
+            )
+            depth_image = self.bridge.imgmsg_to_cv2(
+                depth_msg,
                 desired_encoding="passthrough",
             )
-            self.depth_encoding = msg.encoding
         except Exception as exc:
-            self.get_logger().error(f"Failed to convert depth image: {exc}")
-
-    def camera_info_callback(self, msg: CameraInfo) -> None:
-        self.fx = msg.k[0]
-        self.fy = msg.k[4]
-        self.cx = msg.k[2]
-        self.cy = msg.k[5]
-        self.camera_frame = msg.header.frame_id or self.camera_frame
-
-    def image_callback(self, msg: Image) -> None:
-        try:
-            color_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
-        except Exception as exc:
-            self.get_logger().error(f"Failed to convert color image: {exc}")
+            self.get_logger().error(f"Failed to convert synchronized images: {exc}")
             return
 
-        results = self.model(color_image)
+        results = self.model.predict(
+            color_image,
+            imgsz=self.image_size,
+            conf=self.min_confidence,
+            batch=1,
+            verbose=False,
+        )
         detections = self.extract_detections(results)
 
-        self.publish_detections(detections)
-        self.publish_3d_detections(detections)
-
-    def publish_detections(self, detections: list[Detection2D]) -> None:
-        detection_text = []
-        for detection in detections:
-            x1, y1, x2, y2 = detection.bbox
-            detection_text.append(
-                f"{detection.label} [{x1:.1f}, {y1:.1f}, {x2:.1f}, {y2:.1f}] "
-                f"({detection.confidence:.2f})"
-            )
-
-        if detection_text:
-            self.detection_pub.publish(String(data="; ".join(detection_text)))
-        else:
-            self.detection_pub.publish(String(data="no detections"))
-
-    def publish_3d_detections(self, detections: list[Detection2D]) -> None:
-        if self.depth_image is None:
-            self.get_logger().debug("Waiting for aligned depth image.")
-            return
-
-        if not self.has_camera_intrinsics():
-            self.get_logger().debug("Waiting for aligned depth camera_info.")
-            return
-
-        detections_3d = []
-
-        for detection in detections:
-            if detection.confidence < self.min_confidence:
-                continue
-
-            position = self.project_detection(detection)
-            if position is None:
-                continue
-
-            x, y, z = position
-            x1, y1, x2, y2 = detection.bbox
-            detections_3d.append(
-                f"{detection.label} {self.camera_frame} "
-                f"x={x:.3f} y={y:.3f} z={z:.3f} "
-                f"conf={detection.confidence:.2f} "
-                f"bbox=[{x1:.1f},{y1:.1f},{x2:.1f},{y2:.1f}]"
-            )
-
-        if detections_3d:
-            self.detection_3d_pub.publish(String(data="; ".join(detections_3d)))
-        elif not detections:
-            self.detection_3d_pub.publish(String(data="no detections"))
-        else:
-            self.detection_3d_pub.publish(String(data="no valid 3d detections"))
-
-    def has_camera_intrinsics(self) -> bool:
-        return (
-            self.fx is not None
-            and self.fy is not None
-            and self.cx is not None
-            and self.cy is not None
-            and self.fx > 0.0
-            and self.fy > 0.0
+        output = YoloDetection3DArray()
+        output.header.stamp = image_msg.header.stamp
+        output.header.frame_id = (
+            camera_info_msg.header.frame_id
+            or image_msg.header.frame_id
+            or "camera_color_optical_frame"
         )
+
+        fx = float(camera_info_msg.k[0])
+        fy = float(camera_info_msg.k[4])
+        cx = float(camera_info_msg.k[2])
+        cy = float(camera_info_msg.k[5])
+        intrinsics_valid = fx > 0.0 and fy > 0.0
+
+        for detection in detections:
+            output.detections.append(
+                self.to_detection_message(
+                    detection,
+                    color_image,
+                    depth_image,
+                    depth_msg.encoding,
+                    intrinsics_valid,
+                    fx,
+                    fy,
+                    cx,
+                    cy,
+                )
+            )
+
+        self.detection_pub.publish(output)
+
+        if results:
+            annotated = results[0].plot()
+            annotated_msg = self.bridge.cv2_to_imgmsg(annotated, encoding="bgr8")
+            annotated_msg.header = image_msg.header
+            self.image_pub.publish(annotated_msg)
 
     def extract_detections(self, results) -> list[Detection2D]:
         detections = []
         for result in results:
-            if not result.boxes or result.boxes.cls is None:
+            if result.boxes is None or result.boxes.cls is None:
                 continue
 
-            cls_ids = result.boxes.cls.cpu().numpy()
+            class_ids = result.boxes.cls.cpu().numpy()
             bboxes = result.boxes.xyxy.cpu().numpy()
             confidences = result.boxes.conf.cpu().numpy()
-
-            for cls_id, bbox, confidence in zip(cls_ids, bboxes, confidences):
-                class_name = self.model.names[int(cls_id)]
+            for class_id, bbox, confidence in zip(
+                class_ids,
+                bboxes,
+                confidences,
+            ):
                 x1, y1, x2, y2 = bbox
                 detections.append(
                     Detection2D(
-                        label=class_name,
-                        bbox=(float(x1), float(y1), float(x2), float(y2)),
+                        class_id=int(class_id),
+                        class_name=str(self.model.names[int(class_id)]),
+                        bbox=(
+                            float(x1),
+                            float(y1),
+                            float(x2),
+                            float(y2),
+                        ),
                         confidence=float(confidence),
                     )
                 )
-
         return detections
 
-    def project_detection(
+    def to_detection_message(
         self,
         detection: Detection2D,
-    ) -> Optional[tuple[float, float, float]]:
-        if self.depth_image is None:
-            return None
+        color_image: np.ndarray,
+        depth_image: np.ndarray,
+        depth_encoding: str,
+        intrinsics_valid: bool,
+        fx: float,
+        fy: float,
+        cx: float,
+        cy: float,
+    ) -> YoloDetection3D:
+        message = YoloDetection3D()
+        message.class_id = detection.class_id
+        message.class_name = detection.class_name
+        message.confidence = detection.confidence
+        (
+            message.bbox_x_min,
+            message.bbox_y_min,
+            message.bbox_x_max,
+            message.bbox_y_max,
+        ) = detection.bbox
+        message.traffic_light_color = TRAFFIC_LIGHT_UNKNOWN
 
-        x1, y1, x2, y2 = detection.bbox
-        height, width = self.depth_image.shape[:2]
-        left = max(0, min(width, int(math.floor(x1))))
-        top = max(0, min(height, int(math.floor(y1))))
-        right = max(0, min(width, int(math.ceil(x2))))
-        bottom = max(0, min(height, int(math.ceil(y2))))
+        if detection.class_name == "traffic light":
+            message.traffic_light_color = self.light_classifier.classify(
+                color_image,
+                detection.bbox,
+            )
 
-        if left >= right or top >= bottom:
-            return None
-
-        depth_region = self.depth_image[top:bottom, left:right]
-        depth_meters = self.depth_to_meters(depth_region)
-        valid_depths = depth_meters[np.isfinite(depth_meters) & (depth_meters > 0.0)]
-        if valid_depths.size == 0:
-            return None
-
-        z = float(np.median(valid_depths))
-        u = (x1 + x2) / 2.0
-        v = (y1 + y2) / 2.0
-
-        x = (u - self.cx) * z / self.fx
-        y = (v - self.cy) * z / self.fy
-        return float(x), float(y), z
-
-    def depth_to_meters(self, depth: np.ndarray) -> np.ndarray:
-        depth_float = depth.astype(np.float32)
-        if self.depth_encoding in ("16UC1", "mono16") or depth.dtype == np.uint16:
-            return depth_float / 1000.0
-        return depth_float
+        depth = median_detection_depth(
+            depth_image,
+            depth_encoding,
+            detection.bbox,
+            self.min_depth,
+            self.max_depth,
+        )
+        if depth is not None and intrinsics_valid:
+            message.x, message.y, message.z = project_pixel_to_camera(
+                detection.bbox,
+                depth,
+                fx,
+                fy,
+                cx,
+                cy,
+            )
+            message.position_valid = True
+        else:
+            message.x = math.nan
+            message.y = math.nan
+            message.z = math.nan
+            message.position_valid = False
+        return message
 
 
 def main(args=None) -> None:
