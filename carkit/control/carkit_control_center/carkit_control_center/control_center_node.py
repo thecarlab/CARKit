@@ -10,7 +10,7 @@ from builtin_interfaces.msg import Time
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
-from std_msgs.msg import Bool, Float32, String
+from std_msgs.msg import Bool, Float32, Int8, String
 
 
 HUMAN_CONTROL = "HUMAN_CONTROL"
@@ -51,6 +51,8 @@ class ControlCenterNode(Node):
         self.declare_parameter("max_speed", 1.0)
         self.declare_parameter("max_steering_angle", 0.34)
         self.declare_parameter("initial_state", HUMAN_CONTROL)
+        self.declare_parameter("use_autonomy_enable_topic", True)
+        self.declare_parameter("autonomy_enable_topic", "enable_autonomous_control")
 
         self.publish_rate_hz = float(self.get_parameter("publish_rate_hz").value)
         self.auto_button = int(self.get_parameter("auto_button").value)
@@ -70,6 +72,12 @@ class ControlCenterNode(Node):
         self.max_steering_angle = abs(
             float(self.get_parameter("max_steering_angle").value)
         )
+        self.use_autonomy_enable_topic = bool(
+            self.get_parameter("use_autonomy_enable_topic").value
+        )
+        self.autonomy_enable_topic = str(
+            self.get_parameter("autonomy_enable_topic").value
+        )
         self.main_state = str(self.get_parameter("initial_state").value)
         if self.main_state not in VALID_STATES:
             self.get_logger().warning(
@@ -77,6 +85,7 @@ class ControlCenterNode(Node):
             )
             self.main_state = HUMAN_CONTROL
 
+        self.last_autonomy_enable = 0
         self.teleop = TimedMessage()
         self.nav2 = TimedMessage()
         self.behavior_override = TimedMessage()
@@ -116,6 +125,13 @@ class ControlCenterNode(Node):
             self.speed_limit_callback,
             10,
         )
+        if self.use_autonomy_enable_topic:
+            self.create_subscription(
+                Int8,
+                self.autonomy_enable_topic,
+                self.autonomy_enable_callback,
+                10,
+            )
 
         self.cmd_pub = self.create_publisher(
             AckermannDriveStamped,
@@ -140,8 +156,14 @@ class ControlCenterNode(Node):
 
         period = 1.0 / max(1.0, self.publish_rate_hz)
         self.timer = self.create_timer(period, self.timer_callback)
+        mode_source = (
+            f"joy_teleop topic {self.autonomy_enable_topic}"
+            if self.use_autonomy_enable_topic
+            else "joystick auto/human buttons"
+        )
         self.get_logger().info(
             f"control_center_node started in {self.main_state}; "
+            f"mode source: {mode_source}; "
             f"publishing /ackermann_cmd at {self.publish_rate_hz:.1f} Hz"
         )
 
@@ -149,12 +171,29 @@ class ControlCenterNode(Node):
         for button_index, action in (
             (self.estop_button, self.enter_emergency_stop),
             (self.clear_estop_button, self.clear_emergency_stop),
-            (self.human_button, self.enter_human_control),
-            (self.auto_button, self.enter_auto_drive),
         ):
             if self.rising_edge(msg.buttons, button_index):
                 action()
+        if not self.use_autonomy_enable_topic:
+            for button_index, action in (
+                (self.human_button, self.enter_human_control),
+                (self.auto_button, self.enter_auto_drive),
+            ):
+                if self.rising_edge(msg.buttons, button_index):
+                    action()
         self.previous_buttons = list(msg.buttons)
+
+    def autonomy_enable_callback(self, msg: Int8) -> None:
+        if msg.data not in (0, 1):
+            return
+        self.last_autonomy_enable = int(msg.data)
+        if self.main_state == EMERGENCY_STOP:
+            return
+        previous_state = self.main_state
+        self.apply_autonomy_enable(self.last_autonomy_enable)
+        if self.main_state != previous_state:
+            mode = "AV stack" if self.main_state == AUTO_DRIVE else "manual"
+            self.get_logger().info(f"Mode switched to {mode} ({self.main_state})")
 
     def teleop_callback(self, msg: AckermannDriveStamped) -> None:
         self.teleop.update(msg, self.now_sec())
@@ -227,15 +266,23 @@ class ControlCenterNode(Node):
 
     def clear_emergency_stop(self) -> None:
         if self.main_state == EMERGENCY_STOP:
-            self.main_state = HUMAN_CONTROL
+            if self.use_autonomy_enable_topic:
+                self.apply_autonomy_enable(self.last_autonomy_enable)
+            else:
+                self.main_state = HUMAN_CONTROL
 
     def enter_human_control(self) -> None:
         if self.main_state != EMERGENCY_STOP:
             self.main_state = HUMAN_CONTROL
+            self.last_autonomy_enable = 0
 
     def enter_auto_drive(self) -> None:
         if self.main_state != EMERGENCY_STOP:
             self.main_state = AUTO_DRIVE
+            self.last_autonomy_enable = 1
+
+    def apply_autonomy_enable(self, enabled: int) -> None:
+        self.main_state = AUTO_DRIVE if enabled == 1 else HUMAN_CONTROL
 
     def apply_speed_limit(self, command: AckermannDriveStamped, now: float) -> None:
         if not self.speed_limit.fresh(now, self.behavior_timeout_sec):

@@ -11,3 +11,5 @@ control_center_node:
     max_speed: 1.0
     max_steering_angle: 0.34
     initial_state: HUMAN_CONTROL
+    use_autonomy_enable_topic: true
+    autonomy_enable_topic: enable_autonomous_control
