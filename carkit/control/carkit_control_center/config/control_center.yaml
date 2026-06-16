@@ -1,0 +1,13 @@
+control_center_node:
+  ros__parameters:
+    publish_rate_hz: 50.0
+    auto_button: 0
+    human_button: 1
+    estop_button: 2
+    clear_estop_button: 3
+    teleop_timeout_sec: 0.30
+    nav2_timeout_sec: 0.50
+    behavior_timeout_sec: 0.50
+    max_speed: 1.0
+    max_steering_angle: 0.34
+    initial_state: HUMAN_CONTROL

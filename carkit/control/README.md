@@ -1,42 +1,143 @@
-# TODO
-- [ ] Need two new folder: carkit_behaviors (mingyu) and carkit_control_center (Ren)
-- [ ] Main work for carkit_control_center is to link Mingyu's behaviors local control results, with Tianyang's navigation global control results. (Ren)
+# Control
 
-# Joystick Control
+CARKit control is split into three Python packages:
 
-Package: `carkit_human_control`
+- `carkit_human_control`: launches joystick teleop, VESC, odometry, and the
+  vendored vehicle stack
+- `carkit_behavior`: converts typed perception detections into behavior
+  overrides, speed limits, and cone obstacles
+- `carkit_control_center`: publishes the final `/ackermann_cmd` for autonomous
+  driving
 
-CARKit human control uses a joystick to publish Ackermann commands through the
-F1TENTH mux and VESC vehicle stack.
+## Active Command Architecture
 
-## Launch
-
-Connect the joystick and VESC, then run:
-
-```bash
-ros2 launch carkit_human_control joystick.launch.py
-```
-
-Show all launch arguments:
-
-```bash
-ros2 launch carkit_human_control joystick.launch.py --show-args
-```
-
-## Topic Flow
+Manual driving and mapping use `carkit_human_control` directly:
 
 ```text
-/dev/input/js0 -> joy_node -> /joy
 /joy -> joy_teleop -> /teleop
 /teleop -> ackermann_mux -> /ackermann_cmd
 /ackermann_cmd -> ackermann_to_vesc_node -> VESC motor and servo commands
 VESC feedback -> vesc_to_odom_node -> /odom
 ```
 
-The mux also accepts Nav2 commands on `/drive`. Joystick commands on `/teleop`
-have higher priority than navigation commands.
+Autonomous driving uses `carkit_control_center` as the final arbiter:
 
-## Common Arguments
+```text
+/joy -> joy_teleop -> /teleop
+Nav2 -> /cmd_vel -> twist_to_ackermann -> /drive
+/yolo/detections_3d -> carkit_behavior -> /behavior/*
+/teleop + /drive + /behavior/* + /joy -> carkit_control_center -> /ackermann_cmd
+/ackermann_cmd -> ackermann_to_vesc_node -> VESC motor and servo commands
+VESC feedback -> vesc_to_odom_node -> /odom
+```
+
+Nav2 should run with `start_command_mux:=false`, which is the default in the
+current launch files. In autonomous driving, launch `carkit_human_control` with
+`vehicle_command_topic:=/ackermann_mux_unused` so the legacy mux does not also
+publish `/ackermann_cmd`.
+
+## Bringup
+
+For manual driving, mapping, and vehicle checks:
+
+```bash
+ros2 launch carkit_human_control joystick.launch.py
+```
+
+For autonomous driving, start joystick, VESC, and odometry with the legacy mux
+output remapped away:
+
+```bash
+ros2 launch carkit_human_control joystick.launch.py \
+  vehicle_command_topic:=/ackermann_mux_unused
+```
+
+Start the autonomous command arbiter:
+
+```bash
+ros2 launch carkit_control_center control_center.launch.py
+```
+
+The control center starts in `HUMAN_CONTROL`, follows fresh `/teleop`, and
+publishes zero if teleop commands go stale. Use the joystick buttons to switch
+to `AUTO_DRIVE` or `EMERGENCY_STOP`.
+
+Start Nav2 for autonomous driving:
+
+```bash
+ros2 launch carkit_navigation navigation.launch.py \
+  mode:=navigation \
+  start_command_mux:=false \
+  map:=/workspaces/CARKit/map/map.yaml
+```
+
+Start the behavior layer when perception is running:
+
+```bash
+ros2 launch carkit_behavior behavior_center.launch.py
+```
+
+## Control Center
+
+`carkit_control_center` subscribes to:
+
+- `/joy` (`sensor_msgs/Joy`)
+- `/teleop` (`ackermann_msgs/AckermannDriveStamped`)
+- `/drive` (`ackermann_msgs/AckermannDriveStamped`)
+- `/behavior/override_active` (`std_msgs/Bool`)
+- `/behavior/override_cmd` (`ackermann_msgs/AckermannDriveStamped`)
+- `/behavior/speed_limit` (`std_msgs/Float32`)
+
+It publishes:
+
+- `/ackermann_cmd` (`ackermann_msgs/AckermannDriveStamped`)
+- `/control_center/main_state` (`std_msgs/String`)
+- `/control_center/selected_cmd` (`std_msgs/String`)
+- `/control_center/debug` (`std_msgs/String`)
+
+Main states:
+
+- `HUMAN_CONTROL`: publishes fresh `/teleop`, otherwise zero
+- `AUTO_DRIVE`: publishes fresh behavior override, otherwise fresh `/drive`
+- `EMERGENCY_STOP`: always publishes zero
+
+Joystick buttons are edge-triggered:
+
+- `auto_button`: enter `AUTO_DRIVE`
+- `human_button`: enter `HUMAN_CONTROL`
+- `estop_button`: enter `EMERGENCY_STOP`
+- `clear_estop_button`: clear emergency stop and return to `HUMAN_CONTROL`
+
+Defaults live in `carkit_control_center/config/control_center.yaml`.
+
+## Behavior Layer
+
+`carkit_behavior` subscribes to:
+
+- `/control_center/main_state` (`std_msgs/String`)
+- `/yolo/detections_3d`
+  (`carkit_perception_msgs/msg/YoloDetection3DArray`)
+- `/odom` (`nav_msgs/Odometry`)
+
+It publishes:
+
+- `/behavior/state` (`std_msgs/String`)
+- `/behavior/override_active` (`std_msgs/Bool`)
+- `/behavior/override_cmd` (`ackermann_msgs/AckermannDriveStamped`)
+- `/behavior/speed_limit` (`std_msgs/Float32`)
+- `/behavior/cone_obstacles` (`sensor_msgs/PointCloud2`)
+
+Behavior logic only runs while the control center state is `AUTO_DRIVE`.
+Priority is stop sign, traffic light, cone, then normal Nav2.
+
+- Stop signs publish a zero override for the configured stop duration.
+- Red/yellow traffic lights publish a zero override while fresh.
+- Cone detections publish PointCloud2 obstacles and a temporary speed limit;
+  Nav2 handles steering by replanning around the costmap obstacle.
+
+Defaults live in `carkit_behavior/config/behavior_center.yaml`.
+
+## Human-Control Launch Arguments
 
 - `joy_config`: joystick device, axis mapping, deadzone, speed, and steering
   configuration. Defaults to
@@ -44,51 +145,26 @@ have higher priority than navigation commands.
 - `vesc_config`: VESC port, calibration, limits, wheelbase, and odometry
   configuration. Defaults to
   `carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`.
-- `mux_config`: command topics, priorities, and timeouts. Defaults to
-  `carkit/vehicle/f1tenth_system/f1tenth_stack/config/mux.yaml`.
-- `vehicle_command_topic`: final Ackermann command topic consumed by the
-  vehicle controller. Defaults to `/ackermann_cmd`.
-
-Example with custom configurations:
-
-```bash
-ros2 launch carkit_human_control joystick.launch.py \
-  joy_config:=/path/to/joy_teleop.yaml \
-  vesc_config:=/path/to/vesc.yaml
-```
-
-## Common Tuning
-
-In `joy_teleop.yaml`:
-
-- `joy.ros__parameters.dev`: joystick device, normally `/dev/input/js0`
-- `deadzone`: ignores small joystick movement
-- `autorepeat_rate`: joystick command publishing rate
-- `mode_toggle_button`: button that switches between joystick `/teleop` and
-  Nav2 `/drive` control
-- `manual_mode_initial`: whether joystick control is active at startup
-- `drive-speed.scale`: maximum commanded speed
-- `drive-steering_angle.scale`: maximum commanded steering angle
-
-In `vesc.yaml`:
-
-- `port`: VESC serial device, normally `/dev/ttyACM0`
-- `speed_to_erpm_gain`: converts vehicle speed to motor ERPM
-- `steering_angle_to_servo_gain`: steering angle calibration
-- `steering_angle_to_servo_offset`: centered steering calibration
-- `servo_min` and `servo_max`: steering servo limits
-- `wheelbase`: wheelbase used for odometry
-
-In `mux.yaml`:
-
-- `priority`: higher values take control over lower values
-- `timeout`: time before an inactive command source is ignored
+- `mux_config`: legacy Ackermann mux config.
+- `vehicle_command_topic`: legacy mux output topic. Defaults to
+  `/ackermann_cmd` for direct human control. Use `/ackermann_mux_unused` when
+  `carkit_control_center` owns `/ackermann_cmd` for autonomous driving.
 
 ## Verify
 
 ```bash
 ros2 topic echo /joy --once
 ros2 topic echo /teleop --once
+ros2 topic echo /control_center/main_state --once
+ros2 topic echo /control_center/selected_cmd --once
 ros2 topic echo /ackermann_cmd --once
 ros2 topic echo /odom --once
+```
+
+In `AUTO_DRIVE`, also check:
+
+```bash
+ros2 topic echo /drive --once
+ros2 topic echo /behavior/state --once
+ros2 topic echo /behavior/cone_obstacles --once
 ```

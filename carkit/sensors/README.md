@@ -1,10 +1,12 @@
 # Sensors
 
-The sensors module contains CARKit sensor transform nodes and clones external sensor drivers into this folder.
+The sensors module contains CARKit sensor transform nodes. External sensor
+drivers are fetched into this folder by `carkit/setup_vendor_repos.sh`, which
+is called by `docker/build_workspace.sh`.
 
 ## Fetch Drivers
 
-Inside Docker, from the repo root:
+Inside Docker, from the repository root:
 
 ```bash
 ./carkit/setup_vendor_repos.sh
@@ -15,75 +17,72 @@ This creates:
 - `carkit/sensors/realsense-ros`
 - `carkit/sensors/sllidar_ros2`
 
-## SLLiDAR Driver
+## SLLiDAR
 
-Package after fetch: `sllidar_ros2`
-
-Launch:
+The top-level navigation launch starts the SLLiDAR driver by default while
+mapping or navigating. For a direct driver-only check:
 
 ```bash
 ros2 launch sllidar_ros2 sllidar_s2_launch.py
 ```
 
-Test:
-
-```bash
-ros2 topic list | grep scan
-ros2 topic echo /scan --once
-```
-
-Expected output topic:
+Expected topic:
 
 - `/scan` (`sensor_msgs/LaserScan`)
 
-## RealSense Driver
-
-Package after fetch: `realsense2_camera`
-
-Launch:
+Verify:
 
 ```bash
-ros2 launch realsense2_camera rs_launch.py enable_color:=true enable_depth:=true enable_gyro:=true enable_accel:=true unite_imu_method:=2
+ros2 topic echo /scan --once
 ```
 
-Test:
+## RealSense
+
+Perception expects color, aligned depth, and aligned camera info:
 
 ```bash
-ros2 topic echo /camera/camera/color/image_raw --once
-ros2 topic echo /camera/camera/depth/image_rect_raw --once
-ros2 topic echo /camera/camera/imu --once
+ros2 launch realsense2_camera rs_launch.py \
+  enable_color:=true \
+  enable_depth:=true \
+  align_depth.enable:=true \
+  enable_sync:=true
 ```
 
-Expected output topics:
+Expected topics:
 
 - `/camera/camera/color/image_raw` (`sensor_msgs/Image`)
-- `/camera/camera/depth/image_rect_raw` (`sensor_msgs/Image`)
-- `/camera/camera/imu` (`sensor_msgs/Imu`)
+- `/camera/camera/aligned_depth_to_color/image_raw` (`sensor_msgs/Image`)
+- `/camera/camera/aligned_depth_to_color/camera_info`
+  (`sensor_msgs/CameraInfo`)
+
+For IMU experiments, enable gyro and accel:
+
+```bash
+ros2 launch realsense2_camera rs_launch.py \
+  enable_color:=true \
+  enable_depth:=true \
+  enable_gyro:=true \
+  enable_accel:=true \
+  unite_imu_method:=2
+```
 
 ## CARKit Sensor Transforms
 
 Package: `carkit_sensor_transforms`
 
-Launch:
+Executables:
 
 ```bash
 ros2 run carkit_sensor_transforms lidar_transformer_node
+ros2 run carkit_sensor_transforms lidar_transformer_norotate_node
 ros2 run carkit_sensor_transforms imu_transformer_node
 ```
 
-Test:
+`lidar_transformer_node` subscribes to `/scan` and publishes rotated
+`/cloud_in` (`sensor_msgs/PointCloud2`) in `base_link`.
 
-```bash
-ros2 topic echo /cloud_in --once
-ros2 topic echo /imu_transformed --once
-```
+`lidar_transformer_norotate_node` subscribes to `/scan` and publishes
+`/cloud_in` without the extra 180-degree rotation.
 
-Inputs:
-
-- `/scan` (`sensor_msgs/LaserScan`)
-- `/camera/camera/imu` (`sensor_msgs/Imu`)
-
-Outputs:
-
-- `/cloud_in` (`sensor_msgs/PointCloud2`)
-- `/imu_transformed` (`sensor_msgs/Imu`)
+`imu_transformer_node` subscribes to `/camera/camera/imu` and publishes
+`/imu_transformed` in `base_link`.

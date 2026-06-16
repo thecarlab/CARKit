@@ -247,12 +247,12 @@ def generate_launch_description():
             description='Start Twist-to-Ackermann bridge in navigation mode'),
         DeclareLaunchArgument(
             'start_command_mux',
-            default_value='true',
-            description='Start Ackermann mux in navigation mode'),
+            default_value='false',
+            description='Start legacy Ackermann mux in navigation mode'),
         DeclareLaunchArgument(
             'vehicle_command_topic',
             default_value='/ackermann_cmd',
-            description='Final Ackermann command topic produced by the mux'),
+            description='Legacy mux output topic when start_command_mux is true'),
         DeclareLaunchArgument(
             'mux_config',
             default_value=PathJoinSubstitution([

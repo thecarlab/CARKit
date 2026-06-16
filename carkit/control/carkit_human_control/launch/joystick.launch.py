@@ -11,7 +11,11 @@ def generate_launch_description():
     vehicle_command_topic_arg = DeclareLaunchArgument(
         'vehicle_command_topic',
         default_value='/ackermann_cmd',
-        description='Ackermann topic consumed by the low-level vehicle controller'
+        description=(
+            'Ackermann topic consumed by the low-level vehicle controller. '
+            'Use /ackermann_mux_unused when carkit_control_center owns '
+            'the final /ackermann_cmd in autonomous driving.'
+        )
     )
     joy_config_arg = DeclareLaunchArgument(
         'joy_config',
@@ -38,7 +42,7 @@ def generate_launch_description():
             'config',
             'mux.yaml',
         ]),
-        description='F1TENTH Ackermann mux config'
+        description='F1TENTH Ackermann mux config for legacy/manual compatibility'
     )
     f1tenth_bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(

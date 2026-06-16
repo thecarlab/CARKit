@@ -1,0 +1,13 @@
+behavior_center_node:
+  ros__parameters:
+    min_confidence: 0.55
+    detection_timeout_sec: 0.5
+    stop_sign_trigger_distance_m: 2.0
+    stop_sign_stop_duration_sec: 5.0
+    stop_sign_cooldown_sec: 10.0
+    traffic_light_trigger_distance_m: 4.0
+    traffic_light_hold_timeout_sec: 0.5
+    cone_trigger_distance_m: 3.0
+    cone_speed_limit_mps: 0.3
+    cone_obstacle_radius_m: 0.25
+    cone_ttl_sec: 1.0

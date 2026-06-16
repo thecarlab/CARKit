@@ -1,25 +1,16 @@
-# TODO
-- [ ] A final bringup folder to contain only all launching scripts.
-- [ ] Mingyu: check perception folder TODO content.
-- [ ] Tianyang: check navigation folder TODO content.
-- [ ] Ren and Yuxin: check control folder TODO content.
-- [ ] Test all old vehicles.
-- [ ] Rebuild on two new vehicles.
-- [ ] Final 3rd floor test.
-
 # CARKit
 
-CARKit is a ROS 2 Humble education stack for small Ackermann autonomous
-vehicles. The supported autonomous workflow uses Nav2 for SLAM Toolbox
-mapping, AMCL localization, path planning, obstacle avoidance, and vehicle
-commands.
+CARKit is a ROS 2 Humble stack for small Ackermann autonomous vehicles. The
+current workflow uses one Docker image, a mounted workspace, VESC odometry,
+Nav2 mapping/navigation, camera perception, behavior overrides, and one final
+control arbiter.
 
 ## Supported Platform
 
 - Jetson Orin Nano with JetPack 6.x / L4T 36.x
 - Docker with NVIDIA runtime
-- Slamtec SLLiDAR
-- Intel RealSense camera
+- Slamtec SLLiDAR publishing `/scan`
+- Intel RealSense color and aligned depth
 - Ackermann/F1TENTH-style vehicle with VESC odometry
 
 ROS 2 and CARKit dependencies run inside `ariiees/carkit:latest`. The host
@@ -32,7 +23,6 @@ On the Jetson host:
 ```bash
 git clone https://github.com/thecarlab/CARKit.git
 cd CARKit
-./carkit/setup_vendor_repos.sh
 docker pull ariiees/carkit:latest
 ./docker/run_jetson.sh
 ```
@@ -44,77 +34,135 @@ Inside the container:
 source install/setup.bash
 ```
 
-The repository is mounted at `/workspaces/CARKit` in the container.
+`build_workspace.sh` fetches vendored sensor repos and builds the mounted
+workspace at `/workspaces/CARKit`.
 
-## Nav2 Mapping
+## Topic Flow
 
-Start VESC odometry:
+Manual driving and mapping:
+
+```text
+/joy -> joy_teleop -> /teleop
+/teleop -> ackermann_mux -> /ackermann_cmd
+/ackermann_cmd -> ackermann_to_vesc_node -> VESC
+VESC feedback -> /odom
+```
+
+Autonomous driving:
+
+```text
+/joy -> joy_teleop -> /teleop
+Nav2 -> /cmd_vel -> twist_to_ackermann -> /drive
+/yolo/detections_3d -> carkit_behavior -> /behavior/*
+/teleop + /drive + /behavior/* + /joy -> carkit_control_center -> /ackermann_cmd
+/ackermann_cmd -> ackermann_to_vesc_node -> VESC
+VESC feedback -> /odom
+```
+
+For autonomous driving, `carkit_control_center` owns the final `/ackermann_cmd`.
+Run Nav2 with `start_command_mux:=false`; this is the default in the current
+launch files.
+
+## Manual Driving And Mapping Control
+
+For manual driving, mapping, and vehicle checks, launch human control directly:
 
 ```bash
 ros2 launch carkit_human_control joystick.launch.py
 ```
 
-In a second terminal, start SLAM Toolbox:
+This launches joystick teleop, VESC, odometry, and the legacy mux path from
+`/teleop` to `/ackermann_cmd`.
+
+## Mapping
+
+Start human control as shown above, then launch mapping:
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
-  mode:=mapping \
-  start_static_tf:=false
+  mode:=mapping
 ```
 
-Drive through the environment, then save the occupancy map from a third
-terminal:
+Drive through the environment, then save the occupancy map:
 
 ```bash
 ros2 run nav2_map_server map_saver_cli \
   -f /workspaces/CARKit/map/map
 ```
 
-All generated and included maps belong in the repository's `map/` folder.
+Maps belong in the repository's top-level `map/` folder.
 
-## Nav2 Navigation
+## Navigation
 
-Start VESC odometry:
+For autonomous driving, start human control with the legacy mux output remapped
+away from `/ackermann_cmd`, start the control center, then launch Nav2:
 
 ```bash
-ros2 launch carkit_human_control joystick.launch.py
+ros2 launch carkit_human_control joystick.launch.py \
+  vehicle_command_topic:=/ackermann_mux_unused
 ```
 
-In a second terminal, launch Nav2 with a saved map:
+```bash
+ros2 launch carkit_control_center control_center.launch.py
+```
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
   mode:=navigation \
   start_command_mux:=false \
-  start_static_tf:=false \
   map:=/workspaces/CARKit/map/map.yaml
 ```
 
 In RViz, set **2D Pose Estimate**, wait for AMCL to converge, then send a
-**Nav2 Goal**.
+**Nav2 Goal**. Press the configured auto joystick button to enter
+`AUTO_DRIVE`; the default is button `0`.
 
-The included example map can be selected with:
+The included example map is the default and can be selected explicitly with:
 
 ```bash
 map:=/workspaces/CARKit/map/map_3f.yaml
 ```
 
-See [carkit/navigation/README.md](carkit/navigation/README.md) for launch
-arguments, topic flow, and troubleshooting.
+## Perception And Behavior
+
+Start RealSense color and aligned depth:
+
+```bash
+ros2 launch realsense2_camera rs_launch.py \
+  enable_color:=true \
+  enable_depth:=true \
+  align_depth.enable:=true \
+  enable_sync:=true
+```
+
+Start typed YOLO perception:
+
+```bash
+ros2 launch carkit_perception perception.launch.py
+```
+
+Start behavior overrides and cone obstacle publishing:
+
+```bash
+ros2 launch carkit_behavior behavior_center.launch.py
+```
+
+Behavior logic only affects commands while the control center is in
+`AUTO_DRIVE`.
 
 ## Repository Layout
 
 ```text
 carkit/
-  navigation/    Nav2 localization, mapping, and planning
-  sensors/       sensor drivers and transform nodes
-  perception/    camera perception
-  control/       joystick control launch and instructions
-  vehicle/       F1TENTH/VESC vehicle stack
-  tools/         classroom utilities
-map/             all Nav2 occupancy maps
-docker/          Docker image and workspace scripts
-docs/            topic graph and troubleshooting
+  control/       human teleop, behavior layer, autonomous command arbiter
+  navigation/    SLAM Toolbox, AMCL, Nav2, Twist-to-Ackermann bridge
+  perception/    YOLO depth projection and typed detection messages
+  sensors/       sensor driver fetch notes and transform nodes
+  vehicle/       vendored F1TENTH/VESC vehicle stack
+  tools/         classroom utilities and demos
+map/             all occupancy maps
+docker/          image, run, build, and publish scripts
+docs/            troubleshooting and diagrams
 ```
 
 ## Verify
@@ -123,19 +171,18 @@ Inside Docker after building:
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py --show-args
+ros2 launch carkit_control_center control_center.launch.py --show-args
 ros2 topic echo /scan --once
 ros2 topic echo /odom --once
+ros2 topic echo /ackermann_cmd --once
 ```
 
-## Troubleshooting
+## More Docs
 
-See [docs/troubleshooting.md](docs/troubleshooting.md).
-
-## Contributing
-
-- Keep all Nav2 packages under `carkit/navigation/`.
-- Keep all occupancy maps under `map/`; do not add package-local map folders.
-- Do not commit build outputs, Docker credentials, tokens, or machine-specific
-  paths.
-- Update `carkit/navigation/README.md` when changing Nav2 topics, parameters,
-  launch files, or dependencies.
+- [Control](carkit/control/README.md)
+- [Navigation](carkit/navigation/README.md)
+- [Perception](carkit/perception/README.md)
+- [Sensors](carkit/sensors/README.md)
+- [Vehicle](carkit/vehicle/README.md)
+- [Docker](docker/README.md)
+- [Troubleshooting](docs/troubleshooting.md)
