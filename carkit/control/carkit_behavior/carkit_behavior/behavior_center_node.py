@@ -133,6 +133,7 @@ class BehaviorCenterNode(Node):
 
         if self.main_state != AUTO_DRIVE:
             self.publish_state(state, override_active)
+            self.publish_cones([], Header())
             return
 
         if now < self.stop_until:

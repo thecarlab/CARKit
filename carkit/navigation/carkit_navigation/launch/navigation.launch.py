@@ -19,7 +19,6 @@ def generate_launch_description():
     mode = LaunchConfiguration('mode')
     use_sim_time = LaunchConfiguration('use_sim_time')
     start_lidar = LaunchConfiguration('start_lidar')
-    start_static_tf = LaunchConfiguration('start_static_tf')
     start_odom_tf = LaunchConfiguration('start_odom_tf')
     use_rviz = LaunchConfiguration('use_rviz')
     lidar_frame = LaunchConfiguration('lidar_frame')
@@ -43,31 +42,6 @@ def generate_launch_description():
             'scan_mode': LaunchConfiguration('lidar_scan_mode'),
         }.items(),
         condition=IfCondition(start_lidar),
-    )
-
-    static_laser_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='static_base_link_to_laser',
-        arguments=[
-            '--x',
-            LaunchConfiguration('lidar_tf_x'),
-            '--y',
-            LaunchConfiguration('lidar_tf_y'),
-            '--z',
-            LaunchConfiguration('lidar_tf_z'),
-            '--yaw',
-            LaunchConfiguration('lidar_tf_yaw'),
-            '--pitch',
-            LaunchConfiguration('lidar_tf_pitch'),
-            '--roll',
-            LaunchConfiguration('lidar_tf_roll'),
-            '--frame-id',
-            base_frame,
-            '--child-frame-id',
-            lidar_frame,
-        ],
-        condition=IfCondition(start_static_tf),
     )
 
     start_lidar_motor = TimerAction(
@@ -226,10 +200,6 @@ def generate_launch_description():
             default_value='true',
             description='Start the SLLiDAR driver'),
         DeclareLaunchArgument(
-            'start_static_tf',
-            default_value='true',
-            description='Publish base_link to laser static transform'),
-        DeclareLaunchArgument(
             'auto_start_lidar_motor',
             default_value='true',
             description='Call /start_motor after launch so the LiDAR publishes scans'),
@@ -275,14 +245,7 @@ def generate_launch_description():
         DeclareLaunchArgument('lidar_inverted', default_value='false'),
         DeclareLaunchArgument('lidar_angle_compensate', default_value='true'),
         DeclareLaunchArgument('lidar_scan_mode', default_value='DenseBoost'),
-        DeclareLaunchArgument('lidar_tf_x', default_value='0.27'),
-        DeclareLaunchArgument('lidar_tf_y', default_value='0.0'),
-        DeclareLaunchArgument('lidar_tf_z', default_value='0.11'),
-        DeclareLaunchArgument('lidar_tf_yaw', default_value='3.141592653589793'),
-        DeclareLaunchArgument('lidar_tf_pitch', default_value='0.0'),
-        DeclareLaunchArgument('lidar_tf_roll', default_value='0.0'),
         lidar,
-        static_laser_tf,
         start_lidar_motor,
         odom_tf,
         slam,

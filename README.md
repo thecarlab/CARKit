@@ -138,6 +138,7 @@ ros2 launch realsense2_camera rs_launch.py \
 Start typed YOLO perception:
 
 ```bash
+export LD_LIBRARY_PATH=/usr/local/lib/python3.10/dist-packages/nvidia/cusparselt/lib:$LD_LIBRARY_PATH
 ros2 launch carkit_perception perception.launch.py
 ```
 
