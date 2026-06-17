@@ -4,7 +4,7 @@ set -euo pipefail
 
 IMAGE="${IMAGE:-ariiees/carkit:latest}"
 WORKSPACE="${WORKSPACE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-PULL_IMAGE="${PULL_IMAGE:-always}"
+PULL_IMAGE="${PULL_IMAGE:-missing}"
 HOST_UID="$(id -u)"
 HOST_GID="$(id -g)"
 HOST_USER="${USER:-carkit}"

@@ -1,7 +1,9 @@
 ARG BASE_IMAGE=nvcr.io/nvidia/l4t-jetpack:r36.4.0
 FROM ${BASE_IMAGE}
 
-ARG LIBREALSENSE_VERSION=v2.57.7
+ARG LIBREALSENSE_VERSION=v2.58.2
+ARG CUSPARSELT_VERSION=0.6.3
+ARG CUSPARSELT_DEB=cusparselt-local-tegra-repo-ubuntu2204-0.6.3_1.0-1_arm64.deb
 ARG PYTORCH_WHEEL=https://developer.download.nvidia.com/compute/redist/jp/v61/pytorch/torch-2.5.0a0+872d972e41.nv24.08.17622132-cp310-cp310-linux_aarch64.whl
 ARG TORCHVISION_VERSION=0.20.0
 ARG ULTRALYTICS_VERSION=8.4.54
@@ -10,6 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=humble
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
+
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -33,6 +36,7 @@ RUN export ROS_APT_SOURCE_VERSION="$(curl -s https://api.github.com/repos/ros-in
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
+    joystick \
     libeigen3-dev \
     libgl1-mesa-dev \
     libglfw3-dev \
@@ -44,10 +48,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libspdlog-dev \
     libssl-dev \
     libsuitesparse-dev \
-    libusb-1.0-0-dev \
     libudev-dev \
+    libusb-1.0-0-dev \
     libyaml-cpp-dev \
-    joystick \
+    ninja-build \
     pkg-config \
     python3-colcon-common-extensions \
     python3-dev \
@@ -61,8 +65,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-vcstool \
     qt5-qmake \
     qtdeclarative5-dev \
-    ros-${ROS_DISTRO}-ament-cmake-auto \
     ros-${ROS_DISTRO}-ackermann-msgs \
+    ros-${ROS_DISTRO}-ament-cmake-auto \
     ros-${ROS_DISTRO}-asio-cmake-module \
     ros-${ROS_DISTRO}-control-msgs \
     ros-${ROS_DISTRO}-cv-bridge \
@@ -108,11 +112,26 @@ RUN git clone --branch "${LIBREALSENSE_VERSION}" --depth 1 https://github.com/In
     && ldconfig \
     && rm -rf /tmp/librealsense
 
-# Use NVIDIA's JetPack 6.1 PyTorch wheel instead of the generic PyPI CUDA wheel.
-# Torchvision is compiled against that exact PyTorch/CUDA ABI. Install
-# Ultralytics without dependency resolution afterward so pip cannot replace the
-# Jetson-specific Torch packages with upstream wheels.
-RUN python3 -m pip install --no-cache-dir --upgrade pip 'setuptools<80' wheel \
+RUN curl -L -o "/tmp/${CUSPARSELT_DEB}" \
+      "https://developer.download.nvidia.com/compute/cusparselt/${CUSPARSELT_VERSION}/local_installers/${CUSPARSELT_DEB}" \
+    && dpkg -i "/tmp/${CUSPARSELT_DEB}" \
+    && cp /var/cusparselt-local-tegra-repo-ubuntu2204-${CUSPARSELT_VERSION}/cusparselt-*-keyring.gpg /usr/share/keyrings/ \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+      libcusparselt0 \
+      libcusparselt-dev \
+    && ldconfig \
+    && ldconfig -p | grep -q 'libcusparseLt.so.0' \
+    && rm -rf "/tmp/${CUSPARSELT_DEB}" /var/lib/apt/lists/*
+
+# Install normal Python dependencies first.
+# Then install NVIDIA's JetPack PyTorch wheel.
+# Then install torch-dependent packages with --no-deps.
+# Finally build torchvision against the final Jetson torch installation.
+RUN python3 -m pip install --no-cache-dir --upgrade \
+      pip \
+      'setuptools<80' \
+      wheel \
     && printf '%s\n' \
       'numpy==1.26.1' \
       'sympy>=1.13.3' \
@@ -127,21 +146,6 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip 'setuptools<80' wheel \
       numpy==1.26.1 \
       'sympy>=1.13.3' \
       typing-extensions \
-    && ldconfig -p | grep -q 'libcusparseLt.so' \
-    && python3 -m pip install --no-cache-dir --root-user-action=ignore --no-deps \
-      "${PYTORCH_WHEEL}" \
-    && git clone --branch "v${TORCHVISION_VERSION}" --depth 1 \
-      https://github.com/pytorch/vision.git /tmp/torchvision \
-    && cd /tmp/torchvision \
-    && BUILD_VERSION="${TORCHVISION_VERSION}" \
-      FORCE_CUDA=1 \
-      CUDA_HOME=/usr/local/cuda \
-      MAX_JOBS=1 \
-      python3 -m pip install --no-cache-dir --root-user-action=ignore \
-        --no-build-isolation --no-deps . \
-    && cd / \
-    && python3 -m pip install --no-cache-dir --root-user-action=ignore \
-      --constraint /tmp/carkit-pip-constraints.txt \
       'matplotlib>=3.3.0' \
       onnx==1.17.0 \
       'opencv-python>=4.6.0' \
@@ -151,10 +155,27 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip 'setuptools<80' wheel \
       'pyyaml>=5.3.1' \
       'requests>=2.23.0' \
       'scipy>=1.4.1' \
-      'ultralytics-thop>=2.0.18' \
+    && ldconfig -p | grep -q 'libcusparseLt.so.0' \
     && python3 -m pip install --no-cache-dir --root-user-action=ignore --no-deps \
+      "${PYTORCH_WHEEL}" \
+    && python3 -m pip install --no-cache-dir --root-user-action=ignore --no-deps \
+      'ultralytics-thop>=2.0.18' \
       "ultralytics==${ULTRALYTICS_VERSION}" \
+    && git clone --branch "v${TORCHVISION_VERSION}" --depth 1 \
+      https://github.com/pytorch/vision.git /tmp/torchvision \
+    && cd /tmp/torchvision \
+    && BUILD_VERSION="${TORCHVISION_VERSION}" \
+      FORCE_CUDA=1 \
+      CUDA_HOME=/usr/local/cuda \
+      TORCH_CUDA_ARCH_LIST="8.7" \
+      MAX_JOBS=1 \
+      python3 -m pip install --no-cache-dir --root-user-action=ignore \
+        --no-build-isolation \
+        --no-deps \
+        . \
+    && cd / \
     && python3 -c "import onnx, torch, torchvision, ultralytics; \
+assert 'nv24' in torch.__version__, torch.__version__; \
 assert torchvision.extension._has_ops(); \
 print('torch', torch.__version__, 'CUDA build', torch.version.cuda); \
 print('torchvision', torchvision.__version__); \

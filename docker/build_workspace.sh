@@ -4,6 +4,7 @@ set -euo pipefail
 
 WORKSPACE="${WORKSPACE:-/workspaces/CARKit}"
 ROSDEP_SKIP_KEYS="${ROSDEP_SKIP_KEYS:-librealsense2}"
+REALSENSE_MIN_VERSION="${REALSENSE_MIN_VERSION:-2.58.0}"
 BUILD_JOBS="${BUILD_JOBS:-1}"
 PARALLEL_WORKERS="${PARALLEL_WORKERS:-1}"
 ROSDEP_SKIP_ARGS=()
@@ -38,6 +39,31 @@ if ! ldconfig -p 2>/dev/null | grep -q 'librealsense2\.so' \
     "  docker build -f docker/Dockerfile.jetson -t ariiees/carkit:latest ." >&2
   exit 1
 fi
+
+REALSENSE_CHECK_DIR="$(mktemp -d)"
+cat > "${REALSENSE_CHECK_DIR}/CMakeLists.txt" <<EOF
+cmake_minimum_required(VERSION 3.10)
+project(carkit_realsense_preflight NONE)
+find_package(realsense2 ${REALSENSE_MIN_VERSION} REQUIRED)
+EOF
+if ! cmake -S "${REALSENSE_CHECK_DIR}" -B "${REALSENSE_CHECK_DIR}/build" \
+  >/tmp/carkit-realsense-preflight.log 2>&1; then
+  cat >&2 <<EOF
+CARKit error: librealsense2 SDK is too old or not discoverable.
+The vendored realsense2_camera package requires realsense2 >= ${REALSENSE_MIN_VERSION}.
+
+Preflight output:
+$(cat /tmp/carkit-realsense-preflight.log)
+
+Rebuild the image with the current docker/Dockerfile.jetson, then rerun:
+  docker build -f docker/Dockerfile.jetson -t ariiees/carkit:latest .
+  PULL_IMAGE=never ./docker/run_jetson.sh
+  ./docker/build_workspace.sh
+EOF
+  rm -rf "${REALSENSE_CHECK_DIR}"
+  exit 1
+fi
+rm -rf "${REALSENSE_CHECK_DIR}" /tmp/carkit-realsense-preflight.log
 
 APT_GET=()
 if [ "$(id -u)" -eq 0 ]; then

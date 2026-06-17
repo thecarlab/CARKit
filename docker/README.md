@@ -26,8 +26,9 @@ Inside Docker:
 source install/setup.bash
 ```
 
-`run_jetson.sh` pulls `ariiees/carkit:latest` by default before launching. Use
-`PULL_IMAGE=never ./docker/run_jetson.sh` when testing a local image that
+`run_jetson.sh` pulls `ariiees/carkit:latest` only when it is missing locally.
+Use `PULL_IMAGE=always ./docker/run_jetson.sh` to force a Docker Hub refresh,
+or `PULL_IMAGE=never ./docker/run_jetson.sh` when testing a local image that
 should not be refreshed from Docker Hub.
 
 Before opening the shell, `run_jetson.sh` verifies that the selected image
