@@ -83,6 +83,16 @@ def generate_launch_description():
         package='vesc_ackermann',
         executable='ackermann_to_vesc_node',
         name='ackermann_to_vesc_node',
+        parameters=[LaunchConfiguration('vesc_config')],
+        remappings=[
+            ('commands/motor/speed', 'commands/motor/unsmoothed_speed'),
+            ('commands/servo/position', 'commands/servo/unsmoothed_position'),
+        ]
+    )
+    throttle_interpolator_node = Node(
+        package='f1tenth_stack',
+        executable='throttle_interpolator',
+        name='throttle_interpolator',
         parameters=[LaunchConfiguration('vesc_config')]
     )
     vesc_to_odom_node = Node(
@@ -117,6 +127,7 @@ def generate_launch_description():
     ld.add_action(joy_node)
     ld.add_action(joy_teleop_node)
     ld.add_action(ackermann_to_vesc_node)
+    ld.add_action(throttle_interpolator_node)
     ld.add_action(vesc_to_odom_node)
     ld.add_action(vesc_driver_node)
 

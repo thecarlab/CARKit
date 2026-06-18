@@ -1,119 +1,134 @@
 # Navigation
 
-The navigation module contains the supported Nav2 workflow:
+The `navigation` module contains the supported mapping and Nav2 workflow:
 
 - `carkit_slam`: SLAM Toolbox 2D occupancy-grid mapping
-- `carkit_amcl`: AMCL, Nav2 parameters, and `/cmd_vel` to `/drive` bridge
-- `carkit_navigation`: top-level mapping/navigation launch orchestration
+- `carkit_amcl`: AMCL localization, Nav2 configuration, behavior trees, and the
+  Twist-to-Ackermann bridge
+- `carkit_navigation`: mapping and navigation launch orchestration
 
-All occupancy maps live in `/workspaces/CARKit/map` inside Docker, which is
-the repository's top-level `map/` folder.
+Occupancy maps are stored in `/workspaces/CARKit/map` inside Docker, which is
+the repository's top-level `map/` directory.
 
-## Launch Model
+## Before Starting
 
-`carkit_navigation` can start the LiDAR driver, `base_link -> laser` static
-transform, odom TF broadcaster, RViz, SLAM Toolbox, and Nav2 depending on the
-selected mode.
+Build and source the workspace:
 
-Nav2 publishes `/cmd_vel`; `twist_to_ackermann` converts it to `/drive`.
-Autonomous driving routes `/drive` through `carkit_control_center`.
-Mapping does not need the control center; use direct human control.
+```bash
+cd /workspaces/CARKit
+colcon build --symlink-install
+source install/setup.bash
+```
 
-## Mapping
-
-Start direct human control:
+The chassis is always started in a separate terminal with:
 
 ```bash
 ros2 launch carkit_human_control joystick.launch.py
 ```
 
-Start mapping:
+This launch starts the joystick, Ackermann command mux, VESC driver, odometry,
+low-level vehicle controller, throttle interpolator, and the
+`base_link -> laser` static transform.
+
+## Mapping
+
+Terminal 1, start the chassis:
+
+```bash
+ros2 launch carkit_human_control joystick.launch.py
+```
+
+Terminal 2, start mapping:
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
-  mode:=mapping
+  mode:=mapping \
+  start_static_tf:=false
 ```
+
+`start_static_tf:=false` prevents a duplicate `base_link -> laser` transform,
+because the chassis launch already publishes it.
 
 Save the map:
 
 ```bash
 ros2 run nav2_map_server map_saver_cli \
-  -f /workspaces/CARKit/map/map
+  -f /workspaces/CARKit/map/<map_name>
 ```
 
-This creates `/workspaces/CARKit/map/map.yaml` and
-`/workspaces/CARKit/map/map.pgm`.
+This creates `<map_name>.yaml` and `<map_name>.pgm` in
+`/workspaces/CARKit/map`.
 
-## Localization And Planning
+## Navigation
 
-Start vehicle bringup with the legacy mux output remapped away from
-`/ackermann_cmd`, then start the autonomous command arbiter:
+Terminal 1, start the chassis:
 
 ```bash
-ros2 launch carkit_human_control joystick.launch.py \
-  vehicle_command_topic:=/ackermann_mux_unused
+ros2 launch carkit_human_control joystick.launch.py
 ```
 
-```bash
-ros2 launch carkit_control_center control_center.launch.py
-```
-
-Start Nav2:
+Terminal 2, start localization and navigation:
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
   mode:=navigation \
   start_command_mux:=false \
-  map:=/workspaces/CARKit/map/map.yaml
+  start_static_tf:=false \
+  map:=/workspaces/CARKit/map/map_3f.yaml
 ```
+
+- `start_command_mux:=false` prevents starting a second Ackermann mux.
+- `start_static_tf:=false` prevents publishing the laser transform twice.
+- Replace `map_3f.yaml` with `map2.yaml` or another saved map when needed.
 
 In RViz:
 
-1. Use **2D Pose Estimate** to initialize AMCL.
-2. Wait for the particle cloud and pose to converge.
-3. Send a **Nav2 Goal**.
-4. Enter `AUTO_DRIVE` with the configured joystick button.
+1. Use **2D Pose Estimate** to set the initial vehicle pose.
+2. Wait for the AMCL particle cloud to converge around the vehicle.
+3. Use **Nav2 Goal** to send a single navigation goal.
 
-For AMCL/Nav2 debugging without the top-level orchestrator:
+## Multiple Poses In RViz
 
-```bash
-ros2 launch carkit_amcl nav2.launch.py \
-  map:=/workspaces/CARKit/map/map.yaml \
-  start_command_mux:=false
-```
+To navigate through several poses:
+
+1. In the **Navigation 2** panel, click
+   **Waypoint / Nav Through Poses Mode**.
+2. Select **Nav2 Goal** from the RViz toolbar. Do not use **2D Goal Pose**.
+3. Click and drag on the map to add each pose and its heading. Add the poses in
+   the order in which the vehicle should visit them.
+4. Click **Start Nav Through Poses** to execute them as one continuous
+   navigation task.
+
+Use **Cancel Accumulation** to clear poses that have not been started.
+**Start Waypoint Following** executes the same list through the waypoint
+follower and may run the configured task at every waypoint.
 
 ## Topic Flow
 
 ```text
 Mapping:
   /scan + /odom -> SLAM Toolbox -> /map
-  /joy -> joy_teleop -> /teleop -> ackermann_mux -> /ackermann_cmd
   /map -> map_saver_cli -> /workspaces/CARKit/map/*.yaml + *.pgm
 
 Navigation:
   /scan + /odom + saved map + /initialpose -> AMCL/Nav2
   Nav2 planner/controller -> /cmd_vel
   /cmd_vel -> twist_to_ackermann -> /drive
-  /drive -> carkit_control_center -> /ackermann_cmd
-
-Cone obstacles:
-  /behavior/cone_obstacles -> local/global Nav2 obstacle layers
+  /drive + teleop commands -> ackermann_mux -> /ackermann_cmd
+  /ackermann_cmd -> ackermann_to_vesc -> throttle_interpolator -> VESC
 ```
 
 ## Common Arguments
 
-- `mode:=mapping|navigation`: selects SLAM or AMCL/Nav2 workflow
-- `map:=/workspaces/CARKit/map/<name>.yaml`: navigation map
+- `mode:=mapping|navigation`: selects the workflow
+- `map:=/workspaces/CARKit/map/<name>.yaml`: selects the navigation map
 - `start_lidar:=true|false`: starts or skips the SLLiDAR driver
 - `start_static_tf:=true|false`: publishes or skips `base_link -> laser`
-- `start_odom_tf:=true|false`: republishes `/odom` as odom TF
-- `start_map_saver:=true|false`: starts map saver in mapping mode
-- `start_cmd_bridge:=true|false`: starts `/cmd_vel` to `/drive` bridge
-- `start_command_mux:=true|false`: starts the legacy Nav2 command mux. Use
-  `false` for autonomous driving through `carkit_control_center`.
+- `start_odom_tf:=true|false`: republishes `/odom` as `odom -> base_link`
+- `start_command_mux:=true|false`: starts or skips the Ackermann mux
 - `use_rviz:=true|false`: starts or skips RViz
-- `mapping_rviz_config`: overrides mapping RViz configuration
-- `planning_rviz_config`: overrides navigation RViz configuration
+- `mapping_rviz_config`: overrides the mapping RViz configuration
+- `planning_rviz_config`: overrides the navigation RViz configuration
 
 Show all arguments:
 
@@ -124,24 +139,22 @@ ros2 launch carkit_navigation navigation.launch.py --show-args
 ## Configuration
 
 - `carkit/navigation/carkit_amcl/config/nav2_params.yaml`
+- `carkit/navigation/carkit_amcl/behavior_trees/`
 - `carkit/navigation/carkit_slam/config/slam_toolbox_params.yaml`
 - `carkit/navigation/carkit_slam/rviz/mapping.rviz`
-- `carkit/navigation/carkit_amcl/rviz/localization.rviz`
 - `carkit/navigation/carkit_navigation/rviz/navigation.rviz`
+- `carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`
 - `map/`: generated and included occupancy maps
 
-The local and global obstacle layers use both `/scan` and
-`/behavior/cone_obstacles`.
-
-## Verify
+## Verification
 
 ```bash
 ros2 topic echo /map --once
+ros2 topic echo /odom --once
 ros2 topic echo /amcl_pose --once
-ros2 topic echo /drive --once
 ros2 run tf2_ros tf2_echo map base_link
 ```
 
 If AMCL does not publish, wait for the map to load and set the initial pose in
-RViz. If heading drifts, calibrate the VESC wheel parameters in
-`carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`.
+RViz. If odometry distance or heading is inaccurate, calibrate the VESC
+parameters in `carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`.
