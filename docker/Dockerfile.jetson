@@ -108,9 +108,22 @@ RUN git clone --branch "${LIBREALSENSE_VERSION}" --depth 1 https://github.com/In
       -DBUILD_UNIT_TESTS=OFF \
       -DBUILD_PYTHON_BINDINGS=OFF \
       -DFORCE_RSUSB_BACKEND=ON \
+      -DBUILD_WITH_CUDA=ON \
+      -DBUILD_GLSL_EXTENSIONS=ON \
+      -DBUILD_PC_STITCHING=ON \
     && cmake --build /tmp/librealsense/build --target install -- -j1 \
     && ldconfig \
-    && rm -rf /tmp/librealsense
+    && ldconfig -p | grep -q 'librealsense2\.so' \
+    && ldconfig -p | grep -q 'librealsense2-gl\.so' \
+    && mkdir -p /tmp/realsense-image-check-src \
+    && printf '%s\n' \
+      'cmake_minimum_required(VERSION 3.10)' \
+      'project(carkit_realsense_image_check NONE)' \
+      'find_package(realsense2 2.58.0 REQUIRED)' \
+      'find_package(realsense2-gl 2.58.0 REQUIRED)' \
+      > /tmp/realsense-image-check-src/CMakeLists.txt \
+    && cmake -S /tmp/realsense-image-check-src -B /tmp/realsense-image-check-build \
+    && rm -rf /tmp/librealsense /tmp/realsense-image-check-src /tmp/realsense-image-check-build
 
 RUN curl -L -o "/tmp/${CUSPARSELT_DEB}" \
       "https://developer.download.nvidia.com/compute/cusparselt/${CUSPARSELT_VERSION}/local_installers/${CUSPARSELT_DEB}" \
