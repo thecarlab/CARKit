@@ -188,6 +188,9 @@ class JoyTeleopTopicCommand(JoyTeleopCommand):
 
         self.pub = node.create_publisher(self.topic_type, config['topic_name'], qos)
 
+        self.publish_rate = float(config.get('publish_rate', 0.0))
+        self._last_publish_time = None
+
     def run(self, node: Node, joy_state: sensor_msgs.msg.Joy, force_active: bool = False) -> None:
         # The logic for responding to this joystick press is:
         # 1.  Save off the current state of active.
@@ -208,6 +211,15 @@ class JoyTeleopTopicCommand(JoyTeleopCommand):
             return
         if self.msg_value is not None and last_active == self.active:
             return
+
+        if self.publish_rate > 0.0:
+            now = node.get_clock().now()
+            if self._last_publish_time is not None:
+                elapsed = (now - self._last_publish_time).nanoseconds * 1e-9
+                min_interval = 1.0 / self.publish_rate
+                if elapsed + 1e-3 < min_interval:
+                    return
+            self._last_publish_time = now
 
         if self.msg_value is not None:
             # This is the case for a static message.

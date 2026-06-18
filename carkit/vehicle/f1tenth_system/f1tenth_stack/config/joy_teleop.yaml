@@ -1,9 +1,15 @@
 joy:
   ros__parameters:
-    dev: /dev/input/js0
-    deadzone: 0.01
+    device_id: 0
+    deadzone: 0.05
     autorepeat_rate: 20.0
-    coalesce_interval: 0.01
+    coalesce_interval_ms: 50
+
+joy_rate_filter:
+  ros__parameters:
+    input_topic: joy_device
+    output_topic: joy
+    publish_rate: 20.0
 
 joy_teleop:
   ros__parameters:
