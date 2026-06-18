@@ -69,7 +69,7 @@ def generate_launch_description():
             'cmd_vel_topic': '/cmd_vel',
             'ackermann_topic': '/drive',
             'wheelbase': 0.25,
-            'max_speed': 1.5,
+            'max_speed': 3.0,
             'max_reverse_speed': 0.3,
             'max_steering_angle': 0.27,
             'min_speed_for_steering': 0.05,
