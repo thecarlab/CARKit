@@ -20,6 +20,8 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration("start_camera")),
         parameters=[{
             "enable_color": True,
+            "rgb_camera.color_profile": "640x480x15",
+            "rgb_camera.color_format": "RGB8",
             "enable_depth": False,
             "enable_infra": False,
             "enable_infra1": False,
