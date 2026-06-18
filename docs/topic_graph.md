@@ -108,16 +108,13 @@ ros2 launch carkit_navigation navigation.launch.py \
 RealSense color image
   -> /camera/camera/color/image_raw
 
-RealSense aligned depth
-  -> /camera/camera/aligned_depth_to_color/image_raw
+RealSense color camera info
+  -> /camera/camera/color/camera_info
 
-RealSense aligned camera info
-  -> /camera/camera/aligned_depth_to_color/camera_info
-
-color + aligned depth + aligned camera_info
-  -> perception_3d_node
-  -> /yolo/detections_3d
-     (carkit_perception_msgs/msg/YoloDetection3DArray)
+color image
+  -> perception_2d_node
+  -> /yolo/detections_2d
+     (carkit_perception_msgs/msg/YoloDetection2DArray)
   -> carkit_behavior
 ```
 
@@ -125,8 +122,9 @@ Behavior inputs:
 
 ```text
 /control_center/main_state
-/yolo/detections_3d
-/odom
+/yolo/detections_2d
+/camera/camera/color/camera_info
+/scan
   -> carkit_behavior
 ```
 

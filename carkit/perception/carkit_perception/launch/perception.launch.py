@@ -11,21 +11,43 @@ from launch_ros.actions import Node
 def generate_launch_description():
     package_share = get_package_share_directory("carkit_perception")
 
-    perception_3d_node = Node(
+    camera = Node(
+        package="realsense2_camera",
+        executable="realsense2_camera_node",
+        namespace="camera",
+        name="camera",
+        output="screen",
+        condition=IfCondition(LaunchConfiguration("start_camera")),
+        parameters=[{
+            "enable_color": True,
+            "enable_depth": False,
+            "enable_infra": False,
+            "enable_infra1": False,
+            "enable_infra2": False,
+            "enable_gyro": False,
+            "enable_accel": False,
+            "enable_motion": False,
+            "enable_rgbd": False,
+            "enable_sync": False,
+            "align_depth.enable": False,
+            "pointcloud.enable": False,
+        }],
+    )
+
+    perception_2d_node = Node(
         package="carkit_perception",
-        executable="perception_3d_node",
-        name="perception_3d_node",
+        executable="perception_2d_node",
+        name="perception_2d_node",
         output="screen",
         parameters=[{
             "model_path": LaunchConfiguration("model_path"),
             "image_size": LaunchConfiguration("image_size"),
             "image_topic": LaunchConfiguration("image_topic"),
-            "depth_topic": LaunchConfiguration("depth_topic"),
-            "camera_info_topic": LaunchConfiguration("camera_info_topic"),
-            "inference_image_topic": LaunchConfiguration("inference_image_topic"),
-            "detection_3d_topic": LaunchConfiguration("detection_3d_topic"),
+            "inference_image_topic": LaunchConfiguration(
+                "inference_image_topic"
+            ),
+            "detection_2d_topic": LaunchConfiguration("detection_2d_topic"),
             "min_confidence": LaunchConfiguration("min_confidence"),
-            "sync_slop": LaunchConfiguration("sync_slop"),
         }],
     )
 
@@ -53,28 +75,29 @@ def generate_launch_description():
             default_value="/camera/camera/color/image_raw",
         ),
         DeclareLaunchArgument(
-            "depth_topic",
-            default_value="/camera/camera/aligned_depth_to_color/image_raw",
-        ),
-        DeclareLaunchArgument(
-            "camera_info_topic",
-            default_value="/camera/camera/aligned_depth_to_color/camera_info",
-        ),
-        DeclareLaunchArgument(
             "inference_image_topic",
             default_value="/yolo/inference_image",
         ),
         DeclareLaunchArgument(
-            "detection_3d_topic",
-            default_value="/yolo/detections_3d",
+            "detection_2d_topic",
+            default_value="/yolo/detections_2d",
         ),
         DeclareLaunchArgument("min_confidence", default_value="0.2"),
-        DeclareLaunchArgument("sync_slop", default_value="0.08"),
+        DeclareLaunchArgument(
+            "start_camera",
+            default_value="true",
+            description="Start a color-only RealSense driver.",
+        ),
         DeclareLaunchArgument(
             "rviz_config",
-            default_value=os.path.join(package_share, "rviz", "perception.rviz"),
+            default_value=os.path.join(
+                package_share,
+                "rviz",
+                "perception.rviz",
+            ),
         ),
         DeclareLaunchArgument("start_rviz", default_value="true"),
-        perception_3d_node,
+        camera,
+        perception_2d_node,
         rviz_node,
     ])

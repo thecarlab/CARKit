@@ -38,22 +38,25 @@ ros2 topic echo /scan --once
 
 ## RealSense
 
-Perception expects color, aligned depth, and aligned camera info:
+The perception launch starts RealSense in color-only mode. For a direct
+driver-only check, use the same low-CPU configuration:
 
 ```bash
 ros2 launch realsense2_camera rs_launch.py \
   enable_color:=true \
-  enable_depth:=true \
-  align_depth.enable:=true \
-  enable_sync:=true
+  enable_depth:=false \
+  enable_infra:=false \
+  enable_infra1:=false \
+  enable_infra2:=false \
+  align_depth.enable:=false \
+  enable_sync:=false \
+  pointcloud.enable:=false
 ```
 
 Expected topics:
 
 - `/camera/camera/color/image_raw` (`sensor_msgs/Image`)
-- `/camera/camera/aligned_depth_to_color/image_raw` (`sensor_msgs/Image`)
-- `/camera/camera/aligned_depth_to_color/camera_info`
-  (`sensor_msgs/CameraInfo`)
+- `/camera/camera/color/camera_info` (`sensor_msgs/CameraInfo`)
 
 For IMU experiments, enable gyro and accel:
 

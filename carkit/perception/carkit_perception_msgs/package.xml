@@ -3,7 +3,7 @@
 <package format="3">
   <name>carkit_perception_msgs</name>
   <version>0.1.0</version>
-  <description>Typed 3D detection interfaces for CARKit perception.</description>
+  <description>Typed 2D detection interfaces for CARKit perception.</description>
   <maintainer email="ada@todo.todo">CARKit maintainers</maintainer>
   <license>Apache-2.0</license>
 

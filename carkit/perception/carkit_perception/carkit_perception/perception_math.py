@@ -49,67 +49,6 @@ def clipped_bbox(
     return left, top, right, bottom
 
 
-def depth_to_meters(depth: np.ndarray, encoding: str) -> np.ndarray:
-    depth_float = depth.astype(np.float32)
-    if encoding in ("16UC1", "mono16") or depth.dtype == np.uint16:
-        return depth_float / 1000.0
-    return depth_float
-
-
-def median_detection_depth(
-    depth_image: np.ndarray,
-    depth_encoding: str,
-    bbox: tuple[float, float, float, float],
-    min_depth: float,
-    max_depth: float,
-) -> Optional[float]:
-    height, width = depth_image.shape[:2]
-    bounds = clipped_bbox(bbox, width, height)
-    if bounds is None:
-        return None
-
-    left, top, right, bottom = bounds
-    box_width = right - left
-    box_height = bottom - top
-
-    for fraction in (0.4, 0.8):
-        margin_x = int(box_width * (1.0 - fraction) / 2.0)
-        margin_y = int(box_height * (1.0 - fraction) / 2.0)
-        region = depth_image[
-            top + margin_y:bottom - margin_y,
-            left + margin_x:right - margin_x,
-        ]
-        if region.size == 0:
-            continue
-
-        depth_meters = depth_to_meters(region, depth_encoding)
-        valid = depth_meters[
-            np.isfinite(depth_meters)
-            & (depth_meters >= min_depth)
-            & (depth_meters <= max_depth)
-        ]
-        if valid.size:
-            return float(np.median(valid))
-
-    return None
-
-
-def project_pixel_to_camera(
-    bbox: tuple[float, float, float, float],
-    depth: float,
-    fx: float,
-    fy: float,
-    cx: float,
-    cy: float,
-) -> tuple[float, float, float]:
-    x1, y1, x2, y2 = bbox
-    u = (x1 + x2) / 2.0
-    v = (y1 + y2) / 2.0
-    x = (u - cx) * depth / fx
-    y = (v - cy) * depth / fy
-    return float(x), float(y), float(depth)
-
-
 class TrafficLightClassifier:
     def __init__(
         self,
@@ -162,15 +101,24 @@ class TrafficLightClassifier:
             start = int(crop.shape[0] * start_fraction)
             end = max(start + 1, int(crop.shape[0] * end_fraction))
             third = mask[start:end, :]
-            positional_ratio = float(np.count_nonzero(third)) / float(third.size)
+            positional_ratio = (
+                float(np.count_nonzero(third)) / float(third.size)
+            )
             full_ratio = float(np.count_nonzero(mask)) / crop_area
             scores[color] = positional_ratio + 0.25 * full_ratio
 
-        ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+        ranked = sorted(
+            scores.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
         best_color, best_score = ranked[0]
         runner_up_score = ranked[1][1]
         if best_score < self.min_ratio:
             return TRAFFIC_LIGHT_UNKNOWN
-        if runner_up_score > 0.0 and best_score < runner_up_score * self.winner_margin:
+        if (
+            runner_up_score > 0.0
+            and best_score < runner_up_score * self.winner_margin
+        ):
             return TRAFFIC_LIGHT_UNKNOWN
         return best_color

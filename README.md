@@ -10,7 +10,7 @@ control arbiter.
 - Jetson Orin Nano with JetPack 6.x / L4T 36.x
 - Docker with NVIDIA runtime
 - Slamtec SLLiDAR publishing `/scan`
-- Intel RealSense color and aligned depth
+- Intel RealSense color camera
 - Ackermann/F1TENTH-style vehicle with VESC odometry
 
 ROS 2 and CARKit dependencies run inside `ariiees/carkit:latest`. The host
@@ -53,7 +53,7 @@ Autonomous driving:
 ```text
 /joy -> joy_teleop -> /teleop
 Nav2 -> /cmd_vel -> twist_to_ackermann -> /drive
-/yolo/detections_3d -> carkit_behavior -> /behavior/*
+/yolo/detections_2d -> carkit_behavior -> /behavior/*
 /teleop + /drive + /behavior/* + /joy -> carkit_control_center -> /ackermann_cmd
 /ackermann_cmd -> ackermann_to_vesc_node -> VESC
 VESC feedback -> /odom
@@ -125,17 +125,7 @@ map:=/workspaces/CARKit/map/map_3f.yaml
 
 ## Perception And Behavior
 
-Start RealSense color and aligned depth:
-
-```bash
-ros2 launch realsense2_camera rs_launch.py \
-  enable_color:=true \
-  enable_depth:=true \
-  align_depth.enable:=true \
-  enable_sync:=true
-```
-
-Start typed YOLO perception:
+Start the color-only RealSense driver and typed 2D YOLO perception together:
 
 ```bash
 export LD_LIBRARY_PATH=/usr/local/lib/python3.10/dist-packages/nvidia/cusparselt/lib:$LD_LIBRARY_PATH
@@ -157,7 +147,7 @@ Behavior logic only affects commands while the control center is in
 carkit/
   control/       human teleop, behavior layer, autonomous command arbiter
   navigation/    SLAM Toolbox, AMCL, Nav2, Twist-to-Ackermann bridge
-  perception/    YOLO depth projection and typed detection messages
+  perception/    color-only YOLO and typed 2D detection messages
   sensors/       sensor driver fetch notes and transform nodes
   vehicle/       vendored F1TENTH/VESC vehicle stack
   tools/         classroom utilities and demos

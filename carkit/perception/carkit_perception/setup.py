@@ -26,7 +26,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'perception_3d_node = carkit_perception.perception_3d_node:main',
+            'perception_2d_node = carkit_perception.perception_2d_node:main',
         ],
     },
 )

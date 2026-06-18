@@ -25,7 +25,7 @@ Autonomous driving uses `carkit_control_center` as the final arbiter:
 ```text
 /joy -> joy_teleop -> /teleop
 Nav2 -> /cmd_vel -> twist_to_ackermann -> /drive
-/yolo/detections_3d -> carkit_behavior -> /behavior/*
+/yolo/detections_2d -> carkit_behavior -> /behavior/*
 /teleop + /drive + /behavior/* + /joy -> carkit_control_center -> /ackermann_cmd
 /ackermann_cmd -> ackermann_to_vesc_node -> VESC motor and servo commands
 VESC feedback -> vesc_to_odom_node -> /odom
@@ -115,9 +115,10 @@ Defaults live in `carkit_control_center/config/control_center.yaml`.
 `carkit_behavior` subscribes to:
 
 - `/control_center/main_state` (`std_msgs/String`)
-- `/yolo/detections_3d`
-  (`carkit_perception_msgs/msg/YoloDetection3DArray`)
-- `/odom` (`nav_msgs/Odometry`)
+- `/yolo/detections_2d`
+  (`carkit_perception_msgs/msg/YoloDetection2DArray`)
+- `/scan` (`sensor_msgs/LaserScan`)
+- `/camera/camera/color/camera_info` (`sensor_msgs/CameraInfo`)
 
 It publishes:
 
@@ -132,8 +133,14 @@ Priority is stop sign, traffic light, cone, then normal Nav2.
 
 - Stop signs publish a zero override for the configured stop duration.
 - Red/yellow traffic lights publish a zero override while fresh.
-- Cone detections publish PointCloud2 obstacles and a temporary speed limit;
-  Nav2 handles steering by replanning around the costmap obstacle.
+- Stop signs and cones use their 2D bearing with lidar for metric range.
+- Camera/lidar fusion accounts for the camera being mounted 0.08 m forward of
+  the lidar. The camera's 0.08 m lower mounting height cannot be corrected
+  from a planar scan, so cones must intersect the lidar plane to be localized.
+- Nearby red/yellow lights stop the car; green releases the override. The
+  configurable bounding-box height ratio filters distant lights.
+- Cone detections publish lidar-frame PointCloud2 obstacles and a temporary
+  speed limit; Nav2 handles steering by replanning around them.
 
 Defaults live in `carkit_behavior/config/behavior_center.yaml`.
 

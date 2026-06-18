@@ -4,18 +4,22 @@ behavior_center_node:
     detection_timeout_sec: 0.5
     scan_topic: /scan
     scan_timeout_sec: 0.5
-    camera_info_topic: /camera/camera/aligned_depth_to_color/camera_info
+    camera_info_topic: /camera/camera/color/camera_info
     camera_horizontal_fov_deg: 69.4
     camera_to_scan_yaw_offset_rad: 0.0
+    camera_forward_offset_m: 0.08
+    camera_lateral_offset_m: 0.0
     stop_sign_trigger_distance_m: 1.0
     stop_sign_lidar_angle_window_deg: 8.0
     stop_sign_lidar_min_range_m: 0.15
     stop_sign_lidar_max_range_m: 10.0
     stop_sign_stop_duration_sec: 5.0
     stop_sign_cooldown_sec: 10.0
-    traffic_light_trigger_distance_m: 4.0
+    traffic_light_min_bbox_height_ratio: 0.06
     traffic_light_hold_timeout_sec: 0.5
     cone_trigger_distance_m: 3.0
+    cone_lidar_angle_window_deg: 6.0
+    cone_lidar_min_range_m: 0.15
+    cone_lidar_max_range_m: 10.0
     cone_speed_limit_mps: 0.3
     cone_obstacle_radius_m: 0.25
-    cone_ttl_sec: 1.0

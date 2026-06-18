@@ -35,7 +35,7 @@ This launch starts:
 - `path_tracker`, which subscribes to `/object_position` and publishes
   `/object_path` and `/object_waypoints`
 
-Current `carkit_perception` publishes typed `/yolo/detections_3d`, not the
+Current `carkit_perception` publishes typed `/yolo/detections_2d`, not the
 legacy string `/yolo/detections`, so this demo needs a compatible legacy YOLO
 publisher or a future adapter before it can consume current perception output.
 
