@@ -94,6 +94,7 @@ def generate_launch_description():
             'odom_topic': '/odom',
             'odom_frame': 'odom',
             'base_frame': base_frame,
+            'use_message_stamp': True,
         }],
         condition=IfCondition(start_odom_tf),
     )

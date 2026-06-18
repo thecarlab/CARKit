@@ -14,7 +14,7 @@ class OdomTfBroadcaster(Node):
         self.declare_parameter('odom_topic', '/odom')
         self.declare_parameter('odom_frame', 'odom')
         self.declare_parameter('base_frame', 'base_link')
-        self.declare_parameter('use_message_stamp', False)
+        self.declare_parameter('use_message_stamp', True)
 
         self.odom_topic = self.get_parameter('odom_topic').value
         self.odom_frame = self.get_parameter('odom_frame').value

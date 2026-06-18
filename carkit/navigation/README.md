@@ -1,28 +1,44 @@
-# TODO
-- [ ] Check the whole mapping code and localization & planning code, mapping should launch its own RViz config, localization & planning should have another RViz config. Or you can make all of them use the same RViz config, just make it clean and easy to modify.
-- [ ] Try to see if you can replace the control with a different control algorithm. Which one would be better? Use the best-performing one.
-
 # Navigation
 
-The `navigation` module contains the complete supported Nav2 workflow:
+The `navigation` module contains the supported mapping and Nav2 workflow:
 
 - `carkit_slam`: SLAM Toolbox 2D occupancy-grid mapping
-- `carkit_amcl`: AMCL localization, Nav2 configuration, and Ackermann bridge
+- `carkit_amcl`: AMCL localization, Nav2 configuration, behavior trees, and the
+  Twist-to-Ackermann bridge
 - `carkit_navigation`: mapping and navigation launch orchestration
 
-All occupancy maps are stored in `/workspaces/CARKit/map` inside Docker,
-which is the repository's top-level `map/` folder. Do not create package-local
-map folders.
+Occupancy maps are stored in `/workspaces/CARKit/map` inside Docker, which is
+the repository's top-level `map/` directory.
 
-## Mapping
+## Before Starting
 
-Start VESC odometry:
+Build and source the workspace:
+
+```bash
+cd /workspaces/CARKit
+colcon build --symlink-install
+source install/setup.bash
+```
+
+The chassis is always started in a separate terminal with:
 
 ```bash
 ros2 launch carkit_human_control joystick.launch.py
 ```
 
-Start Nav2 mapping:
+This launch starts the joystick, Ackermann command mux, VESC driver, odometry,
+low-level vehicle controller, throttle interpolator, and the
+`base_link -> laser` static transform.
+
+## Mapping
+
+Terminal 1, start the chassis:
+
+```bash
+ros2 launch carkit_human_control joystick.launch.py
+```
+
+Terminal 2, start mapping:
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
@@ -30,50 +46,62 @@ ros2 launch carkit_navigation navigation.launch.py \
   start_static_tf:=false
 ```
 
+`start_static_tf:=false` prevents a duplicate `base_link -> laser` transform,
+because the chassis launch already publishes it.
+
 Save the map:
 
 ```bash
 ros2 run nav2_map_server map_saver_cli \
-  -f /workspaces/CARKit/map/map
+  -f /workspaces/CARKit/map/<map_name>
 ```
 
-This creates `/workspaces/CARKit/map/map.yaml` and
-`/workspaces/CARKit/map/map.pgm`.
+This creates `<map_name>.yaml` and `<map_name>.pgm` in
+`/workspaces/CARKit/map`.
 
-## Localization And Planning
+## Navigation
 
-Start VESC odometry:
+Terminal 1, start the chassis:
 
 ```bash
 ros2 launch carkit_human_control joystick.launch.py
 ```
 
-Start Nav2:
+Terminal 2, start localization and navigation:
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
   mode:=navigation \
   start_command_mux:=false \
   start_static_tf:=false \
-  map:=/workspaces/CARKit/map/map.yaml
+  map:=/workspaces/CARKit/map/map_3f.yaml
 ```
+
+- `start_command_mux:=false` prevents starting a second Ackermann mux.
+- `start_static_tf:=false` prevents publishing the laser transform twice.
+- Replace `map_3f.yaml` with `map2.yaml` or another saved map when needed.
 
 In RViz:
 
-1. Use **2D Pose Estimate** to initialize AMCL.
-2. Wait for the particle cloud and pose to converge.
-3. Send a **Nav2 Goal**.
+1. Use **2D Pose Estimate** to set the initial vehicle pose.
+2. Wait for the AMCL particle cloud to converge around the vehicle.
+3. Use **Nav2 Goal** to send a single navigation goal.
 
-For AMCL localization debugging without the navigation orchestrator:
+## Multiple Poses In RViz
 
-```bash
-ros2 launch carkit_amcl nav2.launch.py \
-  map:=/workspaces/CARKit/map/map.yaml
-```
+To navigate through several poses:
 
-This direct launch uses the localization RViz configuration. The combined
-`carkit_navigation` launch uses the planning RViz configuration in navigation
-mode.
+1. In the **Navigation 2** panel, click
+   **Waypoint / Nav Through Poses Mode**.
+2. Select **Nav2 Goal** from the RViz toolbar. Do not use **2D Goal Pose**.
+3. Click and drag on the map to add each pose and its heading. Add the poses in
+   the order in which the vehicle should visit them.
+4. Click **Start Nav Through Poses** to execute them as one continuous
+   navigation task.
+
+Use **Cancel Accumulation** to clear poses that have not been started.
+**Start Waypoint Following** executes the same list through the waypoint
+follower and may run the configured task at every waypoint.
 
 ## Topic Flow
 
@@ -86,20 +114,21 @@ Navigation:
   /scan + /odom + saved map + /initialpose -> AMCL/Nav2
   Nav2 planner/controller -> /cmd_vel
   /cmd_vel -> twist_to_ackermann -> /drive
-  /drive -> ackermann_mux -> /ackermann_cmd
+  /drive + teleop commands -> ackermann_mux -> /ackermann_cmd
+  /ackermann_cmd -> ackermann_to_vesc -> throttle_interpolator -> VESC
 ```
 
 ## Common Arguments
 
-- `mode:=mapping|navigation`: selects the Nav2 workflow
+- `mode:=mapping|navigation`: selects the workflow
 - `map:=/workspaces/CARKit/map/<name>.yaml`: selects the navigation map
 - `start_lidar:=true|false`: starts or skips the SLLiDAR driver
 - `start_static_tf:=true|false`: publishes or skips `base_link -> laser`
-- `start_odom_tf:=true|false`: republishes `/odom` as an odometry TF
+- `start_odom_tf:=true|false`: republishes `/odom` as `odom -> base_link`
 - `start_command_mux:=true|false`: starts or skips the Ackermann mux
 - `use_rviz:=true|false`: starts or skips RViz
 - `mapping_rviz_config`: overrides the mapping RViz configuration
-- `planning_rviz_config`: overrides the Nav2 planning RViz configuration
+- `planning_rviz_config`: overrides the navigation RViz configuration
 
 Show all arguments:
 
@@ -110,20 +139,22 @@ ros2 launch carkit_navigation navigation.launch.py --show-args
 ## Configuration
 
 - `carkit/navigation/carkit_amcl/config/nav2_params.yaml`
+- `carkit/navigation/carkit_amcl/behavior_trees/`
 - `carkit/navigation/carkit_slam/config/slam_toolbox_params.yaml`
 - `carkit/navigation/carkit_slam/rviz/mapping.rviz`
-- `carkit/navigation/carkit_amcl/rviz/localization.rviz`
-- `carkit/navigation/carkit_navigation/rviz/planning.rviz`
-- `map/`: the only location for generated and included occupancy maps
+- `carkit/navigation/carkit_navigation/rviz/navigation.rviz`
+- `carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`
+- `map/`: generated and included occupancy maps
 
-## Verify
+## Verification
 
 ```bash
 ros2 topic echo /map --once
+ros2 topic echo /odom --once
 ros2 topic echo /amcl_pose --once
 ros2 run tf2_ros tf2_echo map base_link
 ```
 
 If AMCL does not publish, wait for the map to load and set the initial pose in
-RViz. If heading drifts, calibrate the VESC wheel parameters in
-`carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`.
+RViz. If odometry distance or heading is inaccurate, calibrate the VESC
+parameters in `carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`.
