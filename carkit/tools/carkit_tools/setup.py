@@ -31,6 +31,7 @@ setup(
             'object_position = carkit_tools.object_position:main',
             'path_tracker = carkit_tools.path_tracker:main',
             'cmd_vel_to_ackermann = carkit_tools.cmd_vel_to_ackermann:main',
+            'stop_monitor = carkit_tools.stop_monitor_node:main',
         ],
     },
 ) 

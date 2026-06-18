@@ -2,7 +2,15 @@ behavior_center_node:
   ros__parameters:
     min_confidence: 0.55
     detection_timeout_sec: 0.5
-    stop_sign_trigger_distance_m: 2.0
+    scan_topic: /scan
+    scan_timeout_sec: 0.5
+    camera_info_topic: /camera/camera/aligned_depth_to_color/camera_info
+    camera_horizontal_fov_deg: 69.4
+    camera_to_scan_yaw_offset_rad: 0.0
+    stop_sign_trigger_distance_m: 1.0
+    stop_sign_lidar_angle_window_deg: 8.0
+    stop_sign_lidar_min_range_m: 0.15
+    stop_sign_lidar_max_range_m: 10.0
     stop_sign_stop_duration_sec: 5.0
     stop_sign_cooldown_sec: 10.0
     traffic_light_trigger_distance_m: 4.0
