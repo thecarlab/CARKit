@@ -37,6 +37,35 @@ source install/setup.bash
 `build_workspace.sh` fetches vendored sensor repos and builds the mounted
 workspace at `/workspaces/CARKit`.
 
+## Host IP Monitor
+
+The Jetson host can report the current wireless IPv4 address for remote access.
+Install the boot service from the host, not inside the Docker container:
+
+```bash
+sudo ./carkit/tools/install_ip_monitor_service.sh
+```
+
+The service monitors `wlP1p1s0` by default, sends a notification on boot and
+whenever the IPv4 address changes, and writes the latest value to:
+
+```bash
+/var/lib/carkit/ip-monitor/latest_ip
+```
+
+To enable email or another notification method, edit:
+
+```bash
+sudo nano /etc/carkit/ip-monitor.env
+sudo systemctl restart carkit-ip-monitor.service
+```
+
+View live logs with:
+
+```bash
+journalctl -u carkit-ip-monitor.service -f
+```
+
 ## Topic Flow
 
 Manual driving and mapping:
