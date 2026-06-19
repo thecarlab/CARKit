@@ -16,6 +16,13 @@ behavior_center_node:
     stop_sign_lidar_max_range_m: 10.0
     stop_sign_stop_duration_sec: 5.0
     stop_sign_cooldown_sec: 10.0
+    stop_sign_min_confidence: 0.6
+    stop_sign_map_frame: map
+    robot_base_frame: base_link
+    stop_sign_required_observations: 3
+    stop_sign_track_match_distance_m: 1.0
+    stop_sign_clear_distance_m: 10.0
+    stop_sign_passed_distance_increase_m: 0.2
     traffic_light_min_bbox_height_ratio: 0.06
     traffic_light_hold_timeout_sec: 0.5
     cone_trigger_distance_m: 3.0

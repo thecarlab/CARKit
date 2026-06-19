@@ -4,7 +4,10 @@ from types import SimpleNamespace
 from carkit_perception_msgs.msg import YoloTrafficLightDetection2D
 from sensor_msgs.msg import LaserScan
 
-from carkit_behavior.behavior_center_node import BehaviorCenterNode
+from carkit_behavior.behavior_center_node import (
+    BehaviorCenterNode,
+    StopSignTrack,
+)
 
 
 def make_node():
@@ -22,8 +25,19 @@ def make_node():
     node.stop_sign_lidar_min_range_m = 0.15
     node.stop_sign_lidar_max_range_m = 10.0
     node.stop_sign_trigger_distance_m = 2.0
+    node.stop_sign_min_confidence = 0.75
+    node.stop_sign_map_frame = "map"
+    node.robot_base_frame = "base_link"
+    node.stop_sign_required_observations = 3
+    node.stop_sign_track_match_distance_m = 1.0
+    node.stop_sign_clear_distance_m = 10.0
+    node.stop_sign_passed_distance_increase_m = 0.2
     node.stop_cooldown_until = 0.0
     node.last_stop_sign_debug_sec = 10.0
+    node.current_pose_frame = "map"
+    node.current_robot_x = 0.0
+    node.current_robot_y = 0.0
+    node.stop_sign_tracks = []
     node.traffic_light_min_bbox_height_ratio = 0.06
     node.traffic_light_hold_timeout_sec = 0.5
     node.traffic_light_hold_until = 0.0
@@ -35,10 +49,15 @@ def make_node():
     return node
 
 
-def detection(class_name, color=0, box=(300.0, 100.0, 340.0, 160.0)):
+def detection(
+    class_name,
+    color=0,
+    box=(300.0, 100.0, 340.0, 160.0),
+    confidence=0.9,
+):
     return SimpleNamespace(
         class_name=class_name,
-        confidence=0.9,
+        confidence=confidence,
         bbox_x_min=box[0],
         bbox_y_min=box[1],
         bbox_x_max=box[2],
@@ -107,13 +126,64 @@ def test_red_and_yellow_stop_and_green_releases():
     assert node.traffic_light_hold_until == 0.0
 
 
-def test_stop_sign_uses_lidar_distance_and_cooldown():
+def reliable_track(x, y):
+    track = StopSignTrack(x, y, 0.9)
+    track.observations = 3
+    return track
+
+
+def test_stop_sign_tracking_requires_confidence_and_observations():
     node = make_node()
-    msg = detection_array(detection("stop sign"))
-    assert node.stop_sign_triggered(msg, 1.0, centered_scan(1.0))
-    assert not node.stop_sign_triggered(msg, 1.0, centered_scan(3.0))
-    node.stop_cooldown_until = 2.0
-    assert not node.stop_sign_triggered(msg, 1.0, centered_scan(1.0))
+    low_confidence = detection("stop sign", confidence=0.7)
+    assert node.best_stop_sign_detection(detection_array(low_confidence)) is None
+
+    track = node.record_stop_sign_observation(4.0, 0.0, 0.9)
+    assert not node.stop_sign_track_reliable(track)
+    node.record_stop_sign_observation(4.2, 0.1, 0.9)
+    node.record_stop_sign_observation(3.8, -0.1, 0.9)
+
+    assert len(node.stop_sign_tracks) == 1
+    assert node.stop_sign_track_reliable(track)
+    assert abs(track.x - 4.0) < 1.0e-6
+    assert abs(track.y) < 1.0e-6
+
+
+def test_stop_sign_triggers_once_when_robot_is_near_map_track():
+    node = make_node()
+    node.stop_sign_tracks = [reliable_track(1.0, 0.0)]
+
+    assert node.stop_sign_triggered(1.0)
+    assert node.stop_sign_tracks[0].stopped
+    assert not node.stop_sign_triggered(1.1)
+
+
+def test_stop_sign_triggers_when_robot_passes_unreached_track():
+    node = make_node()
+    node.stop_sign_trigger_distance_m = 1.0
+    node.stop_sign_tracks = [reliable_track(5.0, 0.0)]
+
+    node.current_robot_x = 0.0
+    assert not node.stop_sign_triggered(1.0)
+    node.current_robot_x = 2.5
+    assert not node.stop_sign_triggered(1.1)
+    node.current_robot_x = 2.1
+    assert node.stop_sign_triggered(1.2)
+
+
+def test_reliable_stop_sign_latches_until_far_new_sign():
+    node = make_node()
+    latched = reliable_track(4.0, 0.0)
+    node.stop_sign_tracks = [latched]
+
+    assert node.record_stop_sign_observation(7.0, 0.0, 0.9) is latched
+    assert node.stop_sign_tracks == [latched]
+    assert latched.x == 4.0
+
+    new_track = node.record_stop_sign_observation(15.0, 0.0, 0.9)
+    assert node.stop_sign_tracks == [new_track]
+    assert new_track is not latched
+    assert new_track.x == 15.0
+    assert not node.stop_sign_track_reliable(new_track)
 
 
 def test_lidar_matching_accounts_for_forward_camera_offset():

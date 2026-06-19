@@ -17,6 +17,7 @@
   <depend>sensor_msgs</depend>
   <depend>sensor_msgs_py</depend>
   <depend>std_msgs</depend>
+  <depend>tf2_ros</depend>
 
   <test_depend>python3-pytest</test_depend>
 

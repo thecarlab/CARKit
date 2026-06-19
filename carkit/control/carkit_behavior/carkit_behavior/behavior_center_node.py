@@ -16,9 +16,11 @@ from nav_msgs.msg import Odometry
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.time import Time as RclpyTime
 from sensor_msgs.msg import CameraInfo, LaserScan, PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Bool, Float32, Header, String
+from tf2_ros import Buffer, TransformException, TransformListener
 
 
 NORMAL_NAV2 = "NORMAL_NAV2"
@@ -44,6 +46,43 @@ class ObjectLocation:
         self.y = y
 
 
+class MapPoint:
+    __slots__ = ("x", "y")
+
+    def __init__(self, x: float, y: float) -> None:
+        self.x = x
+        self.y = y
+
+
+class StopSignTrack:
+    __slots__ = (
+        "x",
+        "y",
+        "weight",
+        "observations",
+        "stopped",
+        "last_distance_m",
+        "min_distance_m",
+    )
+
+    def __init__(self, x: float, y: float, confidence: float) -> None:
+        self.x = x
+        self.y = y
+        self.weight = max(0.01, confidence)
+        self.observations = 1
+        self.stopped = False
+        self.last_distance_m: Optional[float] = None
+        self.min_distance_m: Optional[float] = None
+
+    def update(self, x: float, y: float, confidence: float) -> None:
+        weight = max(0.01, confidence)
+        total_weight = self.weight + weight
+        self.x = (self.x * self.weight + x * weight) / total_weight
+        self.y = (self.y * self.weight + y * weight) / total_weight
+        self.weight = total_weight
+        self.observations += 1
+
+
 class BehaviorCenterNode(Node):
     def __init__(self) -> None:
         super().__init__("behavior_center_node")
@@ -67,6 +106,13 @@ class BehaviorCenterNode(Node):
         self.declare_parameter("stop_sign_lidar_max_range_m", 10.0)
         self.declare_parameter("stop_sign_stop_duration_sec", 5.0)
         self.declare_parameter("stop_sign_cooldown_sec", 10.0)
+        self.declare_parameter("stop_sign_min_confidence", 0.75)
+        self.declare_parameter("stop_sign_map_frame", "map")
+        self.declare_parameter("robot_base_frame", "base_link")
+        self.declare_parameter("stop_sign_required_observations", 3)
+        self.declare_parameter("stop_sign_track_match_distance_m", 1.0)
+        self.declare_parameter("stop_sign_clear_distance_m", 10.0)
+        self.declare_parameter("stop_sign_passed_distance_increase_m", 0.2)
         self.declare_parameter("traffic_light_min_bbox_height_ratio", 0.06)
         self.declare_parameter("traffic_light_hold_timeout_sec", 0.5)
         self.declare_parameter("cone_trigger_distance_m", 3.0)
@@ -113,6 +159,27 @@ class BehaviorCenterNode(Node):
         self.stop_sign_cooldown_sec = float(
             self.get_parameter("stop_sign_cooldown_sec").value
         )
+        self.stop_sign_min_confidence = float(
+            self.get_parameter("stop_sign_min_confidence").value
+        )
+        self.stop_sign_map_frame = str(
+            self.get_parameter("stop_sign_map_frame").value
+        )
+        self.robot_base_frame = str(
+            self.get_parameter("robot_base_frame").value
+        )
+        self.stop_sign_required_observations = int(
+            self.get_parameter("stop_sign_required_observations").value
+        )
+        self.stop_sign_track_match_distance_m = float(
+            self.get_parameter("stop_sign_track_match_distance_m").value
+        )
+        self.stop_sign_clear_distance_m = float(
+            self.get_parameter("stop_sign_clear_distance_m").value
+        )
+        self.stop_sign_passed_distance_increase_m = float(
+            self.get_parameter("stop_sign_passed_distance_increase_m").value
+        )
         self.traffic_light_min_bbox_height_ratio = float(
             self.get_parameter("traffic_light_min_bbox_height_ratio").value
         )
@@ -152,8 +219,15 @@ class BehaviorCenterNode(Node):
         self.traffic_light_hold_until = 0.0
         self.last_stop_sign_debug_sec = 0.0
         self.current_velocity_mps: Optional[float] = None
+        self.current_pose_frame: Optional[str] = None
+        self.current_robot_x: Optional[float] = None
+        self.current_robot_y: Optional[float] = None
+        self.current_robot_yaw: Optional[float] = None
+        self.stop_sign_tracks: list[StopSignTrack] = []
         self.last_behavior_state = NORMAL_NAV2
         self.last_traffic_light_color: Optional[int] = None
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         sensor_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -236,6 +310,15 @@ class BehaviorCenterNode(Node):
 
     def odom_callback(self, msg: Odometry) -> None:
         self.current_velocity_mps = float(msg.twist.twist.linear.x)
+        self.current_pose_frame = msg.header.frame_id
+        self.current_robot_x = float(msg.pose.pose.position.x)
+        self.current_robot_y = float(msg.pose.pose.position.y)
+        self.current_robot_yaw = yaw_from_quaternion(
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w,
+        )
 
     def camera_info_callback(self, msg: CameraInfo) -> None:
         if msg.width <= 0 or msg.height <= 0:
@@ -266,16 +349,16 @@ class BehaviorCenterNode(Node):
             publish_override_cmd = True
             if detections is not None:
                 self.publish_stop_sign_from_detections(detections, scan)
-            self.publish_cones([], scan)
-        elif detections is None:
-            if now < self.traffic_light_hold_until:
-                state = TRAFFIC_LIGHT
-                override_active = True
-                publish_override_cmd = True
+            else:
+                self.publish_stop_sign_tracks()
             self.publish_cones([], scan)
         else:
-            self.publish_stop_sign_from_detections(detections, scan)
-            if self.stop_sign_triggered(detections, now, scan):
+            if detections is not None:
+                self.publish_stop_sign_from_detections(detections, scan)
+            else:
+                self.publish_stop_sign_tracks()
+
+            if self.stop_sign_triggered(now):
                 state = STOP_SIGN
                 override_active = True
                 publish_override_cmd = True
@@ -283,6 +366,12 @@ class BehaviorCenterNode(Node):
                 self.stop_cooldown_until = (
                     self.stop_until + self.stop_sign_cooldown_sec
                 )
+                self.publish_cones([], scan)
+            elif detections is None:
+                if now < self.traffic_light_hold_until:
+                    state = TRAFFIC_LIGHT
+                    override_active = True
+                    publish_override_cmd = True
                 self.publish_cones([], scan)
             elif self.traffic_light_stop_active(detections, now):
                 state = TRAFFIC_LIGHT
@@ -330,7 +419,7 @@ class BehaviorCenterNode(Node):
             detection
             for detection in msg.detections
             if "stop" in detection.class_name.lower()
-            and detection.confidence >= self.min_confidence
+            and detection.confidence >= self.stop_sign_min_confidence
         ]
         return max(candidates, key=lambda item: item.confidence, default=None)
 
@@ -469,9 +558,11 @@ class BehaviorCenterNode(Node):
         scan: Optional[LaserScan],
     ) -> None:
         if scan is None:
+            self.publish_stop_sign_tracks()
             return
         detection = self.best_stop_sign_detection(detections)
         if detection is None:
+            self.publish_stop_sign_tracks()
             return
         location = self.localize_stop_sign(
             detection,
@@ -479,40 +570,193 @@ class BehaviorCenterNode(Node):
             scan,
         )
         if location is None:
+            self.publish_stop_sign_tracks()
             return
+        point = self.transform_location_to_map(
+            location,
+            scan.header.frame_id or "laser",
+            scan.header.stamp,
+        )
+        if point is None:
+            self.publish_stop_sign_tracks()
+            return
+        self.record_stop_sign_observation(
+            point.x,
+            point.y,
+            float(detection.confidence),
+        )
+        self.publish_stop_sign_tracks()
+
+    def transform_location_to_map(
+        self,
+        location: ObjectLocation,
+        source_frame: str,
+        stamp: Time,
+    ) -> Optional[MapPoint]:
+        if source_frame == self.stop_sign_map_frame:
+            return MapPoint(location.x, location.y)
+
+        transform = self.lookup_transform(
+            self.stop_sign_map_frame,
+            source_frame,
+            stamp,
+        )
+        if transform is None:
+            return None
+        return transform_xy(location.x, location.y, transform)
+
+    def lookup_transform(
+        self,
+        target_frame: str,
+        source_frame: str,
+        stamp: Time,
+    ):
+        if (
+            not target_frame
+            or not source_frame
+            or not hasattr(self, "tf_buffer")
+        ):
+            return None
+        lookup_times = (RclpyTime.from_msg(stamp), RclpyTime())
+        for lookup_time in lookup_times:
+            try:
+                return self.tf_buffer.lookup_transform(
+                    target_frame,
+                    source_frame,
+                    lookup_time,
+                )
+            except TransformException:
+                continue
+        return None
+
+    def record_stop_sign_observation(
+        self,
+        x: float,
+        y: float,
+        confidence: float,
+    ) -> StopSignTrack:
+        reliable_track = self.reliable_stop_sign_track()
+        if reliable_track is not None:
+            distance = math.hypot(reliable_track.x - x, reliable_track.y - y)
+            if distance > self.stop_sign_clear_distance_m:
+                self.stop_sign_tracks = []
+            else:
+                if distance <= self.stop_sign_track_match_distance_m:
+                    reliable_track.update(x, y, confidence)
+                return reliable_track
+
+        nearest_track = None
+        nearest_distance = math.inf
+        for track in self.stop_sign_tracks:
+            distance = math.hypot(track.x - x, track.y - y)
+            if distance < nearest_distance:
+                nearest_track = track
+                nearest_distance = distance
+
+        if (
+            nearest_track is not None
+            and nearest_distance <= self.stop_sign_track_match_distance_m
+        ):
+            nearest_track.update(x, y, confidence)
+            return nearest_track
+
+        track = StopSignTrack(x, y, confidence)
+        self.stop_sign_tracks.append(track)
+        return track
+
+    def publish_stop_sign_tracks(self) -> None:
+        track = self.reliable_stop_sign_track()
+        if track is None:
+            return
+
+        stamp = self.get_clock().now().to_msg()
         msg = PointStamped()
-        msg.header.stamp = scan.header.stamp
-        msg.header.frame_id = scan.header.frame_id or "laser"
-        msg.point.x = float(location.x)
-        msg.point.y = float(location.y)
+        msg.header.stamp = stamp
+        msg.header.frame_id = self.stop_sign_map_frame
+        msg.point.x = float(track.x)
+        msg.point.y = float(track.y)
         self.stop_sign_position_pub.publish(msg)
 
-    def stop_sign_triggered(
-        self,
-        msg: YoloDetection2DArray,
-        now: float,
-        scan: Optional[LaserScan],
-    ) -> bool:
-        if now < self.stop_cooldown_until or scan is None:
-            return False
-        detection = self.best_stop_sign_detection(msg)
-        if detection is None:
-            return False
-        location = self.localize_stop_sign(
-            detection,
-            float(msg.image_width),
-            scan,
+    def stop_sign_track_reliable(self, track: StopSignTrack) -> bool:
+        return (
+            track.observations
+            >= max(1, self.stop_sign_required_observations)
         )
-        if location is None:
+
+    def reliable_stop_sign_track(self) -> Optional[StopSignTrack]:
+        for track in self.stop_sign_tracks:
+            if self.stop_sign_track_reliable(track):
+                return track
+        return None
+
+    def robot_position_in_map(self) -> Optional[MapPoint]:
+        if hasattr(self, "tf_buffer"):
+            transform = self.lookup_transform(
+                self.stop_sign_map_frame,
+                self.robot_base_frame,
+                self.get_clock().now().to_msg(),
+            )
+            if transform is not None:
+                translation = transform.transform.translation
+                return MapPoint(float(translation.x), float(translation.y))
+
+        if (
+            self.current_pose_frame == self.stop_sign_map_frame
+            and self.current_robot_x is not None
+            and self.current_robot_y is not None
+        ):
+            return MapPoint(self.current_robot_x, self.current_robot_y)
+        return None
+
+    def stop_sign_triggered(self, now: float) -> bool:
+        robot_position = self.robot_position_in_map()
+        if robot_position is None:
             return False
+
+        track = self.reliable_stop_sign_track()
+        if track is None or track.stopped:
+            return False
+
+        distance = math.hypot(
+            track.x - robot_position.x,
+            track.y - robot_position.y,
+        )
+        should_stop = self.stop_sign_should_stop(track, distance)
         if now - self.last_stop_sign_debug_sec >= 1.0:
             self.last_stop_sign_debug_sec = now
             self.get_logger().info(
-                "Stop sign localized at "
-                f"{location.range_m:.2f} m "
-                f"(trigger <= {self.stop_sign_trigger_distance_m:.2f} m)"
+                "Stop sign track at "
+                f"({track.x:.2f}, {track.y:.2f}) "
+                f"is {distance:.2f} m away "
+                f"({track.observations} observations)"
             )
-        return location.range_m <= self.stop_sign_trigger_distance_m
+        if should_stop:
+            track.stopped = True
+            return True
+        return False
+
+    def stop_sign_should_stop(
+        self,
+        track: StopSignTrack,
+        distance: float,
+    ) -> bool:
+        if track.min_distance_m is None or distance < track.min_distance_m:
+            track.min_distance_m = distance
+
+        if distance <= self.stop_sign_trigger_distance_m:
+            track.last_distance_m = distance
+            return True
+
+        getting_farther = (
+            track.last_distance_m is not None
+            and distance > track.last_distance_m
+            and track.min_distance_m is not None
+            and distance
+            > track.min_distance_m
+            + self.stop_sign_passed_distance_increase_m
+        )
+        track.last_distance_m = distance
+        return getting_farther
 
     def traffic_light_is_near(
         self,
@@ -736,6 +980,29 @@ def normalize_angle(angle: float) -> float:
 
 def angle_diff(left: float, right: float) -> float:
     return normalize_angle(left - right)
+
+
+def yaw_from_quaternion(x: float, y: float, z: float, w: float) -> float:
+    siny_cosp = 2.0 * (w * z + x * y)
+    cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
+    return math.atan2(siny_cosp, cosy_cosp)
+
+
+def transform_xy(x: float, y: float, transform) -> MapPoint:
+    translation = transform.transform.translation
+    rotation = transform.transform.rotation
+    yaw = yaw_from_quaternion(
+        rotation.x,
+        rotation.y,
+        rotation.z,
+        rotation.w,
+    )
+    cos_yaw = math.cos(yaw)
+    sin_yaw = math.sin(yaw)
+    return MapPoint(
+        float(translation.x) + cos_yaw * x - sin_yaw * y,
+        float(translation.y) + sin_yaw * x + cos_yaw * y,
+    )
 
 
 def stamp_to_sec(stamp: Time) -> float:

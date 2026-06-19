@@ -127,11 +127,17 @@ It publishes:
 - `/behavior/override_cmd` (`ackermann_msgs/AckermannDriveStamped`)
 - `/behavior/speed_limit` (`std_msgs/Float32`)
 - `/behavior/cone_obstacles` (`sensor_msgs/PointCloud2`)
+- `/behavior/stop_sign_position` (`geometry_msgs/PointStamped`)
 
 Behavior logic only runs while the control center state is `AUTO_DRIVE`.
 Priority is stop sign, traffic light, cone, then normal Nav2.
 
-- Stop signs publish a zero override for the configured stop duration.
+- Stop signs above the configured confidence are localized in the map frame
+  across multiple observations, then publish a zero override once per tracked
+  sign when the robot is close to the sign or starts moving away after missing
+  the close-distance threshold. A reliable stop-sign position stays latched and
+  published until a new stop-sign observation is farther than the configured
+  clear distance.
 - Red/yellow traffic lights publish a zero override while fresh.
 - Stop signs and cones use their 2D bearing with lidar for metric range.
 - Camera/lidar fusion accounts for the camera being mounted 0.08 m forward of
