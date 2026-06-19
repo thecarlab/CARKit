@@ -1,21 +1,19 @@
 Panels:
   - Class: rviz_common/Displays
-    Help Height: 78
+    Help Height: 0
     Name: Displays
     Property Tree Widget:
       Expanded:
         - /Global Options1
         - /Status1
         - /Map1
-        - /LaserScan1
-        - /AMCL Pose1
-        - /TF1
         - /Costmaps1
-        - /Path1
-        - /Path2
+        - /LaserScan1
+        - /TF1
+        - /AMCL Pose1
         - /Waypoints1
       Splitter Ratio: 0.5
-    Tree Height: 617
+    Tree Height: 166
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -40,7 +38,7 @@ Visualization Manager:
       Color: 160; 160; 164
       Enabled: true
       Line Style:
-        Line Width: 0.03
+        Line Width: 0.029999999329447746
         Value: Lines
       Name: Grid
       Normal Cell Count: 0
@@ -61,6 +59,7 @@ Visualization Manager:
       Topic:
         Depth: 1
         Durability Policy: Transient Local
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /map
@@ -74,7 +73,7 @@ Visualization Manager:
       Value: true
     - Class: rviz_common/Group
       Displays:
-        - Alpha: 0.4
+        - Alpha: 0.4000000059604645
           Class: rviz_default_plugins/Map
           Color Scheme: costmap
           Draw Behind: false
@@ -83,6 +82,7 @@ Visualization Manager:
           Topic:
             Depth: 1
             Durability Policy: Transient Local
+            Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /global_costmap/costmap
@@ -102,11 +102,12 @@ Visualization Manager:
           Topic:
             Depth: 5
             Durability Policy: Volatile
+            Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /global_costmap/published_footprint
           Value: true
-        - Alpha: 0.55
+        - Alpha: 0.550000011920929
           Class: rviz_default_plugins/Map
           Color Scheme: costmap
           Draw Behind: false
@@ -115,6 +116,7 @@ Visualization Manager:
           Topic:
             Depth: 1
             Durability Policy: Transient Local
+            Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /local_costmap/costmap
@@ -134,6 +136,7 @@ Visualization Manager:
           Topic:
             Depth: 5
             Durability Policy: Volatile
+            Filter size: 10
             History Policy: Keep Last
             Reliability Policy: Reliable
             Value: /local_costmap/published_footprint
@@ -155,19 +158,19 @@ Visualization Manager:
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 4096
+      Max Intensity: 47
       Min Color: 0; 0; 0
-      Min Intensity: 0
+      Min Intensity: 47
       Name: LaserScan
       Position Transformer: XYZ
-      Queue Size: 100
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.03
+      Size (m): 0.029999999329447746
       Style: Flat Squares
       Topic:
         Depth: 5
         Durability Policy: Volatile
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: System Default
         Value: /scan
@@ -179,18 +182,36 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        base_link:
+          Value: true
+        camera_color_frame:
+          Value: true
+        camera_color_optical_frame:
+          Value: true
+        camera_link:
+          Value: true
+        laser:
+          Value: true
+        map:
+          Value: true
+        odom:
+          Value: true
       Marker Scale: 0.5
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: false
       Tree:
-        {}
+        map:
+          odom:
+            base_link:
+              laser:
+                {}
       Update Interval: 0
       Value: true
     - Alpha: 1
       Axes Length: 0.5
-      Axes Radius: 0.05
+      Axes Radius: 0.05000000074505806
       Class: rviz_default_plugins/PoseWithCovariance
       Color: 255; 25; 0
       Covariance:
@@ -210,14 +231,15 @@ Visualization Manager:
         Value: true
       Enabled: true
       Head Length: 0.25
-      Head Radius: 0.08
+      Head Radius: 0.07999999821186066
       Name: AMCL Pose
-      Shaft Length: 0.45
-      Shaft Radius: 0.04
+      Shaft Length: 0.44999998807907104
+      Shaft Radius: 0.03999999910593033
       Shape: Arrow
       Topic:
         Depth: 5
         Durability Policy: Volatile
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /amcl_pose
@@ -227,11 +249,11 @@ Visualization Manager:
       Class: rviz_default_plugins/Path
       Color: 25; 255; 0
       Enabled: true
-      Head Diameter: 0.2
-      Head Length: 0.3
-      Length: 0.3
+      Head Diameter: 0.20000000298023224
+      Head Length: 0.30000001192092896
+      Length: 0.30000001192092896
       Line Style: Lines
-      Line Width: 0.03
+      Line Width: 0.029999999329447746
       Name: Global Plan
       Offset:
         X: 0
@@ -239,12 +261,13 @@ Visualization Manager:
         Z: 0
       Pose Color: 255; 85; 255
       Pose Style: None
-      Radius: 0.03
-      Shaft Diameter: 0.1
-      Shaft Length: 0.1
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
       Topic:
         Depth: 10
         Durability Policy: Volatile
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /plan
@@ -266,11 +289,11 @@ Visualization Manager:
       Class: rviz_default_plugins/Path
       Color: 255; 170; 0
       Enabled: false
-      Head Diameter: 0.2
-      Head Length: 0.3
-      Length: 0.3
+      Head Diameter: 0.20000000298023224
+      Head Length: 0.30000001192092896
+      Length: 0.30000001192092896
       Line Style: Lines
-      Line Width: 0.02
+      Line Width: 0.019999999552965164
       Name: SLAM Path
       Offset:
         X: 0
@@ -278,12 +301,13 @@ Visualization Manager:
         Z: 0
       Pose Color: 255; 85; 255
       Pose Style: None
-      Radius: 0.03
-      Shaft Diameter: 0.1
-      Shaft Length: 0.1
+      Radius: 0.029999999329447746
+      Shaft Diameter: 0.10000000149011612
+      Shaft Length: 0.10000000149011612
       Topic:
         Depth: 10
         Durability Policy: Volatile
+        Filter size: 10
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /slam_toolbox/pose_graph
@@ -305,7 +329,7 @@ Visualization Manager:
     - Class: rviz_default_plugins/SetInitialPose
       Covariance x: 0.5
       Covariance y: 0.5
-      Covariance yaw: 0.2
+      Covariance yaw: 0.20000000298023224
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -335,34 +359,35 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 15
+      Distance: 15.724712371826172
       Enable Stereo Rendering:
-        Stereo Eye Separation: 0.06
+        Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 5.0046491622924805
+        Y: -1.893489122390747
+        Z: 0.0014597163535654545
       Focal Shape Fixed Size: true
-      Focal Shape Size: 0.05
+      Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
-      Near Clip Distance: 0.01
-      Pitch: 1.2
+      Near Clip Distance: 0.009999999776482582
+      Pitch: 1.5697963237762451
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.785398
+      Yaw: 1.485398292541504
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 846
+  Height: 944
   Hide Left Dock: false
   Hide Right Dock: false
   Navigation 2:
     collapsed: false
+  QMainWindow State: 000000ff00000000fd00000001000000000000019b0000035afc0200000005fb000000100044006900730070006c006100790073010000003b000000e1000000c700fffffffb0000001200530065006c0065006300740069006f006e00000001080000005c0000005c00fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000122000000680000005c00fffffffb0000000a005600690065007700730100000190000000b6000000a000fffffffb00000018004e0061007600690067006100740069006f006e00200032010000024c000001490000011200ffffff0000030f0000035a00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Tool Properties:
@@ -371,4 +396,4 @@ Window Geometry:
     collapsed: false
   Width: 1200
   X: 72
-  Y: 60
+  Y: 27

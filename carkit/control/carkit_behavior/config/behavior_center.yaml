@@ -3,6 +3,7 @@ behavior_center_node:
     min_confidence: 0.55
     detection_timeout_sec: 0.5
     scan_topic: /scan
+    odom_topic: /odom
     scan_timeout_sec: 0.5
     camera_info_topic: /camera/camera/color/camera_info
     camera_horizontal_fov_deg: 69.4

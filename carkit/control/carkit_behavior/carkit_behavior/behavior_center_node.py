@@ -12,6 +12,7 @@ from carkit_perception_msgs.msg import (
     YoloTrafficLightDetection2D,
 )
 from geometry_msgs.msg import PointStamped
+from nav_msgs.msg import Odometry
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
@@ -50,6 +51,7 @@ class BehaviorCenterNode(Node):
         self.declare_parameter("min_confidence", 0.55)
         self.declare_parameter("detection_timeout_sec", 0.5)
         self.declare_parameter("scan_topic", "/scan")
+        self.declare_parameter("odom_topic", "/odom")
         self.declare_parameter("scan_timeout_sec", 0.5)
         self.declare_parameter(
             "camera_info_topic",
@@ -149,6 +151,9 @@ class BehaviorCenterNode(Node):
         self.stop_cooldown_until = 0.0
         self.traffic_light_hold_until = 0.0
         self.last_stop_sign_debug_sec = 0.0
+        self.current_velocity_mps: Optional[float] = None
+        self.last_behavior_state = NORMAL_NAV2
+        self.last_traffic_light_color: Optional[int] = None
 
         sensor_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -172,6 +177,12 @@ class BehaviorCenterNode(Node):
             str(self.get_parameter("scan_topic").value),
             self.scan_callback,
             sensor_qos,
+        )
+        self.create_subscription(
+            Odometry,
+            str(self.get_parameter("odom_topic").value),
+            self.odom_callback,
+            10,
         )
         self.create_subscription(
             CameraInfo,
@@ -223,6 +234,9 @@ class BehaviorCenterNode(Node):
         self.latest_scan = msg
         self.latest_scan_time = self.now_sec()
 
+    def odom_callback(self, msg: Odometry) -> None:
+        self.current_velocity_mps = float(msg.twist.twist.linear.x)
+
     def camera_info_callback(self, msg: CameraInfo) -> None:
         if msg.width <= 0 or msg.height <= 0:
             return
@@ -238,6 +252,7 @@ class BehaviorCenterNode(Node):
         publish_override_cmd = False
 
         if self.main_state != AUTO_DRIVE:
+            self.last_behavior_state = NORMAL_NAV2
             self.publish_state(state, override_active)
             self.publish_cones([], None)
             return
@@ -285,6 +300,7 @@ class BehaviorCenterNode(Node):
                 else:
                     self.publish_cones([], scan)
 
+        self.log_behavior_transition(state)
         self.publish_state(state, override_active)
         if publish_override_cmd:
             self.override_cmd_pub.publish(self.zero_command())
@@ -515,6 +531,7 @@ class BehaviorCenterNode(Node):
         now: float,
     ) -> bool:
         saw_green = False
+        self.last_traffic_light_color = None
         for traffic_light in msg.traffic_lights:
             detection = traffic_light.detection
             if detection.confidence < self.min_confidence:
@@ -528,6 +545,9 @@ class BehaviorCenterNode(Node):
                 YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
                 YoloTrafficLightDetection2D.TRAFFIC_LIGHT_YELLOW,
             ):
+                self.last_traffic_light_color = (
+                    traffic_light.traffic_light_color
+                )
                 self.traffic_light_hold_until = (
                     now + self.traffic_light_hold_timeout_sec
                 )
@@ -537,10 +557,84 @@ class BehaviorCenterNode(Node):
                 == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN
             ):
                 saw_green = True
+                self.last_traffic_light_color = (
+                    YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN
+                )
         if saw_green:
             self.traffic_light_hold_until = 0.0
             return False
         return now < self.traffic_light_hold_until
+
+    def log_behavior_transition(self, state: str) -> None:
+        """Log behavior activation/release once, rather than every timer tick."""
+        previous_state = self.last_behavior_state
+        if state == previous_state:
+            return
+
+        velocity = self.velocity_for_log()
+        logger = self.get_logger()
+        if state == STOP_SIGN:
+            logger.info(
+                "[BEHAVIOR] STOP_SIGN called | "
+                f"current velocity: {velocity} | "
+                f"stopping for {self.stop_sign_stop_duration_sec:.1f} s"
+            )
+        elif state == TRAFFIC_LIGHT:
+            color = self.traffic_light_color_name(
+                self.last_traffic_light_color
+            )
+            logger.info(
+                f"[BEHAVIOR] TRAFFIC_LIGHT {color} called | "
+                f"current velocity: {velocity} | stopping; "
+                "Nav2 resumes on green"
+            )
+        elif state == CONE:
+            logger.info(
+                "[BEHAVIOR] CONE called | "
+                f"current velocity: {velocity} | continuing Nav2 with "
+                f"speed limit {self.cone_speed_limit_mps:.2f} m/s"
+            )
+        elif state == NORMAL_NAV2:
+            if previous_state == STOP_SIGN:
+                logger.info(
+                    "[BEHAVIOR] STOP_SIGN complete | "
+                    f"current velocity: {velocity} | returning to Nav2"
+                )
+            elif previous_state == TRAFFIC_LIGHT:
+                color = self.traffic_light_color_name(
+                    self.last_traffic_light_color
+                )
+                if color == "GREEN":
+                    logger.info(
+                        "[BEHAVIOR] TRAFFIC_LIGHT GREEN called | "
+                        f"current velocity: {velocity} | continuing Nav2"
+                    )
+                else:
+                    logger.info(
+                        "[BEHAVIOR] TRAFFIC_LIGHT hold expired | "
+                        f"current velocity: {velocity} | returning to Nav2"
+                    )
+            elif previous_state == CONE:
+                logger.info(
+                    "[BEHAVIOR] CONE cleared | "
+                    f"current velocity: {velocity} | continuing Nav2"
+                )
+
+        self.last_behavior_state = state
+
+    def velocity_for_log(self) -> str:
+        if self.current_velocity_mps is None:
+            return "unavailable"
+        return f"{self.current_velocity_mps:.2f} m/s"
+
+    @staticmethod
+    def traffic_light_color_name(color: Optional[int]) -> str:
+        names = {
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED: "RED",
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_YELLOW: "YELLOW",
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN: "GREEN",
+        }
+        return names.get(color, "RED/YELLOW HOLD")
 
     def cone_points(
         self,

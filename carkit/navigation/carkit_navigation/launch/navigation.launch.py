@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import glob
+import os
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, GroupAction, IncludeLaunchDescription, TimerAction
 from launch.conditions import IfCondition
@@ -13,6 +16,19 @@ def mode_is(name):
     return IfCondition(PythonExpression([
         "'", LaunchConfiguration('mode'), "' == '", name, "'"
     ]))
+
+
+def default_lidar_serial_port():
+    for pattern in (
+        '/dev/serial/by-id/usb-Silicon_Labs_*',
+        '/dev/serial/by-id/*SLLidar*',
+        '/dev/serial/by-id/*Slamtec*',
+        '/dev/ttyUSB*',
+    ):
+        matches = sorted(glob.glob(pattern))
+        if matches:
+            return os.path.realpath(matches[0])
+    return '/dev/ttyUSB0'
 
 
 def generate_launch_description():
@@ -45,13 +61,19 @@ def generate_launch_description():
     )
 
     start_lidar_motor = TimerAction(
-        period=3.0,
+        period=5.0,
         actions=[
             ExecuteProcess(
                 cmd=[
                     'bash',
                     '-lc',
-                    'timeout 8 ros2 service call /start_motor std_srvs/srv/Empty "{}" || true',
+                    (
+                        'WORKSPACE="${WORKSPACE:-/workspaces/CARKit}"; '
+                        'source "/opt/ros/${ROS_DISTRO:-humble}/setup.bash" && '
+                        'source "${WORKSPACE}/install/setup.bash" 2>/dev/null; '
+                        'echo "[carkit_navigation] Calling /start_motor"; '
+                        'timeout 8 ros2 service call /start_motor std_srvs/srv/Empty "{}"'
+                    ),
                 ],
                 output='screen',
             )
@@ -241,7 +263,7 @@ def generate_launch_description():
             default_value='laser',
             description='LiDAR frame used by /scan'),
         DeclareLaunchArgument('lidar_channel_type', default_value='serial'),
-        DeclareLaunchArgument('lidar_serial_port', default_value='/dev/ttyUSB0'),
+        DeclareLaunchArgument('lidar_serial_port', default_value=default_lidar_serial_port()),
         DeclareLaunchArgument('lidar_serial_baudrate', default_value='1000000'),
         DeclareLaunchArgument('lidar_inverted', default_value='false'),
         DeclareLaunchArgument('lidar_angle_compensate', default_value='true'),

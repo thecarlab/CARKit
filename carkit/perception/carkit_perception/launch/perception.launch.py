@@ -98,7 +98,7 @@ def generate_launch_description():
                 "perception.rviz",
             ),
         ),
-        DeclareLaunchArgument("start_rviz", default_value="true"),
+        DeclareLaunchArgument("start_rviz", default_value="false"),
         camera,
         perception_2d_node,
         rviz_node,
