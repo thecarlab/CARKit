@@ -191,26 +191,30 @@ class Perception2DNode(Node):
         ]
         self.detection_pub.publish(output)
 
-        if results:
-            annotated = results[0].plot()
-            annotated_msg = self.bridge.cv2_to_imgmsg(
-                annotated,
-                encoding="bgr8",
-            )
-            annotated_msg.header = image_msg.header
-            self.image_pub.publish(annotated_msg)
+        self.publish_inference_image(results, image_msg)
+
+    def publish_inference_image(self, results, image_msg: Image) -> None:
+        if not results or self.image_pub.get_subscription_count() == 0:
+            return
+
+        annotated = results[0].plot()
+        annotated_msg = self.bridge.cv2_to_imgmsg(
+            annotated,
+            encoding="bgr8",
+        )
+        annotated_msg.header = image_msg.header
+        self.image_pub.publish(annotated_msg)
 
     def extract_detections(self, results) -> list[Detection2D]:
         detections = []
         for result in results:
-            if result.boxes is None or result.boxes.cls is None:
+            if result.boxes is None or result.boxes.data.numel() == 0:
                 continue
-            for class_id, bbox, confidence in zip(
-                result.boxes.cls.cpu().numpy(),
-                result.boxes.xyxy.cpu().numpy(),
-                result.boxes.conf.cpu().numpy(),
-            ):
-                x1, y1, x2, y2 = bbox
+            # A detection row is [x1, y1, x2, y2, confidence, class_id].
+            # Copy the table once to avoid three CUDA synchronizations.
+            rows = result.boxes.data.detach().cpu().numpy()
+            for row in rows:
+                x1, y1, x2, y2, confidence, class_id = row[:6]
                 detections.append(
                     Detection2D(
                         class_id=int(class_id),
