@@ -2,6 +2,8 @@ import math
 from types import SimpleNamespace
 
 from carkit_perception_msgs.msg import YoloTrafficLightDetection2D
+from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Path
 from sensor_msgs.msg import LaserScan
 
 from carkit_behavior.behavior_center_node import (
@@ -24,19 +26,23 @@ def make_node():
     node.stop_sign_lidar_angle_window_rad = math.radians(8.0)
     node.stop_sign_lidar_min_range_m = 0.15
     node.stop_sign_lidar_max_range_m = 10.0
-    node.stop_sign_trigger_distance_m = 2.0
+    node.stop_sign_stop_before_distance_m = 0.5
+    node.stop_sign_stop_line_tolerance_m = 0.25
+    node.stop_sign_rearm_distance_m = 1.0
     node.stop_sign_min_confidence = 0.75
     node.stop_sign_map_frame = "map"
     node.robot_base_frame = "base_link"
     node.stop_sign_required_observations = 3
     node.stop_sign_track_match_distance_m = 1.0
     node.stop_sign_clear_distance_m = 10.0
-    node.stop_sign_passed_distance_increase_m = 0.2
+    node.plan_goal_change_distance_m = 0.25
     node.stop_cooldown_until = 0.0
     node.last_stop_sign_debug_sec = 10.0
     node.current_pose_frame = "map"
     node.current_robot_x = 0.0
     node.current_robot_y = 0.0
+    node.latest_global_plan = None
+    node.active_plan_goal = None
     node.stop_sign_tracks = []
     node.traffic_light_min_bbox_height_ratio = 0.06
     node.traffic_light_hold_timeout_sec = 0.5
@@ -132,6 +138,17 @@ def reliable_track(x, y):
     return track
 
 
+def global_plan(*points):
+    plan = Path()
+    plan.header.frame_id = "map"
+    for x, y in points:
+        pose = PoseStamped()
+        pose.pose.position.x = float(x)
+        pose.pose.position.y = float(y)
+        plan.poses.append(pose)
+    return plan
+
+
 def test_stop_sign_tracking_requires_confidence_and_observations():
     node = make_node()
     low_confidence = detection("stop sign", confidence=0.7)
@@ -148,26 +165,115 @@ def test_stop_sign_tracking_requires_confidence_and_observations():
     assert abs(track.y) < 1.0e-6
 
 
-def test_stop_sign_triggers_once_when_robot_is_near_map_track():
+def test_stop_sign_triggers_at_configured_distance_before_projected_line():
     node = make_node()
-    node.stop_sign_tracks = [reliable_track(1.0, 0.0)]
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    node.stop_sign_tracks = [reliable_track(5.0, 1.0)]
 
+    node.current_robot_x = 4.49
+    assert not node.stop_sign_triggered(0.9)
+    node.current_robot_x = 4.5
     assert node.stop_sign_triggered(1.0)
     assert node.stop_sign_tracks[0].stopped
     assert not node.stop_sign_triggered(1.1)
 
 
-def test_stop_sign_triggers_when_robot_passes_unreached_track():
+def test_stop_sign_uses_distance_along_curved_path():
     node = make_node()
-    node.stop_sign_trigger_distance_m = 1.0
-    node.stop_sign_tracks = [reliable_track(5.0, 0.0)]
+    node.latest_global_plan = global_plan(
+        (0.0, 0.0),
+        (4.0, 0.0),
+        (4.0, 4.0),
+    )
+    node.stop_sign_tracks = [reliable_track(5.0, 2.0)]
 
-    node.current_robot_x = 0.0
+    node.current_robot_x = 4.0
+    node.current_robot_y = 1.49
     assert not node.stop_sign_triggered(1.0)
-    node.current_robot_x = 2.5
-    assert not node.stop_sign_triggered(1.1)
-    node.current_robot_x = 2.1
-    assert node.stop_sign_triggered(1.2)
+    node.current_robot_y = 1.5
+    assert node.stop_sign_triggered(1.1)
+
+
+def test_stop_sign_triggers_within_small_overshoot_region():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    node.stop_sign_tracks = [reliable_track(5.0, 1.0)]
+
+    node.current_robot_x = 5.1
+    assert node.stop_sign_triggered(1.0)
+
+
+def test_stop_sign_does_not_trigger_when_first_seen_well_behind():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    node.stop_sign_tracks = [reliable_track(5.0, 1.0)]
+
+    node.current_robot_x = 5.3
+    assert not node.stop_sign_triggered(1.0)
+
+
+def test_stop_sign_triggers_if_vehicle_crosses_entire_region_between_updates():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    node.stop_sign_tracks = [reliable_track(5.0, 1.0)]
+
+    node.current_robot_x = 4.0
+    assert not node.stop_sign_triggered(1.0)
+    node.current_robot_x = 5.5
+    assert node.stop_sign_triggered(1.1)
+
+
+def test_same_goal_plan_update_does_not_reset_stop_latch():
+    node = make_node()
+    track = reliable_track(5.0, 0.0)
+    track.stopped = True
+    node.stop_sign_tracks = [track]
+
+    node.global_plan_callback(global_plan((0.0, 0.0), (10.0, 0.0)))
+    node.global_plan_callback(global_plan((3.0, 0.1), (10.1, 0.0)))
+
+    assert track.stopped
+
+
+def test_new_goal_rearms_when_sign_is_safely_ahead_on_new_path():
+    node = make_node()
+    track = reliable_track(5.0, 2.0)
+    track.stopped = True
+    node.stop_sign_tracks = [track]
+
+    node.global_plan_callback(global_plan((0.0, 0.0), (10.0, 0.0)))
+    node.global_plan_callback(
+        global_plan((0.0, 0.0), (4.0, 0.0), (4.0, 6.0))
+    )
+
+    assert track.stopped
+    assert track.rearm_for_new_plan
+    node.current_robot_x = 0.0
+    node.current_robot_y = 0.0
+    assert not node.stop_sign_triggered(1.9)
+    assert not track.stopped
+    node.current_robot_x = 4.0
+    node.current_robot_y = 1.5
+    assert node.stop_sign_triggered(2.0)
+    assert track.stopped
+    assert not node.stop_sign_triggered(2.1)
+
+
+def test_replan_near_stopped_sign_does_not_cause_second_stop():
+    node = make_node()
+    track = reliable_track(5.0, 0.0)
+    track.stopped = True
+    node.stop_sign_tracks = [track]
+    node.current_robot_x = 4.5
+
+    node.global_plan_callback(global_plan((0.0, 0.0), (10.0, 0.0)))
+    node.global_plan_callback(global_plan((4.5, 0.0), (11.0, 0.0)))
+
+    assert track.stopped
+    assert track.rearm_for_new_plan
+    assert not node.stop_sign_triggered(2.0)
+    assert track.stopped
+    assert not node.stop_sign_triggered(2.1)
 
 
 def test_reliable_stop_sign_latches_until_far_new_sign():

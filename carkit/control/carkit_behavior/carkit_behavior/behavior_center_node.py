@@ -11,8 +11,12 @@ from carkit_perception_msgs.msg import (
     YoloDetection2DArray,
     YoloTrafficLightDetection2D,
 )
+from carkit_behavior.path_geometry import (
+    distance_along_path,
+    should_stop_before_line,
+)
 from geometry_msgs.msg import PointStamped
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import Odometry, Path
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
@@ -61,6 +65,7 @@ class StopSignTrack:
         "weight",
         "observations",
         "stopped",
+        "rearm_for_new_plan",
         "last_distance_m",
         "min_distance_m",
     )
@@ -71,6 +76,7 @@ class StopSignTrack:
         self.weight = max(0.01, confidence)
         self.observations = 1
         self.stopped = False
+        self.rearm_for_new_plan = False
         self.last_distance_m: Optional[float] = None
         self.min_distance_m: Optional[float] = None
 
@@ -81,6 +87,48 @@ class StopSignTrack:
         self.y = (self.y * self.weight + y * weight) / total_weight
         self.weight = total_weight
         self.observations += 1
+
+
+class TrafficLightTrack:
+    __slots__ = (
+        "x",
+        "y",
+        "weight",
+        "observations",
+        "color",
+        "override_active",
+        "last_distance_m",
+    )
+
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        confidence: float,
+        color: int,
+    ) -> None:
+        self.x = x
+        self.y = y
+        self.weight = max(0.01, confidence)
+        self.observations = 1
+        self.color = color
+        self.override_active = False
+        self.last_distance_m: Optional[float] = None
+
+    def update(
+        self,
+        x: float,
+        y: float,
+        confidence: float,
+        color: int,
+    ) -> None:
+        weight = max(0.01, confidence)
+        total_weight = self.weight + weight
+        self.x = (self.x * self.weight + x * weight) / total_weight
+        self.y = (self.y * self.weight + y * weight) / total_weight
+        self.weight = total_weight
+        self.observations += 1
+        self.color = color
 
 
 class BehaviorCenterNode(Node):
@@ -100,7 +148,10 @@ class BehaviorCenterNode(Node):
         self.declare_parameter("camera_to_scan_yaw_offset_rad", 0.0)
         self.declare_parameter("camera_forward_offset_m", 0.08)
         self.declare_parameter("camera_lateral_offset_m", 0.0)
-        self.declare_parameter("stop_sign_trigger_distance_m", 2.0)
+        self.declare_parameter("global_plan_topic", "/plan")
+        self.declare_parameter("stop_sign_stop_before_distance_m", 0.5)
+        self.declare_parameter("stop_sign_stop_line_tolerance_m", 0.25)
+        self.declare_parameter("stop_sign_rearm_distance_m", 1.0)
         self.declare_parameter("stop_sign_lidar_angle_window_deg", 8.0)
         self.declare_parameter("stop_sign_lidar_min_range_m", 0.15)
         self.declare_parameter("stop_sign_lidar_max_range_m", 10.0)
@@ -112,9 +163,17 @@ class BehaviorCenterNode(Node):
         self.declare_parameter("stop_sign_required_observations", 3)
         self.declare_parameter("stop_sign_track_match_distance_m", 1.0)
         self.declare_parameter("stop_sign_clear_distance_m", 10.0)
-        self.declare_parameter("stop_sign_passed_distance_increase_m", 0.2)
+        self.declare_parameter("plan_goal_change_distance_m", 0.25)
         self.declare_parameter("traffic_light_min_bbox_height_ratio", 0.06)
-        self.declare_parameter("traffic_light_hold_timeout_sec", 0.5)
+        self.declare_parameter("traffic_light_min_confidence", 0.6)
+        self.declare_parameter("traffic_light_required_observations", 3)
+        self.declare_parameter("traffic_light_track_match_distance_m", 1.0)
+        self.declare_parameter("traffic_light_clear_distance_m", 10.0)
+        self.declare_parameter("traffic_light_stop_before_distance_m", 0.5)
+        self.declare_parameter("traffic_light_stop_line_tolerance_m", 0.25)
+        self.declare_parameter("traffic_light_lidar_angle_window_deg", 8.0)
+        self.declare_parameter("traffic_light_lidar_min_range_m", 0.15)
+        self.declare_parameter("traffic_light_lidar_max_range_m", 15.0)
         self.declare_parameter("cone_trigger_distance_m", 3.0)
         self.declare_parameter("cone_lidar_angle_window_deg", 6.0)
         self.declare_parameter("cone_lidar_min_range_m", 0.15)
@@ -141,8 +200,14 @@ class BehaviorCenterNode(Node):
         self.camera_lateral_offset_m = float(
             self.get_parameter("camera_lateral_offset_m").value
         )
-        self.stop_sign_trigger_distance_m = float(
-            self.get_parameter("stop_sign_trigger_distance_m").value
+        self.stop_sign_stop_before_distance_m = float(
+            self.get_parameter("stop_sign_stop_before_distance_m").value
+        )
+        self.stop_sign_stop_line_tolerance_m = float(
+            self.get_parameter("stop_sign_stop_line_tolerance_m").value
+        )
+        self.stop_sign_rearm_distance_m = float(
+            self.get_parameter("stop_sign_rearm_distance_m").value
         )
         self.stop_sign_lidar_angle_window_rad = math.radians(
             float(self.get_parameter("stop_sign_lidar_angle_window_deg").value)
@@ -177,14 +242,40 @@ class BehaviorCenterNode(Node):
         self.stop_sign_clear_distance_m = float(
             self.get_parameter("stop_sign_clear_distance_m").value
         )
-        self.stop_sign_passed_distance_increase_m = float(
-            self.get_parameter("stop_sign_passed_distance_increase_m").value
+        self.plan_goal_change_distance_m = float(
+            self.get_parameter("plan_goal_change_distance_m").value
         )
         self.traffic_light_min_bbox_height_ratio = float(
             self.get_parameter("traffic_light_min_bbox_height_ratio").value
         )
-        self.traffic_light_hold_timeout_sec = float(
-            self.get_parameter("traffic_light_hold_timeout_sec").value
+        self.traffic_light_min_confidence = float(
+            self.get_parameter("traffic_light_min_confidence").value
+        )
+        self.traffic_light_required_observations = int(
+            self.get_parameter("traffic_light_required_observations").value
+        )
+        self.traffic_light_track_match_distance_m = float(
+            self.get_parameter("traffic_light_track_match_distance_m").value
+        )
+        self.traffic_light_clear_distance_m = float(
+            self.get_parameter("traffic_light_clear_distance_m").value
+        )
+        self.traffic_light_stop_before_distance_m = float(
+            self.get_parameter("traffic_light_stop_before_distance_m").value
+        )
+        self.traffic_light_stop_line_tolerance_m = float(
+            self.get_parameter("traffic_light_stop_line_tolerance_m").value
+        )
+        self.traffic_light_lidar_angle_window_rad = math.radians(
+            float(
+                self.get_parameter("traffic_light_lidar_angle_window_deg").value
+            )
+        )
+        self.traffic_light_lidar_min_range_m = float(
+            self.get_parameter("traffic_light_lidar_min_range_m").value
+        )
+        self.traffic_light_lidar_max_range_m = float(
+            self.get_parameter("traffic_light_lidar_max_range_m").value
         )
         self.cone_trigger_distance_m = float(
             self.get_parameter("cone_trigger_distance_m").value
@@ -216,14 +307,16 @@ class BehaviorCenterNode(Node):
         self.camera_fx: Optional[float] = None
         self.stop_until = 0.0
         self.stop_cooldown_until = 0.0
-        self.traffic_light_hold_until = 0.0
         self.last_stop_sign_debug_sec = 0.0
         self.current_velocity_mps: Optional[float] = None
         self.current_pose_frame: Optional[str] = None
         self.current_robot_x: Optional[float] = None
         self.current_robot_y: Optional[float] = None
         self.current_robot_yaw: Optional[float] = None
+        self.latest_global_plan: Optional[Path] = None
+        self.active_plan_goal: Optional[MapPoint] = None
         self.stop_sign_tracks: list[StopSignTrack] = []
+        self.traffic_light_tracks: list[TrafficLightTrack] = []
         self.last_behavior_state = NORMAL_NAV2
         self.last_traffic_light_color: Optional[int] = None
         self.tf_buffer = Buffer()
@@ -259,6 +352,12 @@ class BehaviorCenterNode(Node):
             10,
         )
         self.create_subscription(
+            Path,
+            str(self.get_parameter("global_plan_topic").value),
+            self.global_plan_callback,
+            10,
+        )
+        self.create_subscription(
             CameraInfo,
             str(self.get_parameter("camera_info_topic").value),
             self.camera_info_callback,
@@ -291,6 +390,11 @@ class BehaviorCenterNode(Node):
             "/behavior/stop_sign_position",
             10,
         )
+        self.traffic_light_position_pub = self.create_publisher(
+            PointStamped,
+            "/behavior/traffic_light_position",
+            10,
+        )
 
         self.timer = self.create_timer(0.05, self.timer_callback)
         self.get_logger().info(
@@ -320,6 +424,29 @@ class BehaviorCenterNode(Node):
             msg.pose.pose.orientation.w,
         )
 
+    def global_plan_callback(self, msg: Path) -> None:
+        self.latest_global_plan = msg
+        if not msg.poses:
+            return
+
+        goal_pose = msg.poses[-1].pose.position
+        new_goal = MapPoint(float(goal_pose.x), float(goal_pose.y))
+        if self.active_plan_goal is None:
+            self.active_plan_goal = new_goal
+            return
+
+        goal_change = math.hypot(
+            new_goal.x - self.active_plan_goal.x,
+            new_goal.y - self.active_plan_goal.y,
+        )
+        if goal_change <= self.plan_goal_change_distance_m:
+            return
+
+        self.active_plan_goal = new_goal
+        for track in self.stop_sign_tracks:
+            if track.stopped:
+                track.rearm_for_new_plan = True
+
     def camera_info_callback(self, msg: CameraInfo) -> None:
         if msg.width <= 0 or msg.height <= 0:
             return
@@ -343,21 +470,19 @@ class BehaviorCenterNode(Node):
         scan = self.fresh_scan(now)
         detections = self.fresh_detections(now)
 
+        if detections is not None:
+            self.publish_stop_sign_from_detections(detections, scan)
+            self.publish_traffic_light_from_detections(detections, scan)
+        else:
+            self.publish_stop_sign_tracks()
+            self.publish_traffic_light_tracks()
+
         if now < self.stop_until:
             state = STOP_SIGN
             override_active = True
             publish_override_cmd = True
-            if detections is not None:
-                self.publish_stop_sign_from_detections(detections, scan)
-            else:
-                self.publish_stop_sign_tracks()
             self.publish_cones([], scan)
         else:
-            if detections is not None:
-                self.publish_stop_sign_from_detections(detections, scan)
-            else:
-                self.publish_stop_sign_tracks()
-
             if self.stop_sign_triggered(now):
                 state = STOP_SIGN
                 override_active = True
@@ -367,16 +492,12 @@ class BehaviorCenterNode(Node):
                     self.stop_until + self.stop_sign_cooldown_sec
                 )
                 self.publish_cones([], scan)
-            elif detections is None:
-                if now < self.traffic_light_hold_until:
-                    state = TRAFFIC_LIGHT
-                    override_active = True
-                    publish_override_cmd = True
-                self.publish_cones([], scan)
-            elif self.traffic_light_stop_active(detections, now):
+            elif self.traffic_light_stop_active():
                 state = TRAFFIC_LIGHT
                 override_active = True
                 publish_override_cmd = True
+                self.publish_cones([], scan)
+            elif detections is None:
                 self.publish_cones([], scan)
             else:
                 cone_points = self.cone_points(detections, scan)
@@ -714,49 +835,92 @@ class BehaviorCenterNode(Node):
             return False
 
         track = self.reliable_stop_sign_track()
-        if track is None or track.stopped:
+        if track is None:
             return False
 
-        distance = math.hypot(
-            track.x - robot_position.x,
-            track.y - robot_position.y,
+        remaining_distance = self.stop_line_path_distance(
+            robot_position,
+            MapPoint(track.x, track.y),
         )
-        should_stop = self.stop_sign_should_stop(track, distance)
+        if remaining_distance is None:
+            return False
+
+        if track.stopped:
+            rearm_distance = (
+                self.stop_sign_stop_before_distance_m
+                + self.stop_sign_rearm_distance_m
+            )
+            if (
+                track.rearm_for_new_plan
+                and remaining_distance > rearm_distance
+            ):
+                track.stopped = False
+                track.rearm_for_new_plan = False
+                track.last_distance_m = remaining_distance
+                track.min_distance_m = remaining_distance
+            return False
+
+        previous_distance = track.last_distance_m
+        track.last_distance_m = remaining_distance
+        if track.min_distance_m is None:
+            track.min_distance_m = remaining_distance
+        else:
+            track.min_distance_m = min(
+                track.min_distance_m,
+                remaining_distance,
+            )
+
+        in_stop_region = should_stop_before_line(
+            remaining_distance,
+            self.stop_sign_stop_before_distance_m,
+            self.stop_sign_stop_line_tolerance_m,
+        )
+        crossed_stop_region = (
+            previous_distance is not None
+            and previous_distance > self.stop_sign_stop_before_distance_m
+            and remaining_distance < -self.stop_sign_stop_line_tolerance_m
+        )
         if now - self.last_stop_sign_debug_sec >= 1.0:
             self.last_stop_sign_debug_sec = now
             self.get_logger().info(
                 "Stop sign track at "
                 f"({track.x:.2f}, {track.y:.2f}) "
-                f"is {distance:.2f} m away "
+                f"is {remaining_distance:.2f} m ahead on the path "
                 f"({track.observations} observations)"
             )
-        if should_stop:
+        if in_stop_region or crossed_stop_region:
             track.stopped = True
+            track.rearm_for_new_plan = False
             return True
         return False
 
-    def stop_sign_should_stop(
+    def stop_line_path_distance(
         self,
-        track: StopSignTrack,
-        distance: float,
-    ) -> bool:
-        if track.min_distance_m is None or distance < track.min_distance_m:
-            track.min_distance_m = distance
+        robot_position: MapPoint,
+        stop_sign_position: MapPoint,
+    ) -> Optional[float]:
+        plan = self.latest_global_plan
+        if plan is None or plan.header.frame_id != self.stop_sign_map_frame:
+            return None
 
-        if distance <= self.stop_sign_trigger_distance_m:
-            track.last_distance_m = distance
-            return True
-
-        getting_farther = (
-            track.last_distance_m is not None
-            and distance > track.last_distance_m
-            and track.min_distance_m is not None
-            and distance
-            > track.min_distance_m
-            + self.stop_sign_passed_distance_increase_m
+        path_points = [
+            (
+                float(pose.pose.position.x),
+                float(pose.pose.position.y),
+            )
+            for pose in plan.poses
+        ]
+        robot_path_distance = distance_along_path(
+            (robot_position.x, robot_position.y),
+            path_points,
         )
-        track.last_distance_m = distance
-        return getting_farther
+        stop_line_path_distance = distance_along_path(
+            (stop_sign_position.x, stop_sign_position.y),
+            path_points,
+        )
+        if robot_path_distance is None or stop_line_path_distance is None:
+            return None
+        return stop_line_path_distance - robot_path_distance
 
     def traffic_light_is_near(
         self,

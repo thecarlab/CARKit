@@ -118,6 +118,7 @@ Defaults live in `carkit_control_center/config/control_center.yaml`.
 - `/yolo/detections_2d`
   (`carkit_perception_msgs/msg/YoloDetection2DArray`)
 - `/scan` (`sensor_msgs/LaserScan`)
+- `/plan` (`nav_msgs/Path`)
 - `/camera/camera/color/camera_info` (`sensor_msgs/CameraInfo`)
 
 It publishes:
@@ -133,11 +134,10 @@ Behavior logic only runs while the control center state is `AUTO_DRIVE`.
 Priority is stop sign, traffic light, cone, then normal Nav2.
 
 - Stop signs above the configured confidence are localized in the map frame
-  across multiple observations, then publish a zero override once per tracked
-  sign when the robot is close to the sign or starts moving away after missing
-  the close-distance threshold. A reliable stop-sign position stays latched and
-  published until a new stop-sign observation is farther than the configured
-  clear distance.
+  across multiple observations. The sign is projected onto Nav2's global path
+  to define a stop line perpendicular to the path. A zero override is published
+  once per tracked sign when the vehicle reaches the configured distance before
+  that line. A sign already behind the vehicle does not trigger a late stop.
 - Red/yellow traffic lights publish a zero override while fresh.
 - Stop signs and cones use their 2D bearing with lidar for metric range.
 - Camera/lidar fusion accounts for the camera being mounted 0.08 m forward of
@@ -147,6 +147,31 @@ Priority is stop sign, traffic light, cone, then normal Nav2.
   configurable bounding-box height ratio filters distant lights.
 - Cone detections publish lidar-frame PointCloud2 obstacles and a temporary
   speed limit; Nav2 handles steering by replanning around them.
+
+### Stop-Sign Logic
+
+1. YOLO detects a stop sign; lidar supplies its range.
+2. Repeated observations create one stable sign position in the map.
+3. The sign is projected onto the current Nav2 path to calculate its stop line.
+4. On entering or crossing the stop-line region, the behavior layer publishes
+   a zero-speed override for the configured duration.
+5. That sign stops the vehicle only once on the current path. A new goal can
+   rearm it only after the new path places the sign safely ahead again.
+
+Stop-sign tuning parameters:
+
+- `stop_sign_stop_before_distance_m`: desired stopping distance before the sign.
+- `stop_sign_stop_line_tolerance_m`: allowed overshoot beyond the sign projection.
+- `stop_sign_stop_duration_sec`: time to hold the vehicle stopped.
+- `stop_sign_rearm_distance_m`: distance the sign must be safely ahead to rearm.
+- `stop_sign_min_confidence`: minimum accepted YOLO confidence.
+- `stop_sign_required_observations`: observations required to confirm a sign.
+- `stop_sign_lidar_angle_window_deg`: camera/lidar matching angle window.
+- `stop_sign_lidar_min_range_m`, `stop_sign_lidar_max_range_m`: valid lidar range.
+- `stop_sign_track_match_distance_m`: distance for merging sign observations.
+- `stop_sign_clear_distance_m`: separation required to track a different sign.
+- `plan_goal_change_distance_m`: goal movement considered a new path.
+- `detection_timeout_sec`, `scan_timeout_sec`: maximum sensor-data age.
 
 Defaults live in `carkit_behavior/config/behavior_center.yaml`.
 
