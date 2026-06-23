@@ -4,10 +4,12 @@ from types import SimpleNamespace
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 from sensor_msgs.msg import LaserScan
+from carkit_perception_msgs.msg import YoloTrafficLightDetection2D
 
 from carkit_behavior.behavior_center_node import (
     BehaviorCenterNode,
     StopSignTrack,
+    TrafficLightTrack,
 )
 
 
@@ -34,15 +36,33 @@ def make_node():
     node.stop_sign_required_observations = 3
     node.stop_sign_track_match_distance_m = 1.0
     node.stop_sign_clear_distance_m = 10.0
+    node.traffic_light_min_confidence = 0.6
+    node.traffic_light_lidar_angle_window_rad = math.radians(8.0)
+    node.traffic_light_lidar_min_range_m = 0.15
+    node.traffic_light_lidar_max_range_m = 10.0
+    node.traffic_light_stop_ahead_distance_m = 2.0
+    node.traffic_light_required_observations = 3
+    node.traffic_light_stop_required_frames = 3
+    node.traffic_light_green_required_frames = 3
+    node.traffic_light_track_match_distance_m = 1.0
+    node.traffic_light_clear_distance_m = 10.0
     node.plan_goal_change_distance_m = 0.25
     node.stop_cooldown_until = 0.0
     node.last_stop_sign_debug_sec = 10.0
+    node.last_traffic_light_debug_sec = 10.0
+    node.traffic_light_stop_engaged = False
+    node.latest_traffic_light_color = (
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
+    )
+    node.traffic_light_stop_color_frames = 0
+    node.traffic_light_green_frames = 0
     node.current_pose_frame = "map"
     node.current_robot_x = 0.0
     node.current_robot_y = 0.0
     node.latest_global_plan = None
     node.active_plan_goal = None
     node.stop_sign_tracks = []
+    node.traffic_light_tracks = []
     node.cone_lidar_angle_window_rad = math.radians(6.0)
     node.cone_lidar_min_range_m = 0.15
     node.cone_lidar_max_range_m = 10.0
@@ -88,6 +108,12 @@ def detection_array(item):
 
 def reliable_track(x, y):
     track = StopSignTrack(x, y, 0.9)
+    track.observations = 3
+    return track
+
+
+def traffic_light_track(x, y, color):
+    track = TrafficLightTrack(x, y, 0.9, color)
     track.observations = 3
     return track
 
@@ -265,6 +291,243 @@ def test_lidar_matching_accounts_for_forward_camera_offset():
     )
     assert hit is not None
     assert hit[0] == 1.0
+
+
+def test_traffic_light_detection_ignores_traffic_cone():
+    node = make_node()
+    msg = SimpleNamespace(
+        image_width=640,
+        image_height=480,
+        detections=[
+            detection("traffic cone", confidence=0.99),
+            detection("traffic light", confidence=0.8),
+        ],
+        traffic_lights=[],
+    )
+
+    assert node.best_traffic_light_detection(msg) is None
+
+
+def test_traffic_light_detection_uses_classified_perception_output():
+    node = make_node()
+    light = SimpleNamespace(
+        detection=detection("traffic light", confidence=0.8),
+        traffic_light_color=YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    msg = SimpleNamespace(
+        image_width=640,
+        image_height=480,
+        detections=[],
+        traffic_lights=[light],
+    )
+
+    best = node.best_traffic_light_detection(msg)
+    assert best is not None
+    assert best[0].class_name == "traffic light"
+    assert best[1] == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
+
+
+def test_empty_traffic_light_output_clears_stale_track():
+    node = make_node()
+    node.traffic_light_tracks = [
+        traffic_light_track(
+            5.0,
+            0.0,
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+        )
+    ]
+    msg = SimpleNamespace(
+        image_width=640,
+        image_height=480,
+        detections=[],
+        traffic_lights=[],
+    )
+
+    node.publish_traffic_light_from_detections(msg, centered_scan(2.0))
+
+    assert node.traffic_light_tracks == []
+    assert not node.traffic_light_stop_engaged
+
+
+def test_empty_traffic_light_output_does_not_release_active_stop():
+    node = make_node()
+    track = traffic_light_track(
+        5.0,
+        0.0,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    node.traffic_light_tracks = [track]
+    node.traffic_light_stop_engaged = True
+    msg = SimpleNamespace(
+        image_width=640,
+        image_height=480,
+        detections=[],
+        traffic_lights=[],
+    )
+
+    node.publish_traffic_light_from_detections(msg, centered_scan(2.0))
+
+    assert node.traffic_light_tracks == [track]
+    assert node.traffic_light_stop_engaged
+
+
+def test_traffic_light_tracking_matches_stop_sign_style():
+    node = make_node()
+    track = node.record_traffic_light_observation(
+        4.0,
+        0.0,
+        0.9,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    assert not node.traffic_light_track_reliable(track)
+    node.record_traffic_light_observation(
+        4.2,
+        0.1,
+        0.9,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    node.record_traffic_light_observation(
+        3.8,
+        -0.1,
+        0.9,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+
+    assert len(node.traffic_light_tracks) == 1
+    assert node.traffic_light_track_reliable(track)
+    assert abs(track.x - 4.0) < 1.0e-6
+    assert abs(track.y) < 1.0e-6
+
+
+def test_traffic_light_uses_same_localization_as_stop_sign():
+    node = make_node()
+    item = detection("traffic light")
+    scan = centered_scan(2.0)
+
+    stop_location = node.localize_stop_sign(item, 640.0, scan)
+    traffic_light_location = node.localize_traffic_light(item, 640.0, scan)
+
+    assert stop_location is not None
+    assert traffic_light_location is not None
+    assert traffic_light_location.range_m == stop_location.range_m
+    assert traffic_light_location.scan_angle_rad == stop_location.scan_angle_rad
+    assert traffic_light_location.x == stop_location.x
+    assert traffic_light_location.y == stop_location.y
+
+
+def test_traffic_light_localization_has_independent_lidar_window():
+    node = make_node()
+    item = detection("traffic light", box=(280.0, 100.0, 320.0, 160.0))
+    scan = centered_scan(math.inf)
+    scan.ranges[358] = 1.0
+    node.stop_sign_lidar_angle_window_rad = math.radians(1.0)
+    node.traffic_light_lidar_angle_window_rad = math.radians(12.0)
+
+    assert node.localize_stop_sign(item, 640.0, scan) is None
+    assert node.localize_traffic_light(item, 640.0, scan) is not None
+
+
+def test_red_traffic_light_stops_when_close_on_path():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    node.traffic_light_tracks = [
+        traffic_light_track(
+            5.0,
+            0.0,
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+        )
+    ]
+    node.latest_traffic_light_color = YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
+    node.traffic_light_stop_color_frames = 2
+
+    node.current_robot_x = 2.9
+    assert not node.traffic_light_stop_active(1.0)
+    node.current_robot_x = 3.0
+    assert not node.traffic_light_stop_active(1.1)
+    node.update_traffic_light_color_state(
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
+    )
+    assert node.traffic_light_stop_active(1.1)
+    assert node.traffic_light_stop_engaged
+
+
+def test_green_traffic_light_releases_stop_after_three_frames():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    track = traffic_light_track(
+        5.0,
+        0.0,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    node.traffic_light_tracks = [track]
+    node.latest_traffic_light_color = YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
+    node.current_robot_x = 4.0
+    node.traffic_light_stop_color_frames = 3
+
+    assert node.traffic_light_stop_active(1.0)
+    node.update_traffic_light_color_state(
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN
+    )
+    assert node.traffic_light_stop_active(1.1)
+    node.update_traffic_light_color_state(
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN
+    )
+    assert node.traffic_light_stop_active(1.2)
+    node.update_traffic_light_color_state(
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN
+    )
+    assert not node.traffic_light_stop_active(1.3)
+    assert not node.traffic_light_stop_engaged
+
+
+def test_green_yolo_state_releases_even_with_location_jitter():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    track = traffic_light_track(
+        5.0,
+        0.0,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    node.traffic_light_tracks = [track]
+    node.latest_traffic_light_color = YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
+    node.current_robot_x = 4.0
+    node.traffic_light_stop_color_frames = 3
+
+    assert node.traffic_light_stop_active(1.0)
+    node.update_traffic_light_color_state(
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN,
+    )
+    node.update_traffic_light_color_state(
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN,
+    )
+    node.update_traffic_light_color_state(
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN,
+    )
+
+    assert track.color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
+    assert not node.traffic_light_stop_active(1.1)
+    assert not node.traffic_light_stop_engaged
+
+
+def test_single_green_yolo_update_does_not_release_active_traffic_light_stop():
+    node = make_node()
+    node.traffic_light_stop_engaged = True
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    node.traffic_light_tracks = [
+        traffic_light_track(
+            5.0,
+            0.0,
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+        )
+    ]
+    node.current_robot_x = 4.0
+
+    node.update_traffic_light_color_state(
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN,
+    )
+
+    assert node.traffic_light_stop_active(1.0)
+    assert node.traffic_light_stop_engaged
 
 
 def test_cone_is_localized_in_laser_frame_and_inflated():

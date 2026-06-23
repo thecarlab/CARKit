@@ -9,6 +9,7 @@ from builtin_interfaces.msg import Time
 from carkit_perception_msgs.msg import (
     YoloDetection2D,
     YoloDetection2DArray,
+    YoloTrafficLightDetection2D,
 )
 from carkit_behavior.path_geometry import (
     distance_along_path,
@@ -28,6 +29,7 @@ from tf2_ros import Buffer, TransformException, TransformListener
 
 NORMAL_NAV2 = "NORMAL_NAV2"
 STOP_SIGN = "STOP_SIGN"
+TRAFFIC_LIGHT = "TRAFFIC_LIGHT"
 CONE = "CONE"
 AUTO_DRIVE = "AUTO_DRIVE"
 
@@ -87,6 +89,63 @@ class StopSignTrack:
         self.observations += 1
 
 
+class TrafficLightTrack:
+    __slots__ = (
+        "x",
+        "y",
+        "weight",
+        "observations",
+        "color",
+        "green_observations",
+        "last_distance_m",
+    )
+
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        confidence: float,
+        color: int,
+    ) -> None:
+        self.x = x
+        self.y = y
+        self.weight = max(0.01, confidence)
+        self.observations = 1
+        self.color = color
+        self.green_observations = (
+            1
+            if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN
+            else 0
+        )
+        self.last_distance_m: Optional[float] = None
+
+    def update(
+        self,
+        x: float,
+        y: float,
+        confidence: float,
+        color: int,
+    ) -> None:
+        weight = max(0.01, confidence)
+        total_weight = self.weight + weight
+        self.x = (self.x * self.weight + x * weight) / total_weight
+        self.y = (self.y * self.weight + y * weight) / total_weight
+        self.weight = total_weight
+        self.observations += 1
+        self.color = color
+        if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN:
+            self.green_observations += 1
+        else:
+            self.green_observations = 0
+
+    def update_color(self, color: int) -> None:
+        self.color = color
+        if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN:
+            self.green_observations += 1
+        else:
+            self.green_observations = 0
+
+
 class BehaviorCenterNode(Node):
     def __init__(self) -> None:
         super().__init__("behavior_center_node")
@@ -119,6 +178,16 @@ class BehaviorCenterNode(Node):
         self.declare_parameter("stop_sign_required_observations", 3)
         self.declare_parameter("stop_sign_track_match_distance_m", 1.0)
         self.declare_parameter("stop_sign_clear_distance_m", 10.0)
+        self.declare_parameter("traffic_light_min_confidence", 0.6)
+        self.declare_parameter("traffic_light_lidar_angle_window_deg", 8.0)
+        self.declare_parameter("traffic_light_lidar_min_range_m", 0.15)
+        self.declare_parameter("traffic_light_lidar_max_range_m", 10.0)
+        self.declare_parameter("traffic_light_stop_ahead_distance_m", 2.0)
+        self.declare_parameter("traffic_light_required_observations", 3)
+        self.declare_parameter("traffic_light_stop_required_frames", 3)
+        self.declare_parameter("traffic_light_green_required_frames", 3)
+        self.declare_parameter("traffic_light_track_match_distance_m", 1.0)
+        self.declare_parameter("traffic_light_clear_distance_m", 10.0)
         self.declare_parameter("plan_goal_change_distance_m", 0.25)
         self.declare_parameter("cone_trigger_distance_m", 3.0)
         self.declare_parameter("cone_lidar_angle_window_deg", 6.0)
@@ -188,6 +257,40 @@ class BehaviorCenterNode(Node):
         self.stop_sign_clear_distance_m = float(
             self.get_parameter("stop_sign_clear_distance_m").value
         )
+        self.traffic_light_min_confidence = float(
+            self.get_parameter("traffic_light_min_confidence").value
+        )
+        self.traffic_light_lidar_angle_window_rad = math.radians(
+            float(
+                self.get_parameter(
+                    "traffic_light_lidar_angle_window_deg"
+                ).value
+            )
+        )
+        self.traffic_light_lidar_min_range_m = float(
+            self.get_parameter("traffic_light_lidar_min_range_m").value
+        )
+        self.traffic_light_lidar_max_range_m = float(
+            self.get_parameter("traffic_light_lidar_max_range_m").value
+        )
+        self.traffic_light_stop_ahead_distance_m = float(
+            self.get_parameter("traffic_light_stop_ahead_distance_m").value
+        )
+        self.traffic_light_required_observations = int(
+            self.get_parameter("traffic_light_required_observations").value
+        )
+        self.traffic_light_stop_required_frames = int(
+            self.get_parameter("traffic_light_stop_required_frames").value
+        )
+        self.traffic_light_green_required_frames = int(
+            self.get_parameter("traffic_light_green_required_frames").value
+        )
+        self.traffic_light_track_match_distance_m = float(
+            self.get_parameter("traffic_light_track_match_distance_m").value
+        )
+        self.traffic_light_clear_distance_m = float(
+            self.get_parameter("traffic_light_clear_distance_m").value
+        )
         self.plan_goal_change_distance_m = float(
             self.get_parameter("plan_goal_change_distance_m").value
         )
@@ -222,6 +325,13 @@ class BehaviorCenterNode(Node):
         self.stop_until = 0.0
         self.stop_cooldown_until = 0.0
         self.last_stop_sign_debug_sec = 0.0
+        self.last_traffic_light_debug_sec = 0.0
+        self.traffic_light_stop_engaged = False
+        self.latest_traffic_light_color = (
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
+        )
+        self.traffic_light_stop_color_frames = 0
+        self.traffic_light_green_frames = 0
         self.current_velocity_mps: Optional[float] = None
         self.current_pose_frame: Optional[str] = None
         self.current_robot_x: Optional[float] = None
@@ -230,6 +340,7 @@ class BehaviorCenterNode(Node):
         self.latest_global_plan: Optional[Path] = None
         self.active_plan_goal: Optional[MapPoint] = None
         self.stop_sign_tracks: list[StopSignTrack] = []
+        self.traffic_light_tracks: list[TrafficLightTrack] = []
         self.last_behavior_state = NORMAL_NAV2
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -302,6 +413,11 @@ class BehaviorCenterNode(Node):
             "/behavior/stop_sign_position",
             10,
         )
+        self.traffic_light_position_pub = self.create_publisher(
+            PointStamped,
+            "/behavior/traffic_light_position",
+            10,
+        )
 
         self.timer = self.create_timer(0.05, self.timer_callback)
         self.get_logger().info(
@@ -368,14 +484,19 @@ class BehaviorCenterNode(Node):
         override_active = False
         publish_override_cmd = False
 
+        scan = self.fresh_scan(now)
+        detections = self.fresh_detections(now)
+
+        if detections is not None:
+            self.publish_traffic_light_from_detections(detections, scan)
+        else:
+            self.clear_traffic_light_track()
+
         if self.main_state != AUTO_DRIVE:
             self.last_behavior_state = NORMAL_NAV2
             self.publish_state(state, override_active)
             self.publish_cones([], None)
             return
-
-        scan = self.fresh_scan(now)
-        detections = self.fresh_detections(now)
 
         if detections is not None:
             self.publish_stop_sign_from_detections(detections, scan)
@@ -396,6 +517,11 @@ class BehaviorCenterNode(Node):
                 self.stop_cooldown_until = (
                     self.stop_until + self.stop_sign_cooldown_sec
                 )
+                self.publish_cones([], scan)
+            elif self.traffic_light_stop_active(now):
+                state = TRAFFIC_LIGHT
+                override_active = True
+                publish_override_cmd = True
                 self.publish_cones([], scan)
             elif detections is None:
                 self.publish_cones([], scan)
@@ -443,6 +569,27 @@ class BehaviorCenterNode(Node):
             and detection.confidence >= self.stop_sign_min_confidence
         ]
         return max(candidates, key=lambda item: item.confidence, default=None)
+
+    def best_traffic_light_detection(
+        self,
+        msg: YoloDetection2DArray,
+    ) -> Optional[tuple[YoloDetection2D, int]]:
+        candidates = []
+        for traffic_light in getattr(msg, "traffic_lights", []):
+            detection = traffic_light.detection
+            if detection.confidence >= self.traffic_light_min_confidence:
+                candidates.append(
+                    (detection, int(traffic_light.traffic_light_color))
+                )
+        return max(
+            candidates,
+            key=lambda item: item[0].confidence,
+            default=None,
+        )
+
+    def is_traffic_light_detection(self, detection: YoloDetection2D) -> bool:
+        class_name = detection.class_name.lower()
+        return "traffic" in class_name and "light" in class_name
 
     def detection_horizontal_bearing_rad(
         self,
@@ -573,6 +720,21 @@ class BehaviorCenterNode(Node):
             self.stop_sign_lidar_max_range_m,
         )
 
+    def localize_traffic_light(
+        self,
+        detection: YoloDetection2D,
+        image_width: float,
+        scan: LaserScan,
+    ) -> Optional[ObjectLocation]:
+        return self.localize_detection(
+            detection,
+            image_width,
+            scan,
+            self.traffic_light_lidar_angle_window_rad,
+            self.traffic_light_lidar_min_range_m,
+            self.traffic_light_lidar_max_range_m,
+        )
+
     def publish_stop_sign_from_detections(
         self,
         detections: YoloDetection2DArray,
@@ -607,6 +769,154 @@ class BehaviorCenterNode(Node):
             float(detection.confidence),
         )
         self.publish_stop_sign_tracks()
+
+    def publish_traffic_light_from_detections(
+        self,
+        detections: YoloDetection2DArray,
+        scan: Optional[LaserScan],
+    ) -> None:
+        if scan is None:
+            self.clear_traffic_light_track()
+            return
+        candidate = self.best_traffic_light_detection(detections)
+        if candidate is None:
+            self.clear_traffic_light_track()
+            return
+        detection, color = candidate
+        self.update_traffic_light_color_state(color)
+        location = self.localize_traffic_light(
+            detection,
+            float(detections.image_width),
+            scan,
+        )
+        if location is None:
+            self.clear_traffic_light_track()
+            return
+        point = self.transform_location_to_map(
+            location,
+            scan.header.frame_id or "laser",
+            scan.header.stamp,
+        )
+        if point is None:
+            self.clear_traffic_light_track()
+            return
+
+        self.record_traffic_light_observation(
+            point.x,
+            point.y,
+            float(detection.confidence),
+            color,
+        )
+        self.publish_traffic_light_tracks()
+
+    def clear_traffic_light_track(self) -> None:
+        if self.traffic_light_stop_engaged:
+            return
+        self.traffic_light_tracks = []
+        self.traffic_light_stop_engaged = False
+        self.latest_traffic_light_color = (
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
+        )
+        self.traffic_light_stop_color_frames = 0
+        self.traffic_light_green_frames = 0
+
+    def update_traffic_light_color_state(self, color: int) -> None:
+        self.latest_traffic_light_color = color
+        if color in (
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_YELLOW,
+        ):
+            self.traffic_light_stop_color_frames += 1
+            self.traffic_light_green_frames = 0
+        elif color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN:
+            self.traffic_light_green_frames += 1
+            self.traffic_light_stop_color_frames = 0
+        else:
+            self.traffic_light_stop_color_frames = 0
+            self.traffic_light_green_frames = 0
+
+    def record_traffic_light_observation(
+        self,
+        x: float,
+        y: float,
+        confidence: float,
+        color: int,
+    ) -> TrafficLightTrack:
+        reliable_track = self.primary_traffic_light_track()
+        if reliable_track is not None:
+            distance = math.hypot(reliable_track.x - x, reliable_track.y - y)
+            if distance > self.traffic_light_clear_distance_m:
+                self.traffic_light_tracks = []
+            else:
+                if distance <= self.traffic_light_track_match_distance_m:
+                    reliable_track.update(x, y, confidence, color)
+                else:
+                    reliable_track.update_color(color)
+                return reliable_track
+
+        nearest_track = None
+        nearest_distance = math.inf
+        for track in self.traffic_light_tracks:
+            distance = math.hypot(track.x - x, track.y - y)
+            if distance < nearest_distance:
+                nearest_track = track
+                nearest_distance = distance
+
+        if (
+            nearest_track is not None
+            and nearest_distance <= self.traffic_light_track_match_distance_m
+        ):
+            nearest_track.update(x, y, confidence, color)
+            return nearest_track
+
+        track = TrafficLightTrack(x, y, confidence, color)
+        self.traffic_light_tracks.append(track)
+        return track
+
+    def publish_traffic_light_tracks(self) -> None:
+        track = self.primary_traffic_light_track()
+        if track is None:
+            return
+
+        msg = PointStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = self.stop_sign_map_frame
+        msg.point.x = float(track.x)
+        msg.point.y = float(track.y)
+        self.traffic_light_position_pub.publish(msg)
+
+    def primary_traffic_light_track(self) -> Optional[TrafficLightTrack]:
+        for track in self.traffic_light_tracks:
+            if self.traffic_light_track_reliable(track):
+                return track
+        return None
+
+    def traffic_light_track_reliable(self, track: TrafficLightTrack) -> bool:
+        return (
+            track.observations
+            >= max(1, self.traffic_light_required_observations)
+        )
+
+    def traffic_light_green_confirmed(
+        self,
+    ) -> bool:
+        return (
+            self.latest_traffic_light_color
+            == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN
+            and self.traffic_light_green_frames
+            >= max(1, self.traffic_light_green_required_frames)
+        )
+
+    def traffic_light_stop_color_confirmed(self) -> bool:
+        return (
+            self.latest_traffic_light_color
+            in (
+                YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+                YoloTrafficLightDetection2D.TRAFFIC_LIGHT_YELLOW,
+            )
+            and self.traffic_light_stop_color_frames
+            >= max(1, self.traffic_light_stop_required_frames)
+        )
 
     def transform_location_to_map(
         self,
@@ -729,6 +1039,51 @@ class BehaviorCenterNode(Node):
             return MapPoint(self.current_robot_x, self.current_robot_y)
         return None
 
+    def traffic_light_stop_active(self, now: float) -> bool:
+        robot_position = self.robot_position_in_map()
+        if robot_position is None:
+            return self.traffic_light_stop_engaged
+
+        track = self.primary_traffic_light_track()
+        if track is None:
+            return self.traffic_light_stop_engaged
+
+        remaining_distance = self.stop_line_path_distance(
+            robot_position,
+            MapPoint(track.x, track.y),
+        )
+        if remaining_distance is None:
+            return self.traffic_light_stop_engaged
+
+        track.last_distance_m = remaining_distance
+        color_name = self.traffic_light_color_name(
+            self.latest_traffic_light_color
+        )
+        if now - self.last_traffic_light_debug_sec >= 1.0:
+            self.last_traffic_light_debug_sec = now
+            self.get_logger().info(
+                "Traffic light track at "
+                f"({track.x:.2f}, {track.y:.2f}) "
+                f"is {remaining_distance:.2f} m ahead on the path "
+                f"({track.observations} observations, {color_name})"
+            )
+
+        if self.traffic_light_green_confirmed():
+            self.traffic_light_stop_engaged = False
+            return False
+
+        if self.traffic_light_stop_engaged:
+            return True
+
+        if (
+            self.traffic_light_stop_color_confirmed()
+            and 0.0 <= remaining_distance
+            and remaining_distance <= self.traffic_light_stop_ahead_distance_m
+        ):
+            self.traffic_light_stop_engaged = True
+            return True
+        return False
+
     def stop_sign_triggered(self, now: float) -> bool:
         robot_position = self.robot_position_in_map()
         if robot_position is None:
@@ -836,6 +1191,11 @@ class BehaviorCenterNode(Node):
                 f"current velocity: {velocity} | "
                 f"stopping for {self.stop_sign_stop_duration_sec:.1f} s"
             )
+        elif state == TRAFFIC_LIGHT:
+            logger.info(
+                "[BEHAVIOR] TRAFFIC_LIGHT called | "
+                f"current velocity: {velocity} | stopping until green"
+            )
         elif state == CONE:
             logger.info(
                 "[BEHAVIOR] CONE called | "
@@ -846,6 +1206,11 @@ class BehaviorCenterNode(Node):
             if previous_state == STOP_SIGN:
                 logger.info(
                     "[BEHAVIOR] STOP_SIGN complete | "
+                    f"current velocity: {velocity} | returning to Nav2"
+                )
+            elif previous_state == TRAFFIC_LIGHT:
+                logger.info(
+                    "[BEHAVIOR] TRAFFIC_LIGHT complete | "
                     f"current velocity: {velocity} | returning to Nav2"
                 )
             elif previous_state == CONE:
@@ -860,6 +1225,15 @@ class BehaviorCenterNode(Node):
         if self.current_velocity_mps is None:
             return "unavailable"
         return f"{self.current_velocity_mps:.2f} m/s"
+
+    def traffic_light_color_name(self, color: int) -> str:
+        if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED:
+            return "red"
+        if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_YELLOW:
+            return "yellow"
+        if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN:
+            return "green"
+        return "unknown"
 
     def cone_points(
         self,

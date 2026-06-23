@@ -25,6 +25,16 @@ behavior_center_node:
     stop_sign_required_observations: 3
     stop_sign_track_match_distance_m: 1.0
     stop_sign_clear_distance_m: 10.0
+    traffic_light_min_confidence: 0.6
+    traffic_light_lidar_angle_window_deg: 20.0
+    traffic_light_lidar_min_range_m: 0.15
+    traffic_light_lidar_max_range_m: 10.0
+    traffic_light_stop_ahead_distance_m: 2.0
+    traffic_light_required_observations: 3
+    traffic_light_stop_required_frames: 3
+    traffic_light_green_required_frames: 3
+    traffic_light_track_match_distance_m: 1.0
+    traffic_light_clear_distance_m: 10.0
     plan_goal_change_distance_m: 0.25
     cone_trigger_distance_m: 3.0
     cone_lidar_angle_window_deg: 6.0

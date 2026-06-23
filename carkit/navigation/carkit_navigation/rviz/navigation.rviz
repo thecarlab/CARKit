@@ -317,7 +317,7 @@ Visualization Manager:
       Color: 204; 41; 204
       Enabled: true
       History Length: 1
-      Name: PointStamped
+      Name: Stop Sign Position
       Radius: 0.20000000298023224
       Topic:
         Depth: 5
@@ -326,6 +326,21 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /behavior/stop_sign_position
+      Value: true
+    - Alpha: 1
+      Class: rviz_default_plugins/PointStamped
+      Color: 0; 85; 255
+      Enabled: true
+      History Length: 1
+      Name: Traffic Light Position
+      Radius: 0.20000000298023224
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /behavior/traffic_light_position
       Value: true
   Enabled: true
   Global Options:
