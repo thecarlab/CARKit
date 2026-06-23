@@ -1,7 +1,6 @@
 import math
 from types import SimpleNamespace
 
-from carkit_perception_msgs.msg import YoloTrafficLightDetection2D
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 from sensor_msgs.msg import LaserScan
@@ -44,9 +43,6 @@ def make_node():
     node.latest_global_plan = None
     node.active_plan_goal = None
     node.stop_sign_tracks = []
-    node.traffic_light_min_bbox_height_ratio = 0.06
-    node.traffic_light_hold_timeout_sec = 0.5
-    node.traffic_light_hold_until = 0.0
     node.cone_lidar_angle_window_rad = math.radians(6.0)
     node.cone_lidar_min_range_m = 0.15
     node.cone_lidar_max_range_m = 10.0
@@ -57,7 +53,6 @@ def make_node():
 
 def detection(
     class_name,
-    color=0,
     box=(300.0, 100.0, 340.0, 160.0),
     confidence=0.9,
 ):
@@ -68,7 +63,6 @@ def detection(
         bbox_y_min=box[1],
         bbox_x_max=box[2],
         bbox_y_max=box[3],
-        traffic_light_color=color,
     )
 
 
@@ -89,47 +83,7 @@ def detection_array(item):
         image_width=640,
         image_height=480,
         detections=[item],
-        traffic_lights=[],
     )
-
-
-def traffic_light_array(item):
-    return SimpleNamespace(
-        image_width=640,
-        image_height=480,
-        detections=[],
-        traffic_lights=[
-            SimpleNamespace(
-                detection=item,
-                traffic_light_color=item.traffic_light_color,
-            )
-        ],
-    )
-
-
-def test_bbox_height_rejects_distant_traffic_light():
-    node = make_node()
-    far = detection("traffic light", box=(300.0, 100.0, 340.0, 120.0))
-    near = detection("traffic light", box=(300.0, 100.0, 340.0, 140.0))
-    assert not node.traffic_light_is_near(far, 480.0)
-    assert node.traffic_light_is_near(near, 480.0)
-
-
-def test_red_and_yellow_stop_and_green_releases():
-    node = make_node()
-    for color in (
-        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
-        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_YELLOW,
-    ):
-        light = detection("traffic light", color=color)
-        assert node.traffic_light_stop_active(traffic_light_array(light), 2.0)
-
-    green = detection(
-        "traffic light",
-        color=YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN,
-    )
-    assert not node.traffic_light_stop_active(traffic_light_array(green), 2.1)
-    assert node.traffic_light_hold_until == 0.0
 
 
 def reliable_track(x, y):
