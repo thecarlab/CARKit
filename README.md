@@ -1,13 +1,12 @@
 <div align="center">
-  <img src="docs/logo.jpeg" alt="CARKit logo" width="64">
-  <h1>CARKit</h1>
+  <img src="docs/logo.jpeg" alt="CARKit logo" width="80">
+  
   <a href="https://www.thecarlab.org/">The CAR Lab</a>
 </div>
 
-CARKit is a ROS 2 Humble stack for small Ackermann autonomous vehicles. The
-current workflow uses one Docker image, a mounted workspace, VESC odometry,
-Nav2 mapping/navigation, camera perception, behavior overrides, and one final
-control arbiter.
+**CARKit** is a modular ROS 2 middleware platform for autonomous driving education, developed by the Connected and Autonomous Research (CAR) Lab at the University of Delaware for the Autonomous Driving Academy (ADA).
+
+Designed around real autonomous vehicle workflows, CARKit provides a unified software stack for perception, navigation, planning, and control on small-scale Ackermann vehicles. The platform combines industry-standard ROS 2 tools with hands-on deployment on physical vehicles and simulation environments, enabling students to learn autonomous systems through practical experimentation.
 
 ## 🧩 Supported Platform
 
