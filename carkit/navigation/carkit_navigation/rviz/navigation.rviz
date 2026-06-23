@@ -314,7 +314,7 @@ Visualization Manager:
       Value: false
     - Alpha: 1
       Class: rviz_default_plugins/PointStamped
-      Color: 204; 41; 204
+      Color: 255; 0; 0
       Enabled: true
       History Length: 1
       Name: Stop Sign Position

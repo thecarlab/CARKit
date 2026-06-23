@@ -1,22 +1,26 @@
-# CARKit
+<div align="center">
+  <img src="docs/logo.jpeg" alt="CARKit logo" width="64">
+  <h1>CARKit</h1>
+  <a href="https://www.thecarlab.org/">The CAR Lab</a>
+</div>
 
 CARKit is a ROS 2 Humble stack for small Ackermann autonomous vehicles. The
 current workflow uses one Docker image, a mounted workspace, VESC odometry,
 Nav2 mapping/navigation, camera perception, behavior overrides, and one final
 control arbiter.
 
-## Supported Platform
+## 🧩 Supported Platform
 
-- Jetson Orin Nano with JetPack 6.x / L4T 36.x
-- Docker with NVIDIA runtime
-- Slamtec SLLiDAR publishing `/scan`
-- Intel RealSense color camera
-- Ackermann/F1TENTH-style vehicle with VESC odometry
+- 🚀 [NVIDIA Jetson Orin Nano](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/nano-super-developer-kit/) with JetPack 6.x / L4T 36.x
+- 🐳 Docker with [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+- 📡 [SLAMTEC SLLiDAR/RPLIDAR](https://www.slamtec.com/en/support) publishing `/scan`
+- 📷 [Intel RealSense](https://www.intel.com/content/www/us/en/architecture-and-technology/realsense-overview.html) color camera
+- 🏎️ Ackermann/F1TENTH-style vehicle with [VESC](https://vesc-project.com/) odometry
 
 ROS 2 and CARKit dependencies run inside `ariiees/carkit:latest`. The host
 only needs JetPack, Docker, Git, display access for RViz, and device access.
 
-## Setup
+## ⚙️ Setup
 
 On the Jetson host:
 
@@ -37,62 +41,20 @@ source install/setup.bash
 `build_workspace.sh` fetches vendored sensor repos and builds the mounted
 workspace at `/workspaces/CARKit`.
 
-## Host IP Monitor
+USB reminder before launching sensors:
 
-The Jetson host can report the current wireless IPv4 address for remote access.
-Install the boot service from the host, not inside the Docker container:
-
-```bash
-sudo ./carkit/tools/install_ip_monitor_service.sh
-```
-
-The service monitors `wlP1p1s0` by default, sends a notification on boot and
-whenever the IPv4 address changes, and writes the latest value to:
+- Connect the RealSense camera to a high-speed USB bus. If perception is
+  unstable or images stop publishing, move the camera to a port that shows
+  `10000M` or `5000M` in `lsusb -t`.
+- Keep the lidar and VESC on separate stable USB connections when possible.
+- Inside Docker, confirm devices are visible before launch:
 
 ```bash
-/var/lib/carkit/ip-monitor/latest_ip
+lsusb -t
+ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 ```
 
-To enable email or another notification method, edit:
-
-```bash
-sudo nano /etc/carkit/ip-monitor.env
-sudo systemctl restart carkit-ip-monitor.service
-```
-
-View live logs with:
-
-```bash
-journalctl -u carkit-ip-monitor.service -f
-```
-
-## Topic Flow
-
-Manual driving and mapping:
-
-```text
-/joy -> joy_teleop -> /teleop
-/teleop -> ackermann_mux -> /ackermann_cmd
-/ackermann_cmd -> ackermann_to_vesc_node -> VESC
-VESC feedback -> /odom
-```
-
-Autonomous driving:
-
-```text
-/joy -> joy_teleop -> /teleop
-Nav2 -> /cmd_vel -> twist_to_ackermann -> /drive
-/yolo/detections_2d -> carkit_behavior -> /behavior/*
-/teleop + /drive + /behavior/* + /joy -> carkit_control_center -> /ackermann_cmd
-/ackermann_cmd -> ackermann_to_vesc_node -> VESC
-VESC feedback -> /odom
-```
-
-For autonomous driving, `carkit_control_center` owns the final `/ackermann_cmd`.
-Run Nav2 with `start_command_mux:=false`; this is the default in the current
-launch files.
-
-## Manual Driving And Mapping Control
+## 🕹️ Manual Driving And Mapping Control
 
 For manual driving, mapping, and vehicle checks, launch human control directly:
 
@@ -103,7 +65,6 @@ ros2 launch carkit_human_control joystick.launch.py
 This launches joystick teleop, VESC, odometry, and the legacy mux path from
 `/teleop` to `/ackermann_cmd`.
 
-## Mapping
 
 Start human control as shown above, then launch mapping:
 
@@ -121,10 +82,10 @@ ros2 run nav2_map_server map_saver_cli \
 
 Maps belong in the repository's top-level `map/` folder.
 
-## Navigation
+## 🤖 Autonomous Driving
 
-For autonomous driving, start human control with the legacy mux output remapped
-away from `/ackermann_cmd`, start the control center, then launch Nav2:
+Start human control with the legacy mux output remapped away from
+`/ackermann_cmd`, start the control center, then launch Nav2:
 
 ```bash
 ros2 launch carkit_human_control joystick.launch.py \
@@ -143,25 +104,25 @@ ros2 launch carkit_navigation navigation.launch.py \
 ```
 
 In RViz, set **2D Pose Estimate**, wait for AMCL to converge, then send a
-**Nav2 Goal**. Press the configured auto joystick button to enter
-`AUTO_DRIVE`; the default is button `0`.
+**Nav2 Goal**. Press the joystick mode toggle to enter `AUTO_DRIVE`; the
+current default is `mode_toggle_button: 10` in
+`f1tenth_stack/config/joy_teleop.yaml`.
 
-The included example map is the default and can be selected explicitly with:
+The main map is selected above. To use the 3F example map instead, pass:
 
 ```bash
 map:=/workspaces/CARKit/map/map_3f.yaml
 ```
 
-## Perception And Behavior
+### 👁️ Perception And Behavior
 
 Start the color-only RealSense driver and typed 2D YOLO perception together:
 
 ```bash
-export LD_LIBRARY_PATH=/usr/local/lib/python3.10/dist-packages/nvidia/cusparselt/lib:$LD_LIBRARY_PATH
 ros2 launch carkit_perception perception.launch.py
 ```
 
-Start behavior overrides and cone obstacle publishing:
+Start behavior overrides:
 
 ```bash
 ros2 launch carkit_behavior behavior_center.launch.py
@@ -170,7 +131,7 @@ ros2 launch carkit_behavior behavior_center.launch.py
 Behavior logic only affects commands while the control center is in
 `AUTO_DRIVE`.
 
-## Repository Layout
+## 🗂️ Repository Layout
 
 ```text
 carkit/
@@ -185,19 +146,7 @@ docker/          image, run, build, and publish scripts
 docs/            troubleshooting and diagrams
 ```
 
-## Verify
-
-Inside Docker after building:
-
-```bash
-ros2 launch carkit_navigation navigation.launch.py --show-args
-ros2 launch carkit_control_center control_center.launch.py --show-args
-ros2 topic echo /scan --once
-ros2 topic echo /odom --once
-ros2 topic echo /ackermann_cmd --once
-```
-
-## More Docs
+## 📚 More Docs
 
 - [Control](carkit/control/README.md)
 - [Navigation](carkit/navigation/README.md)

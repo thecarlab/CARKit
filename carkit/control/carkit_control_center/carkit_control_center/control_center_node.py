@@ -10,7 +10,7 @@ from builtin_interfaces.msg import Time
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
-from std_msgs.msg import Bool, Float32, Int8, String
+from std_msgs.msg import Bool, Int8, String
 
 
 HUMAN_CONTROL = "HUMAN_CONTROL"
@@ -90,7 +90,6 @@ class ControlCenterNode(Node):
         self.nav2 = TimedMessage()
         self.behavior_override = TimedMessage()
         self.behavior_override_active = TimedMessage()
-        self.speed_limit = TimedMessage()
         self.previous_buttons: list[int] = []
         self.debug_counter = 0
 
@@ -117,12 +116,6 @@ class ControlCenterNode(Node):
             AckermannDriveStamped,
             "/behavior/override_cmd",
             self.behavior_cmd_callback,
-            10,
-        )
-        self.create_subscription(
-            Float32,
-            "/behavior/speed_limit",
-            self.speed_limit_callback,
             10,
         )
         if self.use_autonomy_enable_topic:
@@ -207,9 +200,6 @@ class ControlCenterNode(Node):
     def behavior_cmd_callback(self, msg: AckermannDriveStamped) -> None:
         self.behavior_override.update(msg, self.now_sec())
 
-    def speed_limit_callback(self, msg: Float32) -> None:
-        self.speed_limit.update(msg, self.now_sec())
-
     def timer_callback(self) -> None:
         now = self.now_sec()
         selected = "zero"
@@ -237,7 +227,6 @@ class ControlCenterNode(Node):
                 selected = "behavior_override"
             elif self.nav2.fresh(now, self.nav2_timeout_sec):
                 command = self.copy_command(self.nav2.msg)
-                self.apply_speed_limit(command, now)
                 selected = "nav2_drive"
             else:
                 command = self.zero_command()
@@ -284,14 +273,6 @@ class ControlCenterNode(Node):
     def apply_autonomy_enable(self, enabled: int) -> None:
         self.main_state = AUTO_DRIVE if enabled == 1 else HUMAN_CONTROL
 
-    def apply_speed_limit(self, command: AckermannDriveStamped, now: float) -> None:
-        if not self.speed_limit.fresh(now, self.behavior_timeout_sec):
-            return
-        limit = abs(float(self.speed_limit.msg.data))
-        if not math.isfinite(limit):
-            return
-        command.drive.speed = clamp(command.drive.speed, -limit, limit)
-
     def clamp_command(self, command: AckermannDriveStamped) -> None:
         command.drive.speed = clamp(command.drive.speed, -self.max_speed, self.max_speed)
         command.drive.steering_angle = clamp(
@@ -332,10 +313,6 @@ class ControlCenterNode(Node):
                 self.behavior_timeout_sec,
             ),
             "behavior_cmd_fresh": self.behavior_override.fresh(
-                now,
-                self.behavior_timeout_sec,
-            ),
-            "speed_limit_fresh": self.speed_limit.fresh(
                 now,
                 self.behavior_timeout_sec,
             ),

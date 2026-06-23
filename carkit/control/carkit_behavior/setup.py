@@ -14,6 +14,7 @@ setup(
             "share/ament_index/resource_index/packages",
             ["resource/" + package_name],
         ),
+        (os.path.join("lib", package_name), ["scripts/behavior_center_node"]),
         ("share/" + package_name, ["package.xml"]),
         (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
@@ -24,9 +25,5 @@ setup(
     maintainer_email="ada@todo.todo",
     description="CARKit behavior layer",
     license="Apache-2.0",
-    entry_points={
-        "console_scripts": [
-            "behavior_center_node = carkit_behavior.behavior_center_node:main",
-        ],
-    },
+    entry_points={},
 )

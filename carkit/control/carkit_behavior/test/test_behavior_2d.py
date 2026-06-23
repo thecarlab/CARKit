@@ -63,11 +63,6 @@ def make_node():
     node.active_plan_goal = None
     node.stop_sign_tracks = []
     node.traffic_light_tracks = []
-    node.cone_lidar_angle_window_rad = math.radians(6.0)
-    node.cone_lidar_min_range_m = 0.15
-    node.cone_lidar_max_range_m = 10.0
-    node.cone_trigger_distance_m = 3.0
-    node.cone_obstacle_radius_m = 0.25
     return node
 
 
@@ -293,13 +288,13 @@ def test_lidar_matching_accounts_for_forward_camera_offset():
     assert hit[0] == 1.0
 
 
-def test_traffic_light_detection_ignores_traffic_cone():
+def test_traffic_light_detection_ignores_non_light_detections():
     node = make_node()
     msg = SimpleNamespace(
         image_width=640,
         image_height=480,
         detections=[
-            detection("traffic cone", confidence=0.99),
+            detection("stop sign", confidence=0.99),
             detection("traffic light", confidence=0.8),
         ],
         traffic_lights=[],
@@ -528,13 +523,3 @@ def test_single_green_yolo_update_does_not_release_active_traffic_light_stop():
 
     assert node.traffic_light_stop_active(1.0)
     assert node.traffic_light_stop_engaged
-
-
-def test_cone_is_localized_in_laser_frame_and_inflated():
-    node = make_node()
-    msg = detection_array(detection("traffic cone"))
-    points = node.cone_points(msg, centered_scan(2.0))
-    assert len(points) == 5
-    assert points[0][0] == -2.0
-    assert abs(points[0][1]) < 1.0e-6
-    assert node.cone_points(msg, centered_scan(4.0)) == []

@@ -1,208 +1,206 @@
-# Control
+# CARKit Control
 
-CARKit control is split into three Python packages:
+This folder contains the nodes that decide which driving command reaches the
+vehicle.
 
-- `carkit_human_control`: launches joystick teleop, VESC, odometry, and the
-  vendored vehicle stack
-- `carkit_behavior`: converts typed perception detections into behavior
-  overrides, speed limits, and cone obstacles
-- `carkit_control_center`: publishes the final `/ackermann_cmd` for autonomous
-  driving
+- `carkit_human_control`: launches joystick teleop and the F1TENTH/VESC vehicle
+  stack.
+- `carkit_control_center`: chooses the final command source and publishes
+  `/ackermann_cmd`.
+- `carkit_behavior`: watches perception and navigation context, then publishes
+  stop overrides for road behaviors.
 
-## Active Command Architecture
+## Topic Flow
 
-Manual driving and mapping use `carkit_human_control` directly:
-
-```text
-/joy -> joy_teleop -> /teleop
-/teleop -> ackermann_mux -> /ackermann_cmd
-/ackermann_cmd -> ackermann_to_vesc_node -> VESC motor and servo commands
-VESC feedback -> vesc_to_odom_node -> /odom
-```
-
-Autonomous driving uses `carkit_control_center` as the final arbiter:
+Manual driving:
 
 ```text
-/joy -> joy_teleop -> /teleop
-Nav2 -> /cmd_vel -> twist_to_ackermann -> /drive
-/yolo/detections_2d -> carkit_behavior -> /behavior/*
-/teleop + /drive + /behavior/* + /joy -> carkit_control_center -> /ackermann_cmd
-/ackermann_cmd -> ackermann_to_vesc_node -> VESC motor and servo commands
-VESC feedback -> vesc_to_odom_node -> /odom
+/joy
+  -> joy_teleop
+  -> /teleop
+  -> ackermann_mux
+  -> /ackermann_cmd
+  -> ackermann_to_vesc_node
+  -> VESC motor/servo commands
 ```
 
-Nav2 should run with `start_command_mux:=false`, which is the default in the
-current launch files. In autonomous driving, launch `carkit_human_control` with
-`vehicle_command_topic:=/ackermann_mux_unused` so the legacy mux does not also
-publish `/ackermann_cmd`.
+Autonomous driving:
 
-## Bringup
+```text
+Nav2 /cmd_vel
+  -> twist_to_ackermann
+  -> /drive
 
-For manual driving, mapping, and vehicle checks:
+/yolo/detections_2d + /scan + /plan + /odom
+  -> behavior_center_node
+  -> /behavior/override_active
+  -> /behavior/override_cmd
+  -> /behavior/state
 
-```bash
-ros2 launch carkit_human_control joystick.launch.py
+/teleop + /drive + /behavior/* + /enable_autonomous_control
+  -> control_center_node
+  -> /ackermann_cmd
+  -> ackermann_to_vesc_node
+  -> VESC motor/servo commands
 ```
 
-For autonomous driving, start joystick, VESC, and odometry with the legacy mux
-output remapped away:
+When autonomous mode is enabled, `control_center_node` uses this priority:
+
+1. `EMERGENCY_STOP`: publish zero speed.
+2. `HUMAN_CONTROL`: publish fresh `/teleop`, otherwise zero speed.
+3. `AUTO_DRIVE`: publish fresh behavior override if active, otherwise fresh
+   `/drive`, otherwise zero speed.
+
+Launch autonomous driving with the old mux output moved away from
+`/ackermann_cmd`:
 
 ```bash
 ros2 launch carkit_human_control joystick.launch.py \
   vehicle_command_topic:=/ackermann_mux_unused
 ```
 
-Start the autonomous command arbiter:
+## Control Center Topics
 
-```bash
-ros2 launch carkit_control_center control_center.launch.py
-```
+Subscriptions:
 
-The control center starts in `HUMAN_CONTROL`, follows fresh `/teleop`, and
-publishes zero if teleop commands go stale. Use the joystick buttons to switch
-to `AUTO_DRIVE` or `EMERGENCY_STOP`.
+- `/joy`
+- `/teleop`
+- `/drive`
+- `/behavior/override_active`
+- `/behavior/override_cmd`
+- `/enable_autonomous_control`
 
-Start Nav2 for autonomous driving:
+Publications:
 
-```bash
-ros2 launch carkit_navigation navigation.launch.py \
-  mode:=navigation \
-  start_command_mux:=false \
-  map:=/workspaces/CARKit/map/map.yaml
-```
+- `/ackermann_cmd`
+- `/control_center/main_state`
+- `/control_center/selected_cmd`
+- `/control_center/debug`
 
-Start the behavior layer when perception is running:
+Main tuning file:
 
-```bash
-ros2 launch carkit_behavior behavior_center.launch.py
-```
+- `carkit_control_center/config/control_center.yaml`
 
-## Control Center
+Useful parameters:
 
-`carkit_control_center` subscribes to:
+- `publish_rate_hz`: final command publish rate.
+- `auto_button`: joystick button for `AUTO_DRIVE` when button mode is used.
+- `human_button`: joystick button for `HUMAN_CONTROL` when button mode is used.
+- `estop_button`: joystick button for `EMERGENCY_STOP`.
+- `clear_estop_button`: joystick button to clear `EMERGENCY_STOP`.
+- `teleop_timeout_sec`: max age for manual command.
+- `nav2_timeout_sec`: max age for Nav2 command.
+- `behavior_timeout_sec`: max age for behavior override.
+- `max_speed`: final speed clamp.
+- `max_steering_angle`: final steering clamp.
+- `initial_state`: startup mode.
+- `use_autonomy_enable_topic`: use `/enable_autonomous_control` instead of
+  joystick mode buttons.
+- `autonomy_enable_topic`: topic name for autonomous enable messages.
 
-- `/joy` (`sensor_msgs/Joy`)
-- `/teleop` (`ackermann_msgs/AckermannDriveStamped`)
-- `/drive` (`ackermann_msgs/AckermannDriveStamped`)
-- `/behavior/override_active` (`std_msgs/Bool`)
-- `/behavior/override_cmd` (`ackermann_msgs/AckermannDriveStamped`)
-- `/behavior/speed_limit` (`std_msgs/Float32`)
+## Behavior Center Topics
 
-It publishes:
+Subscriptions:
 
-- `/ackermann_cmd` (`ackermann_msgs/AckermannDriveStamped`)
-- `/control_center/main_state` (`std_msgs/String`)
-- `/control_center/selected_cmd` (`std_msgs/String`)
-- `/control_center/debug` (`std_msgs/String`)
-
-Main states:
-
-- `HUMAN_CONTROL`: publishes fresh `/teleop`, otherwise zero
-- `AUTO_DRIVE`: publishes fresh behavior override, otherwise fresh `/drive`
-- `EMERGENCY_STOP`: always publishes zero
-
-Joystick buttons are edge-triggered:
-
-- `auto_button`: enter `AUTO_DRIVE`
-- `human_button`: enter `HUMAN_CONTROL`
-- `estop_button`: enter `EMERGENCY_STOP`
-- `clear_estop_button`: clear emergency stop and return to `HUMAN_CONTROL`
-
-Defaults live in `carkit_control_center/config/control_center.yaml`.
-
-## Behavior Layer
-
-`carkit_behavior` subscribes to:
-
-- `/control_center/main_state` (`std_msgs/String`)
+- `/control_center/main_state`
 - `/yolo/detections_2d`
-  (`carkit_perception_msgs/msg/YoloDetection2DArray`)
-- `/scan` (`sensor_msgs/LaserScan`)
-- `/plan` (`nav_msgs/Path`)
-- `/camera/camera/color/camera_info` (`sensor_msgs/CameraInfo`)
+- `/scan`
+- `/odom`
+- `/plan`
+- `/camera/camera/color/camera_info`
 
-It publishes:
+Publications:
 
-- `/behavior/state` (`std_msgs/String`)
-- `/behavior/override_active` (`std_msgs/Bool`)
-- `/behavior/override_cmd` (`ackermann_msgs/AckermannDriveStamped`)
-- `/behavior/speed_limit` (`std_msgs/Float32`)
-- `/behavior/cone_obstacles` (`sensor_msgs/PointCloud2`)
-- `/behavior/stop_sign_position` (`geometry_msgs/PointStamped`)
+- `/behavior/state`
+- `/behavior/override_active`
+- `/behavior/override_cmd`
+- `/behavior/stop_sign_position`
+- `/behavior/traffic_light_position`
 
-Behavior logic only runs while the control center state is `AUTO_DRIVE`.
-Priority is stop sign, traffic light, cone, then normal Nav2.
+Behavior only affects the car while `/control_center/main_state` is
+`AUTO_DRIVE`. Outside autonomous mode it publishes inactive behavior state.
 
-- Stop signs above the configured confidence are localized in the map frame
-  across multiple observations. The sign is projected onto Nav2's global path
-  to define a stop line perpendicular to the path. A zero override is published
-  once per tracked sign when the vehicle reaches the configured distance before
-  that line. A sign already behind the vehicle does not trigger a late stop.
-- Red/yellow traffic lights publish a zero override while fresh.
-- Stop signs and cones use their 2D bearing with lidar for metric range.
-- Camera/lidar fusion accounts for the camera being mounted 0.08 m forward of
-  the lidar. The camera's 0.08 m lower mounting height cannot be corrected
-  from a planar scan, so cones must intersect the lidar plane to be localized.
-- Nearby red/yellow lights stop the car; green releases the override. The
-  configurable bounding-box height ratio filters distant lights.
-- Cone detections publish lidar-frame PointCloud2 obstacles and a temporary
-  speed limit; Nav2 handles steering by replanning around them.
+Priority order:
 
-### Stop-Sign Logic
+1. Stop sign stop override.
+2. Traffic light stop override.
+3. Normal Nav2 driving.
 
-1. YOLO detects a stop sign; lidar supplies its range.
-2. Repeated observations create one stable sign position in the map.
-3. The sign is projected onto the current Nav2 path to calculate its stop line.
-4. On entering or crossing the stop-line region, the behavior layer publishes
-   a zero-speed override for the configured duration.
-5. That sign stops the vehicle only once on the current path. A new goal can
-   rearm it only after the new path places the sign safely ahead again.
+## Stop Sign Logic
 
-Stop-sign tuning parameters:
+Stop signs use YOLO plus lidar plus the Nav2 global plan.
 
-- `stop_sign_stop_before_distance_m`: desired stopping distance before the sign.
-- `stop_sign_stop_line_tolerance_m`: allowed overshoot beyond the sign projection.
-- `stop_sign_stop_duration_sec`: time to hold the vehicle stopped.
-- `stop_sign_rearm_distance_m`: distance the sign must be safely ahead to rearm.
-- `stop_sign_min_confidence`: minimum accepted YOLO confidence.
-- `stop_sign_required_observations`: observations required to confirm a sign.
-- `stop_sign_lidar_angle_window_deg`: camera/lidar matching angle window.
-- `stop_sign_lidar_min_range_m`, `stop_sign_lidar_max_range_m`: valid lidar range.
-- `stop_sign_track_match_distance_m`: distance for merging sign observations.
-- `stop_sign_clear_distance_m`: separation required to track a different sign.
-- `plan_goal_change_distance_m`: goal movement considered a new path.
-- `detection_timeout_sec`, `scan_timeout_sec`: maximum sensor-data age.
+1. Read stop-sign detections from `/yolo/detections_2d`.
+2. Reject detections below `stop_sign_min_confidence`.
+3. Use the detection bearing and `/scan` to estimate distance.
+4. Transform the sign position into the map frame.
+5. Merge repeated detections into a stable track.
+6. Project the sign and robot onto `/plan`.
+7. Stop once when the robot reaches the configured distance before the sign.
+8. Hold zero speed for `stop_sign_stop_duration_sec`.
+9. Do not stop for the same sign again unless a new goal/path rearms it.
 
-Defaults live in `carkit_behavior/config/behavior_center.yaml`.
+Stop sign parameters in `carkit_behavior/config/behavior_center.yaml`:
 
-## Human-Control Launch Arguments
+- `stop_sign_min_confidence`
+- `stop_sign_required_observations`
+- `stop_sign_stop_before_distance_m`
+- `stop_sign_stop_line_tolerance_m`
+- `stop_sign_stop_duration_sec`
+- `stop_sign_cooldown_sec`
+- `stop_sign_rearm_distance_m`
+- `stop_sign_lidar_angle_window_deg`
+- `stop_sign_lidar_min_range_m`
+- `stop_sign_lidar_max_range_m`
+- `stop_sign_track_match_distance_m`
+- `stop_sign_clear_distance_m`
+- `stop_sign_map_frame`
+- `robot_base_frame`
+- `plan_goal_change_distance_m`
 
-- `joy_config`: joystick device, axis mapping, deadzone, speed, and steering
-  configuration. Defaults to
-  `carkit/vehicle/f1tenth_system/f1tenth_stack/config/joy_teleop.yaml`.
-- `vesc_config`: VESC port, calibration, limits, wheelbase, and odometry
-  configuration. Defaults to
-  `carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`.
-- `mux_config`: legacy Ackermann mux config.
-- `vehicle_command_topic`: legacy mux output topic. Defaults to
-  `/ackermann_cmd` for direct human control. Use `/ackermann_mux_unused` when
-  `carkit_control_center` owns `/ackermann_cmd` for autonomous driving.
+## Traffic Light Logic
 
-## Verify
+Traffic lights use the classified traffic-light output in
+`/yolo/detections_2d.traffic_lights`.
 
-```bash
-ros2 topic echo /joy --once
-ros2 topic echo /teleop --once
-ros2 topic echo /control_center/main_state --once
-ros2 topic echo /control_center/selected_cmd --once
-ros2 topic echo /ackermann_cmd --once
-ros2 topic echo /odom --once
-```
+1. Read each traffic light's `traffic_light_color`.
+2. Reject detections below `traffic_light_min_confidence`.
+3. Use lidar and map transform to track the light position.
+4. Project the light onto the Nav2 path.
+5. If the light is red or yellow, close enough, and confirmed for enough
+   frames, publish a zero-speed override.
+6. If the light is green for enough frames, release the override and continue
+   normal Nav2 driving.
 
-In `AUTO_DRIVE`, also check:
+The behavior node compares `traffic_light_color` to
+`YoloTrafficLightDetection2D` constants:
 
-```bash
-ros2 topic echo /drive --once
-ros2 topic echo /behavior/state --once
-ros2 topic echo /behavior/cone_obstacles --once
-```
+- `1`: red
+- `2`: yellow
+- `3`: green
+
+Traffic light parameters:
+
+- `traffic_light_min_confidence`
+- `traffic_light_required_observations`
+- `traffic_light_stop_required_frames`
+- `traffic_light_green_required_frames`
+- `traffic_light_stop_ahead_distance_m`
+- `traffic_light_lidar_angle_window_deg`
+- `traffic_light_lidar_min_range_m`
+- `traffic_light_lidar_max_range_m`
+- `traffic_light_track_match_distance_m`
+- `traffic_light_clear_distance_m`
+
+## Shared Sensor Parameters
+
+- `detection_timeout_sec`: max age for YOLO detections.
+- `scan_topic`: lidar scan topic.
+- `odom_topic`: odometry topic.
+- `global_plan_topic`: Nav2 global plan topic.
+- `scan_timeout_sec`: max age for lidar scans.
+- `camera_info_topic`: camera intrinsics topic.
+- `camera_horizontal_fov_deg`: fallback FOV if intrinsics are missing.
+- `camera_to_scan_yaw_offset_rad`: yaw offset from camera to lidar.
+- `camera_forward_offset_m`: camera forward offset from lidar.
+- `camera_lateral_offset_m`: camera lateral offset from lidar.

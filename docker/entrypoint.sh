@@ -2,6 +2,12 @@
 
 set -e
 
+cusparselt_lib="/usr/local/lib/python3.10/dist-packages/nvidia/cusparselt/lib"
+case ":${LD_LIBRARY_PATH:-}:" in
+  *":${cusparselt_lib}:"*) ;;
+  *) export LD_LIBRARY_PATH="${cusparselt_lib}:${LD_LIBRARY_PATH:-}" ;;
+esac
+
 if [ "$(id -u)" -eq 0 ] && [ "${CARKIT_RUN_AS_ROOT:-0}" != "1" ] && [ -n "${CARKIT_HOST_UID:-}" ]; then
   host_uid="${CARKIT_HOST_UID}"
   host_gid="${CARKIT_HOST_GID:-${CARKIT_HOST_UID}}"

@@ -11,7 +11,7 @@ behavior_center_node:
     camera_forward_offset_m: 0.08
     camera_lateral_offset_m: 0.0
     global_plan_topic: /plan
-    stop_sign_stop_before_distance_m: 0.5
+    stop_sign_stop_before_distance_m: 1.0
     stop_sign_stop_line_tolerance_m: 0.25
     stop_sign_rearm_distance_m: 1.0
     stop_sign_lidar_angle_window_deg: 8.0
@@ -22,7 +22,7 @@ behavior_center_node:
     stop_sign_min_confidence: 0.6
     stop_sign_map_frame: map
     robot_base_frame: base_link
-    stop_sign_required_observations: 3
+    stop_sign_required_observations: 2
     stop_sign_track_match_distance_m: 1.0
     stop_sign_clear_distance_m: 10.0
     traffic_light_min_confidence: 0.6
@@ -30,15 +30,9 @@ behavior_center_node:
     traffic_light_lidar_min_range_m: 0.15
     traffic_light_lidar_max_range_m: 10.0
     traffic_light_stop_ahead_distance_m: 2.0
-    traffic_light_required_observations: 3
-    traffic_light_stop_required_frames: 3
-    traffic_light_green_required_frames: 3
+    traffic_light_required_observations: 2
+    traffic_light_stop_required_frames: 2
+    traffic_light_green_required_frames: 2
     traffic_light_track_match_distance_m: 1.0
     traffic_light_clear_distance_m: 10.0
     plan_goal_change_distance_m: 0.25
-    cone_trigger_distance_m: 3.0
-    cone_lidar_angle_window_deg: 6.0
-    cone_lidar_min_range_m: 0.15
-    cone_lidar_max_range_m: 10.0
-    cone_speed_limit_mps: 0.3
-    cone_obstacle_radius_m: 0.25

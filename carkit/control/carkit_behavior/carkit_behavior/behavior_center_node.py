@@ -21,16 +21,14 @@ from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.time import Time as RclpyTime
-from sensor_msgs.msg import CameraInfo, LaserScan, PointCloud2
-from sensor_msgs_py import point_cloud2
-from std_msgs.msg import Bool, Float32, Header, String
+from sensor_msgs.msg import CameraInfo, LaserScan
+from std_msgs.msg import Bool, String
 from tf2_ros import Buffer, TransformException, TransformListener
 
 
 NORMAL_NAV2 = "NORMAL_NAV2"
 STOP_SIGN = "STOP_SIGN"
 TRAFFIC_LIGHT = "TRAFFIC_LIGHT"
-CONE = "CONE"
 AUTO_DRIVE = "AUTO_DRIVE"
 
 
@@ -189,12 +187,6 @@ class BehaviorCenterNode(Node):
         self.declare_parameter("traffic_light_track_match_distance_m", 1.0)
         self.declare_parameter("traffic_light_clear_distance_m", 10.0)
         self.declare_parameter("plan_goal_change_distance_m", 0.25)
-        self.declare_parameter("cone_trigger_distance_m", 3.0)
-        self.declare_parameter("cone_lidar_angle_window_deg", 6.0)
-        self.declare_parameter("cone_lidar_min_range_m", 0.15)
-        self.declare_parameter("cone_lidar_max_range_m", 10.0)
-        self.declare_parameter("cone_speed_limit_mps", 0.3)
-        self.declare_parameter("cone_obstacle_radius_m", 0.25)
 
         self.min_confidence = float(self.get_parameter("min_confidence").value)
         self.detection_timeout_sec = float(
@@ -294,24 +286,6 @@ class BehaviorCenterNode(Node):
         self.plan_goal_change_distance_m = float(
             self.get_parameter("plan_goal_change_distance_m").value
         )
-        self.cone_trigger_distance_m = float(
-            self.get_parameter("cone_trigger_distance_m").value
-        )
-        self.cone_lidar_angle_window_rad = math.radians(
-            float(self.get_parameter("cone_lidar_angle_window_deg").value)
-        )
-        self.cone_lidar_min_range_m = float(
-            self.get_parameter("cone_lidar_min_range_m").value
-        )
-        self.cone_lidar_max_range_m = float(
-            self.get_parameter("cone_lidar_max_range_m").value
-        )
-        self.cone_speed_limit_mps = float(
-            self.get_parameter("cone_speed_limit_mps").value
-        )
-        self.cone_obstacle_radius_m = float(
-            self.get_parameter("cone_obstacle_radius_m").value
-        )
 
         self.main_state = ""
         self.latest_detections: Optional[YoloDetection2DArray] = None
@@ -398,16 +372,6 @@ class BehaviorCenterNode(Node):
             "/behavior/override_cmd",
             10,
         )
-        self.speed_limit_pub = self.create_publisher(
-            Float32,
-            "/behavior/speed_limit",
-            10,
-        )
-        self.cone_pub = self.create_publisher(
-            PointCloud2,
-            "/behavior/cone_obstacles",
-            10,
-        )
         self.stop_sign_position_pub = self.create_publisher(
             PointStamped,
             "/behavior/stop_sign_position",
@@ -489,25 +453,20 @@ class BehaviorCenterNode(Node):
 
         if detections is not None:
             self.publish_traffic_light_from_detections(detections, scan)
+            self.publish_stop_sign_from_detections(detections, scan)
         else:
             self.clear_traffic_light_track()
+            self.publish_stop_sign_tracks()
 
         if self.main_state != AUTO_DRIVE:
             self.last_behavior_state = NORMAL_NAV2
             self.publish_state(state, override_active)
-            self.publish_cones([], None)
             return
-
-        if detections is not None:
-            self.publish_stop_sign_from_detections(detections, scan)
-        else:
-            self.publish_stop_sign_tracks()
 
         if now < self.stop_until:
             state = STOP_SIGN
             override_active = True
             publish_override_cmd = True
-            self.publish_cones([], scan)
         else:
             if self.stop_sign_triggered(now):
                 state = STOP_SIGN
@@ -517,24 +476,10 @@ class BehaviorCenterNode(Node):
                 self.stop_cooldown_until = (
                     self.stop_until + self.stop_sign_cooldown_sec
                 )
-                self.publish_cones([], scan)
             elif self.traffic_light_stop_active(now):
                 state = TRAFFIC_LIGHT
                 override_active = True
                 publish_override_cmd = True
-                self.publish_cones([], scan)
-            elif detections is None:
-                self.publish_cones([], scan)
-            else:
-                cone_points = self.cone_points(detections, scan)
-                if cone_points:
-                    state = CONE
-                    self.publish_cones(cone_points, scan)
-                    speed_limit = Float32()
-                    speed_limit.data = float(self.cone_speed_limit_mps)
-                    self.speed_limit_pub.publish(speed_limit)
-                else:
-                    self.publish_cones([], scan)
 
         self.log_behavior_transition(state)
         self.publish_state(state, override_active)
@@ -1196,12 +1141,6 @@ class BehaviorCenterNode(Node):
                 "[BEHAVIOR] TRAFFIC_LIGHT called | "
                 f"current velocity: {velocity} | stopping until green"
             )
-        elif state == CONE:
-            logger.info(
-                "[BEHAVIOR] CONE called | "
-                f"current velocity: {velocity} | continuing Nav2 with "
-                f"speed limit {self.cone_speed_limit_mps:.2f} m/s"
-            )
         elif state == NORMAL_NAV2:
             if previous_state == STOP_SIGN:
                 logger.info(
@@ -1212,11 +1151,6 @@ class BehaviorCenterNode(Node):
                 logger.info(
                     "[BEHAVIOR] TRAFFIC_LIGHT complete | "
                     f"current velocity: {velocity} | returning to Nav2"
-                )
-            elif previous_state == CONE:
-                logger.info(
-                    "[BEHAVIOR] CONE cleared | "
-                    f"current velocity: {velocity} | continuing Nav2"
                 )
 
         self.last_behavior_state = state
@@ -1235,52 +1169,6 @@ class BehaviorCenterNode(Node):
             return "green"
         return "unknown"
 
-    def cone_points(
-        self,
-        msg: YoloDetection2DArray,
-        scan: Optional[LaserScan],
-    ) -> list[list[float]]:
-        if scan is None:
-            return []
-        points = []
-        for detection in msg.detections:
-            if "cone" not in detection.class_name.lower():
-                continue
-            if detection.confidence < self.min_confidence:
-                continue
-            location = self.localize_detection(
-                detection,
-                float(msg.image_width),
-                scan,
-                self.cone_lidar_angle_window_rad,
-                self.cone_lidar_min_range_m,
-                self.cone_lidar_max_range_m,
-            )
-            if (
-                location is None
-                or location.range_m > self.cone_trigger_distance_m
-            ):
-                continue
-            points.extend(self.cone_obstacle_points(location))
-        return points
-
-    def cone_obstacle_points(
-        self,
-        location: ObjectLocation,
-    ) -> list[list[float]]:
-        x = float(location.x)
-        y = float(location.y)
-        radius = max(0.0, self.cone_obstacle_radius_m)
-        if radius == 0.0:
-            return [[x, y, 0.0]]
-        return [
-            [x, y, 0.0],
-            [x - radius, y, 0.0],
-            [x + radius, y, 0.0],
-            [x, y - radius, 0.0],
-            [x, y + radius, 0.0],
-        ]
-
     def publish_state(self, state: str, override_active: bool) -> None:
         state_msg = String()
         state_msg.data = state
@@ -1288,18 +1176,6 @@ class BehaviorCenterNode(Node):
         active_msg = Bool()
         active_msg.data = bool(override_active)
         self.override_active_pub.publish(active_msg)
-
-    def publish_cones(
-        self,
-        points: list[list[float]],
-        scan: Optional[LaserScan],
-    ) -> None:
-        header = Header()
-        header.stamp = self.get_clock().now().to_msg()
-        header.frame_id = "laser"
-        if scan is not None and scan.header.frame_id:
-            header.frame_id = scan.header.frame_id
-        self.cone_pub.publish(point_cloud2.create_cloud_xyz32(header, points))
 
     def zero_command(self) -> AckermannDriveStamped:
         msg = AckermannDriveStamped()
