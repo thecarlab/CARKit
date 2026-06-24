@@ -9,7 +9,7 @@ joy_rate_filter:
   ros__parameters:
     input_topic: joy_device
     output_topic: joy
-    publish_rate: 20.0
+    publish_rate: 10.0
 
 joy_teleop:
   ros__parameters:

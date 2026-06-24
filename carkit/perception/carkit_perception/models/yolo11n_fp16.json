@@ -1,13 +1,13 @@
 {
-  "created_utc": "2026-06-15T02:50:24.775243+00:00",
+  "created_utc": "2026-06-24T03:18:11.546450+00:00",
   "source_model": "/workspaces/CARKit/carkit/perception/carkit_perception/models/yolo11n.pt",
   "source_model_sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
-  "engine_sha256": "59cfa1d6d1b488a32c3591108a0d05ec73c315cb5480ed8f76e76e4c1bd4fc13",
+  "engine_sha256": "a00f6aa668b29c5ad1fb35d542ee5fab6d998c889263ace8950b7abbabe5b8a2",
   "precision": "FP16",
   "batch": 1,
   "image_size": 640,
   "dynamic": false,
-  "platform": "Linux-5.15.185-tegra-aarch64-with-glibc2.35",
+  "platform": "Linux-5.15.148-tegra-aarch64-with-glibc2.35",
   "machine": "aarch64",
   "versions": {
     "cuda": "12.6",
