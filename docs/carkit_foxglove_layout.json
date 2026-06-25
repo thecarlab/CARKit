@@ -1,6 +1,6 @@
 {
   "configById": {
-    "3D Panel!nav2_rviz_replacement": {
+    "3D!nav2_rviz_replacement": {
       "autoSyncCameraState": false,
       "autoTextBackgroundColor": true,
       "cameraState": {
@@ -375,7 +375,7 @@
     "messageOrder": "receiveTime"
   },
   "layout": {
-    "first": "3D Panel!nav2_rviz_replacement",
+    "first": "3D!nav2_rviz_replacement",
     "second": {
       "first": {
         "first": {
