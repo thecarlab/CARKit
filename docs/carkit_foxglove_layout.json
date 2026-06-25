@@ -1,0 +1,304 @@
+{
+  "configById": {
+    "3D Panel!carkitnav": {
+      "autoSyncCameraState": false,
+      "autoTextBackgroundColor": true,
+      "cameraState": {
+        "distance": 15.7,
+        "perspective": false,
+        "phi": 1.5697963267948967,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          5.0,
+          -1.9,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 1.4853981633974482,
+        "fovy": 0.7853981633974483,
+        "near": 0.01,
+        "far": 5000
+      },
+      "checkedKeys": [
+        "name:Topics",
+        "name:Transforms",
+        "name:Custom Layers",
+        "t:/map",
+        "t:/scan",
+        "t:/amcl_pose",
+        "t:/particle_cloud",
+        "t:/plan",
+        "t:/waypoints",
+        "t:/global_costmap/costmap",
+        "t:/global_costmap/published_footprint",
+        "t:/local_costmap/costmap",
+        "t:/local_costmap/published_footprint",
+        "t:/behavior/stop_sign_position",
+        "t:/behavior/traffic_light_position",
+        "tf:map",
+        "tf:odom",
+        "tf:base_link",
+        "tf:laser",
+        "tf:camera_link",
+        "tf:camera_color_frame",
+        "tf:camera_color_optical_frame",
+        "l:grid"
+      ],
+      "clickToPublishPoseTopic": "/goal_pose",
+      "clickToPublishPointTopic": "/clicked_point",
+      "clickToPublishPoseEstimateTopic": "/initialpose",
+      "clickToPublishPoseEstimateXDeviation": 0.5,
+      "clickToPublishPoseEstimateYDeviation": 0.5,
+      "clickToPublishPoseEstimateThetaDeviation": 0.2,
+      "customBackgroundColor": "#1f2329",
+      "diffModeEnabled": true,
+      "expandedKeys": [
+        "name:Topics",
+        "name:Transforms",
+        "name:Custom Layers"
+      ],
+      "fixedFrame": "map",
+      "followMode": "follow-orientation",
+      "followTf": "base_link",
+      "modifiedNamespaceTopics": [],
+      "pinTopics": true,
+      "scene": {
+        "labelScaleFactor": 1
+      },
+      "settingsByKey": {
+        "t:/map": {
+          "colorMode": "map",
+          "visible": true,
+          "frameLocked": true,
+          "opacity": 1
+        },
+        "t:/global_costmap/costmap": {
+          "colorMode": "costmap",
+          "visible": true,
+          "opacity": 0.4
+        },
+        "t:/local_costmap/costmap": {
+          "colorMode": "costmap",
+          "visible": true,
+          "opacity": 0.55
+        },
+        "t:/scan": {
+          "visible": true,
+          "pointSize": 3,
+          "colorField": "intensity",
+          "colorMode": "colormap"
+        },
+        "t:/amcl_pose": {
+          "visible": true,
+          "color": "#ff1900",
+          "axisScale": 0.5
+        },
+        "t:/particle_cloud": {
+          "visible": true,
+          "color": "#ffcc33",
+          "axisScale": 0.2
+        },
+        "t:/plan": {
+          "visible": true,
+          "color": "#19ff00",
+          "lineWidth": 0.03
+        },
+        "t:/waypoints": {
+          "visible": true
+        },
+        "t:/global_costmap/published_footprint": {
+          "visible": true,
+          "color": "#19ff00"
+        },
+        "t:/local_costmap/published_footprint": {
+          "visible": true,
+          "color": "#00aaff"
+        },
+        "t:/behavior/stop_sign_position": {
+          "visible": true,
+          "color": "#ff0000",
+          "pointSize": 12
+        },
+        "t:/behavior/traffic_light_position": {
+          "visible": true,
+          "color": "#0055ff",
+          "pointSize": 12
+        }
+      },
+      "topics": {
+        "/map": {
+          "visible": true
+        },
+        "/scan": {
+          "visible": true
+        },
+        "/amcl_pose": {
+          "visible": true
+        },
+        "/particle_cloud": {
+          "visible": true
+        },
+        "/plan": {
+          "visible": true
+        },
+        "/waypoints": {
+          "visible": true
+        },
+        "/global_costmap/costmap": {
+          "visible": true
+        },
+        "/global_costmap/published_footprint": {
+          "visible": true
+        },
+        "/local_costmap/costmap": {
+          "visible": true
+        },
+        "/local_costmap/published_footprint": {
+          "visible": true
+        },
+        "/behavior/stop_sign_position": {
+          "visible": true
+        },
+        "/behavior/traffic_light_position": {
+          "visible": true
+        }
+      },
+      "transforms": {
+        "map": {
+          "visible": true
+        },
+        "odom": {
+          "visible": true
+        },
+        "base_link": {
+          "visible": true
+        },
+        "laser": {
+          "visible": true
+        },
+        "camera_link": {
+          "visible": true
+        },
+        "camera_color_frame": {
+          "visible": true
+        },
+        "camera_color_optical_frame": {
+          "visible": true
+        }
+      },
+      "layers": {
+        "grid": {
+          "visible": true,
+          "frameLocked": true,
+          "label": "Grid",
+          "instanceId": "grid",
+          "layerId": "foxglove.Grid",
+          "frameId": "map",
+          "size": 20,
+          "divisions": 20,
+          "lineWidth": 0.03,
+          "color": "#a0a0a4",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/goal_pose",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.2
+      },
+      "imageMode": {},
+      "useThemeBackgroundColor": false
+    },
+    "RawMessages!amclpose": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/amcl_pose",
+      "fontSize": 12
+    },
+    "RawMessages!globalplan": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/plan",
+      "fontSize": 12
+    },
+    "RawMessages!behavior": {
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "topicPath": "/behavior/stop_sign_position",
+      "fontSize": 12
+    },
+    "RosOut!carkitlogs": {
+      "searchTerms": [],
+      "minLogLevel": 1,
+      "nameFilter": {}
+    },
+    "TopicGraph!carkitgraph": {}
+  },
+  "globalVariables": {
+    "robot_name": "carkit",
+    "fixed_frame": "map",
+    "goal_topic": "/goal_pose",
+    "initial_pose_topic": "/initialpose"
+  },
+  "userNodes": {},
+  "linkedGlobalVariables": [],
+  "playbackConfig": {
+    "speed": 1,
+    "messageOrder": "receiveTime"
+  },
+  "layout": {
+    "first": "3D Panel!carkitnav",
+    "second": {
+      "first": {
+        "first": "RawMessages!amclpose",
+        "second": "RawMessages!globalplan",
+        "direction": "row",
+        "splitPercentage": 50
+      },
+      "second": {
+        "first": "RawMessages!behavior",
+        "second": {
+          "first": "RosOut!carkitlogs",
+          "second": "TopicGraph!carkitgraph",
+          "direction": "row",
+          "splitPercentage": 50
+        },
+        "direction": "row",
+        "splitPercentage": 35
+      },
+      "direction": "column",
+      "splitPercentage": 48
+    },
+    "direction": "column",
+    "splitPercentage": 72
+  }
+}
