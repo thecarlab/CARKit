@@ -18,6 +18,8 @@ Designed around real autonomous vehicle workflows, CARKit provides a unified sof
 
 ROS 2 and CARKit dependencies run inside `ariiees/carkit:latest`. The host
 only needs JetPack, Docker, Git, display access for RViz, and device access.
+Foxglove visualization is also available through Foxglove Bridge on port
+`8765`.
 
 ## ⚙️ Setup
 
@@ -39,6 +41,22 @@ source install/setup.bash
 
 `build_workspace.sh` fetches vendored sensor repos and builds the mounted
 workspace at `/workspaces/CARKit`.
+
+### Foxglove account and connection
+
+1. Register for a Foxglove account and sign in to Foxglove.
+2. On the vehicle terminal, find the vehicle's IP address:
+
+   ```bash
+   hostname -I
+   ```
+
+3. In Foxglove, add a **Foxglove WebSocket** connection using
+   `ws://<vehicle-ip>:8765`, replacing `<vehicle-ip>` with the address from the
+   previous step.
+4. Download [`docs/carkit_foxglove_layout.json`](docs/carkit_foxglove_layout.json)
+   from this GitHub repository, then use Foxglove's **Import layout** option to
+   add it to your account.
 
 USB reminder before launching sensors:
 
@@ -97,14 +115,14 @@ ros2 launch carkit_control_center control_center.launch.py
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
-  mode:=navigation \
-  start_command_mux:=false \
-  map:=/workspaces/CARKit/map/map.yaml
+  map:=/workspaces/CARKit/map/map.yaml \
+  visualization:=foxglove
 ```
 
-In RViz, set **2D Pose Estimate**, wait for AMCL to converge, then send a
-**Nav2 Goal**. Press the joystick mode toggle to enter `AUTO_DRIVE`; the
-current default is `mode_toggle_button: 10` in
+Connect Foxglove to `ws://<jetson-ip>:8765`, set the initial pose, then send a
+Nav2 goal. Use `visualization:=rviz` instead when working directly in RViz.
+Press the joystick mode toggle to enter `AUTO_DRIVE`; the current default is
+`mode_toggle_button: 10` in
 `f1tenth_stack/config/joy_teleop.yaml`.
 
 The main map is selected above. To use the 3F example map instead, pass:
@@ -115,13 +133,16 @@ map:=/workspaces/CARKit/map/map_3f.yaml
 
 ### 👁️ Perception And Behavior
 
-Start the color-only RealSense driver and typed 2D YOLO perception together:
+Start the color-only RealSense driver and typed 2D YOLO perception:
 
 ```bash
 ros2 launch carkit_perception perception.launch.py
 ```
 
-Start behavior overrides:
+Perception visualization is off by default. Add `visualization:=rviz` or
+`visualization:=foxglove` when you want a local RViz window or Foxglove Bridge.
+
+Start behavior overrides separately:
 
 ```bash
 ros2 launch carkit_behavior behavior_center.launch.py

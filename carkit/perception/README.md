@@ -19,13 +19,32 @@ Start the color-only RealSense driver and perception together:
 ros2 launch carkit_perception perception.launch.py
 ```
 
+Perception visualization is off by default. To start RViz:
+
+```bash
+ros2 launch carkit_perception perception.launch.py visualization:=rviz
+```
+
+To start Foxglove Bridge instead:
+
+```bash
+ros2 launch carkit_perception perception.launch.py visualization:=foxglove
+```
+
+Connect Foxglove to:
+
+```text
+ws://<jetson-ip>:8765
+```
+
+Import `docs/carkit_perception_layout.json` for a single-panel view of the
+YOLO inference image.
+
 If another launch already owns the camera:
 
 ```bash
 ros2 launch carkit_perception perception.launch.py start_camera:=false
 ```
-
-Disable RViz with `start_rviz:=false`.
 
 ## Topic Flow
 
@@ -71,6 +90,10 @@ Traffic-light color values are unknown `0`, red `1`, yellow `2`, and green
 - `min_confidence`: YOLO confidence threshold
 - `require_engine_metadata`: reject engines without matching metadata
 - `start_camera`: launch the RealSense color driver, default `true`
+- `visualization`: `none`, `rviz`, or `foxglove`, default `none`
+- `rviz_config`: RViz config used with `visualization:=rviz`
+- `foxglove_address`: Foxglove Bridge bind address, default `0.0.0.0`
+- `foxglove_port`: Foxglove Bridge WebSocket port, default `8765`
 
 ## Build The FP16 Engine
 

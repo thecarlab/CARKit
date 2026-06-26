@@ -15,6 +15,7 @@
 - LiDAR permission denied: confirm the device path, then add a persistent udev rule or temporarily run `sudo chmod 666 /dev/ttyUSB0`.
 - `c++: fatal error: Killed signal terminated program cc1plus`: the Jetson likely ran out of memory during compilation. Pull the latest `develop` branch and rerun `./docker/build_workspace.sh`; the default build now uses one compiler job and one colcon worker. Close RViz/browser windows during build, and add swap if the failure continues.
 - RViz does not open in Docker: run `xhost +si:localuser:root`, mount `/tmp/.X11-unix`, and pass `DISPLAY`.
+- Foxglove cannot connect: confirm navigation was started with `visualization:=foxglove`, then connect to `ws://<jetson-ip>:8765`. The Docker runner uses host networking, so no extra port mapping is needed.
 - YOLO model load fails: verify the `model_path` parameter points to an installed model file. TensorRT engine files may be hardware/runtime specific.
 - Docker build fails with `Cannot uninstall sympy 1.9`: rebuild with the current `docker/Dockerfile.jetson`. The image installs `ultralytics` with pip constraints and `--ignore-installed` so pip does not try to remove apt-owned Python packages from the Jetson base image.
 - Docker build warns that `colcon-core` requires `setuptools<80`: rebuild with the current `docker/Dockerfile.jetson`. The image pins `setuptools<80` before and during the `ultralytics` install.

@@ -43,11 +43,8 @@ Terminal 2, start mapping:
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
   mode:=mapping \
-  start_static_tf:=false
+  visualization:=rviz
 ```
-
-`start_static_tf:=false` prevents a duplicate `base_link -> laser` transform,
-because the chassis launch already publishes it.
 
 Save the map:
 
@@ -71,21 +68,27 @@ Terminal 2, start localization and navigation:
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
-  mode:=navigation \
-  start_command_mux:=false \
-  start_static_tf:=false \
-  map:=/workspaces/CARKit/map/map_3f.yaml
+  map:=/workspaces/CARKit/map/map_3f.yaml \
+  visualization:=foxglove
 ```
 
-- `start_command_mux:=false` prevents starting a second Ackermann mux.
-- `start_static_tf:=false` prevents publishing the laser transform twice.
 - Replace `map_3f.yaml` with `map2.yaml` or another saved map when needed.
 
-In RViz:
+Foxglove Bridge starts in `visualization:=foxglove`. Connect Foxglove to:
+
+```text
+ws://<jetson-ip>:8765
+```
+
+In Foxglove or RViz:
 
 1. Use **2D Pose Estimate** to set the initial vehicle pose.
 2. Wait for the AMCL particle cloud to converge around the vehicle.
 3. Use **Nav2 Goal** to send a single navigation goal.
+
+Use `visualization:=rviz` to start RViz instead of Foxglove Bridge. Use
+`visualization:=none` to start neither. Foxglove bind settings are still
+available as `foxglove_address:=...` and `foxglove_port:=...`.
 
 ## Multiple Poses In RViz
 
@@ -122,13 +125,16 @@ Navigation:
 
 - `mode:=mapping|navigation`: selects the workflow
 - `map:=/workspaces/CARKit/map/<name>.yaml`: selects the navigation map
+- `visualization:=foxglove|rviz|none`: starts exactly one visualization path
 - `start_lidar:=true|false`: starts or skips the SLLiDAR driver
-- `start_static_tf:=true|false`: publishes or skips `base_link -> laser`
 - `start_odom_tf:=true|false`: republishes `/odom` as `odom -> base_link`
 - `start_command_mux:=true|false`: starts or skips the Ackermann mux
-- `use_rviz:=true|false`: starts or skips RViz
 - `mapping_rviz_config`: overrides the mapping RViz configuration
 - `planning_rviz_config`: overrides the navigation RViz configuration
+- `foxglove_address:=0.0.0.0`: Foxglove Bridge bind address
+- `foxglove_port:=8765`: Foxglove Bridge WebSocket port
+- `foxglove_remote_access:=true|false`: enables Foxglove remote access
+- `foxglove_device_token:=...`: device token for Foxglove remote access
 
 Show all arguments:
 

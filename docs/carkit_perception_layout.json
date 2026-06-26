@@ -1,0 +1,26 @@
+{
+  "configById": {
+    "ImageViewPanel!yolo_inference_image": {
+      "cameraTopic": "/yolo/inference_image",
+      "enabledMarkerTopics": [],
+      "mode": "fit",
+      "pan": {
+        "x": 0,
+        "y": 0
+      },
+      "rotation": 0,
+      "synchronize": false,
+      "transformMarkers": false,
+      "zoom": 1,
+      "foxglovePanelTitle": "YOLO Inference Image"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "linkedGlobalVariables": [],
+  "playbackConfig": {
+    "speed": 1,
+    "messageOrder": "receiveTime"
+  },
+  "layout": "ImageViewPanel!yolo_inference_image"
+}

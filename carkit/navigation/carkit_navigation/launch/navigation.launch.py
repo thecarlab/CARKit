@@ -8,6 +8,7 @@ from launch.actions import DeclareLaunchArgument, ExecuteProcess, GroupAction, I
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
+from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 
@@ -15,6 +16,12 @@ from launch_ros.substitutions import FindPackageShare
 def mode_is(name):
     return IfCondition(PythonExpression([
         "'", LaunchConfiguration('mode'), "' == '", name, "'"
+    ]))
+
+
+def visualization_is(name):
+    return IfCondition(PythonExpression([
+        "'", LaunchConfiguration('visualization'), "' == '", name, "'"
     ]))
 
 
@@ -36,7 +43,6 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration('use_sim_time')
     start_lidar = LaunchConfiguration('start_lidar')
     start_odom_tf = LaunchConfiguration('start_odom_tf')
-    use_rviz = LaunchConfiguration('use_rviz')
     lidar_frame = LaunchConfiguration('lidar_frame')
     base_frame = LaunchConfiguration('base_frame')
 
@@ -131,12 +137,37 @@ def generate_launch_description():
                     'start_command_mux': LaunchConfiguration('start_command_mux'),
                     'vehicle_command_topic': LaunchConfiguration('vehicle_command_topic'),
                     'mux_config': LaunchConfiguration('mux_config'),
-                    'use_rviz': 'false',
+                    'visualization': 'none',
                 }.items(),
             ),
         ],
         scoped=True,
         condition=mode_is('navigation'),
+    )
+
+    foxglove_bridge = IncludeLaunchDescription(
+        XMLLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('foxglove_bridge'),
+                'launch',
+                'foxglove_bridge_launch.xml',
+            ])
+        ),
+        launch_arguments={
+            'address': LaunchConfiguration('foxglove_address'),
+            'port': LaunchConfiguration('foxglove_port'),
+            'remote_access': LaunchConfiguration('foxglove_remote_access'),
+            'device_token': LaunchConfiguration('foxglove_device_token'),
+            'sysinfo': LaunchConfiguration('foxglove_sysinfo'),
+            'topic_whitelist': LaunchConfiguration('foxglove_topic_whitelist'),
+            'client_topic_whitelist': LaunchConfiguration(
+                'foxglove_client_topic_whitelist'
+            ),
+            'param_whitelist': LaunchConfiguration('foxglove_param_whitelist'),
+            'service_whitelist': LaunchConfiguration('foxglove_service_whitelist'),
+            'capabilities': LaunchConfiguration('foxglove_capabilities'),
+        }.items(),
+        condition=visualization_is('foxglove'),
     )
 
     mapping_rviz = Node(
@@ -146,7 +177,8 @@ def generate_launch_description():
         arguments=['-d', LaunchConfiguration('mapping_rviz_config')],
         output='screen',
         condition=IfCondition(PythonExpression([
-            "'", use_rviz, "' == 'true' and '", mode, "' == 'mapping'"
+            "'", LaunchConfiguration('visualization'),
+            "' == 'rviz' and '", mode, "' == 'mapping'"
         ])),
     )
 
@@ -157,7 +189,8 @@ def generate_launch_description():
         arguments=['-d', LaunchConfiguration('planning_rviz_config')],
         output='screen',
         condition=IfCondition(PythonExpression([
-            "'", use_rviz, "' == 'true' and '", mode, "' == 'navigation'"
+            "'", LaunchConfiguration('visualization'),
+            "' == 'rviz' and '", mode, "' == 'navigation'"
         ])),
     )
 
@@ -207,9 +240,60 @@ def generate_launch_description():
             ]),
             description='RViz config for navigation mode (AMCL + planning)'),
         DeclareLaunchArgument(
-            'use_rviz',
-            default_value='true',
-            description='Start RViz'),
+            'visualization',
+            default_value='foxglove',
+            description='Visualization mode: foxglove, rviz, or none'),
+        DeclareLaunchArgument(
+            'foxglove_address',
+            default_value='0.0.0.0',
+            description='Foxglove Bridge bind address'),
+        DeclareLaunchArgument(
+            'foxglove_port',
+            default_value='8765',
+            description='Foxglove Bridge WebSocket port'),
+        DeclareLaunchArgument(
+            'foxglove_remote_access',
+            default_value='false',
+            description='Enable Foxglove remote access'),
+        DeclareLaunchArgument(
+            'foxglove_device_token',
+            default_value='',
+            description='Foxglove device token for remote access'),
+        DeclareLaunchArgument(
+            'foxglove_sysinfo',
+            default_value='false',
+            description='Publish system info through Foxglove Bridge'),
+        DeclareLaunchArgument(
+            'foxglove_topic_whitelist',
+            default_value=(
+                "['^/map$', '^/map_metadata$', '^/tf$', '^/tf_static$', "
+                "'^/scan$', '^/amcl_pose$', '^/particle_cloud$', "
+                "'^/plan$', '^/plan_smoothed$', '^/received_global_plan$', "
+                "'^/local_plan$', '^/goal_pose$', '^/move_base_simple/goal$', "
+                "'^/initialpose$', '^/clicked_point$', "
+                "'^/behavior/stop_sign_position$', "
+                "'^/behavior/traffic_light_position$']"
+            ),
+            description='Foxglove Bridge topic whitelist'),
+        DeclareLaunchArgument(
+            'foxglove_client_topic_whitelist',
+            default_value=(
+                "['^/goal_pose$', '^/move_base_simple/goal$', "
+                "'^/initialpose$', '^/clicked_point$']"
+            ),
+            description='Topics Foxglove clients may publish'),
+        DeclareLaunchArgument(
+            'foxglove_param_whitelist',
+            default_value="['^$']",
+            description='Foxglove Bridge parameter whitelist'),
+        DeclareLaunchArgument(
+            'foxglove_service_whitelist',
+            default_value="['^$']",
+            description='Foxglove Bridge service whitelist'),
+        DeclareLaunchArgument(
+            'foxglove_capabilities',
+            default_value='[clientPublish,connectionGraph]',
+            description='Foxglove Bridge capabilities'),
         DeclareLaunchArgument(
             'autostart',
             default_value='true',
@@ -271,6 +355,7 @@ def generate_launch_description():
         lidar,
         start_lidar_motor,
         odom_tf,
+        foxglove_bridge,
         slam,
         nav2,
         mapping_rviz,

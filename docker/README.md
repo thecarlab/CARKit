@@ -1,9 +1,9 @@
 # Docker
 
 CARKit uses `ariiees/carkit:latest` as the single Jetson runtime image. The
-image contains ROS 2 Humble, Nav2, RViz, build tools, RealSense SDK,
-TensorRT/CUDA Python ML dependencies, and the system dependencies needed to
-build the mounted CARKit workspace.
+image contains ROS 2 Humble, Nav2, RViz, Foxglove Bridge, build tools,
+RealSense SDK, TensorRT/CUDA Python ML dependencies, and the system
+dependencies needed to build the mounted CARKit workspace.
 
 The image does not contain a baked copy of this repository. `run_jetson.sh`
 mounts the checkout at `/workspaces/CARKit`.
@@ -31,10 +31,20 @@ Use `PULL_IMAGE=always ./docker/run_jetson.sh` to force a Docker Hub refresh,
 or `PULL_IMAGE=never ./docker/run_jetson.sh` when testing a local image that
 should not be refreshed from Docker Hub.
 
-Before opening the shell, `run_jetson.sh` verifies that the selected image
-contains the Nav2 runtime packages used by CARKit. It also starts the container
-with host networking, `/dev`, `/dev/shm`, X11 display mounts, and NVIDIA
-runtime support when the runtime is registered.
+`./docker/run_jetson.sh` opens a shell in the mounted workspace. Build the
+workspace, source it, then start the launches you need.
+
+Before starting the container command, `run_jetson.sh` verifies that the
+selected image contains the Nav2 and Foxglove runtime packages used by CARKit.
+It also starts the container with host networking, `/dev`, `/dev/shm`, X11
+display mounts, and NVIDIA runtime support when the runtime is registered.
+
+Foxglove Bridge binds to `0.0.0.0:8765` when started by CARKit launches. From
+another computer on the same network, connect Foxglove to:
+
+```text
+ws://<jetson-ip>:8765
+```
 
 The container runs as root by default so hardware access and repeated ROS
 terminals stay consistent on the Jetson.
@@ -45,8 +55,8 @@ Overrides:
 # Run as your host UID/GID instead of root.
 CARKIT_RUN_AS_ROOT=0 ./docker/run_jetson.sh
 
-# Temporarily skip the Nav2 image preflight check.
-CARKIT_REQUIRE_NAV2=0 ./docker/run_jetson.sh
+# Temporarily skip the Nav2/Foxglove image preflight check.
+CARKIT_REQUIRE_RUNTIME=0 ./docker/run_jetson.sh
 
 # Do not repair old generated-file ownership when running as host UID/GID.
 CARKIT_FIX_PERMISSIONS_ON_START=0 ./docker/run_jetson.sh

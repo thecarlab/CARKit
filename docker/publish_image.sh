@@ -16,10 +16,10 @@ fi
 
 docker build -f "$DOCKERFILE" -t "$IMAGE" .
 
-echo "Checking ${IMAGE} for CARKit Nav2 runtime packages..."
+echo "Checking ${IMAGE} for CARKit Nav2 and Foxglove runtime packages..."
 docker run --rm --entrypoint bash "$IMAGE" -lc '
   source /opt/ros/${ROS_DISTRO:-humble}/setup.bash
-  for pkg in nav2_bringup nav2_regulated_pure_pursuit_controller nav2_smac_planner slam_toolbox; do
+  for pkg in foxglove_bridge nav2_bringup nav2_regulated_pure_pursuit_controller nav2_smac_planner slam_toolbox; do
     ros2 pkg prefix "${pkg}" >/dev/null
   done
 '

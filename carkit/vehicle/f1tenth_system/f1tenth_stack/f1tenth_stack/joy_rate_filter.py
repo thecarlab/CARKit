@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 import rclpy
+from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import Joy
@@ -37,6 +38,7 @@ class JoyRateFilter(Node):
         publish_rate = float(self.get_parameter('publish_rate').value)
         if publish_rate <= 0.0:
             raise ValueError('publish_rate must be positive')
+        self._min_period = Duration(seconds=1.0 / publish_rate)
 
         joy_qos = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
@@ -44,7 +46,7 @@ class JoyRateFilter(Node):
             depth=10,
         )
 
-        self._latest_joy = None
+        self._last_publish_time = None
         self.create_subscription(
             Joy,
             str(self.get_parameter('input_topic').value),
@@ -56,20 +58,22 @@ class JoyRateFilter(Node):
             str(self.get_parameter('output_topic').value),
             joy_qos,
         )
-        self.create_timer(1.0 / publish_rate, self._publish_latest)
 
     def _on_joy(self, msg: Joy) -> None:
-        self._latest_joy = msg
-
-    def _publish_latest(self) -> None:
-        if self._latest_joy is None:
+        now = self.get_clock().now()
+        if (
+            self._last_publish_time is not None
+            and now - self._last_publish_time < self._min_period
+        ):
             return
 
+        self._last_publish_time = now
+
         output = Joy()
-        output.header = self._latest_joy.header
-        output.header.stamp = self.get_clock().now().to_msg()
-        output.axes = list(self._latest_joy.axes)
-        output.buttons = list(self._latest_joy.buttons)
+        output.header = msg.header
+        output.header.stamp = now.to_msg()
+        output.axes = list(msg.axes)
+        output.buttons = list(msg.buttons)
         self._publisher.publish(output)
 
 

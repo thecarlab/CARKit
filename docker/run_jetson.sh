@@ -5,6 +5,7 @@ set -euo pipefail
 IMAGE="${IMAGE:-ariiees/carkit:latest}"
 WORKSPACE="${WORKSPACE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PULL_IMAGE="${PULL_IMAGE:-missing}"
+CARKIT_REQUIRE_RUNTIME="${CARKIT_REQUIRE_RUNTIME:-${CARKIT_REQUIRE_NAV2:-1}}"
 HOST_UID="$(id -u)"
 HOST_GID="$(id -g)"
 HOST_USER="${USER:-carkit}"
@@ -29,12 +30,13 @@ case "${PULL_IMAGE}" in
     ;;
 esac
 
-if [ "${CARKIT_REQUIRE_NAV2:-1}" = "1" ]; then
-  echo "Checking ${IMAGE} for CARKit Nav2 runtime packages..."
+if [ "${CARKIT_REQUIRE_RUNTIME}" = "1" ]; then
+  echo "Checking ${IMAGE} for CARKit runtime packages..."
   if ! docker run --rm --entrypoint bash "${IMAGE}" -lc '
       source /opt/ros/${ROS_DISTRO:-humble}/setup.bash
       missing=0
       for pkg in \
+        foxglove_bridge \
         nav2_bringup \
         nav2_regulated_pure_pursuit_controller \
         nav2_smac_planner \
@@ -48,8 +50,8 @@ if [ "${CARKIT_REQUIRE_NAV2:-1}" = "1" ]; then
       exit "${missing}"
     '; then
     cat >&2 <<EOF
-CARKit error: Docker image '${IMAGE}' does not contain the Nav2 runtime needed
-by carkit_navigation.
+CARKit error: Docker image '${IMAGE}' does not contain the ROS runtime needed
+by CARKit navigation, perception visualization, and behavior launches.
 
 Rebuild or pull an updated image, then rerun:
 
@@ -62,11 +64,18 @@ For local testing without pulling Docker Hub:
 
 To bypass this check temporarily:
 
-  CARKIT_REQUIRE_NAV2=0 ./docker/run_jetson.sh
+  CARKIT_REQUIRE_RUNTIME=0 ./docker/run_jetson.sh
 EOF
     exit 1
   fi
 fi
+
+CONTAINER_CMD=(bash)
+
+if [ "$#" -gt 0 ]; then
+  CONTAINER_CMD=("$@")
+fi
+
 
 DOCKER_GPU_ARGS=()
 DOCKER_RUNTIMES="$(docker info --format '{{json .Runtimes}}' 2>/dev/null || true)"
@@ -103,4 +112,4 @@ docker run --rm -it \
   -v "${WORKSPACE}/docker/entrypoint.sh:/entrypoint.sh:ro" \
   -w /workspaces/CARKit \
   "${IMAGE}" \
-  bash
+  "${CONTAINER_CMD[@]}"

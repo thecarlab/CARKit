@@ -14,7 +14,9 @@
   <depend>carkit_perception_msgs</depend>
   <exec_depend>realsense2_camera</exec_depend>
   <exec_depend>launch</exec_depend>
+  <exec_depend>launch_xml</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>foxglove_bridge</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
 

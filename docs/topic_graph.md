@@ -97,9 +97,8 @@ ros2 launch carkit_human_control joystick.launch.py \
   vehicle_command_topic:=/ackermann_mux_unused
 ros2 launch carkit_control_center control_center.launch.py
 ros2 launch carkit_navigation navigation.launch.py \
-  mode:=navigation \
-  start_command_mux:=false \
-  map:=/workspaces/CARKit/map/map.yaml
+  map:=/workspaces/CARKit/map/map.yaml \
+  visualization:=foxglove
 ```
 
 ## Perception And Behavior
