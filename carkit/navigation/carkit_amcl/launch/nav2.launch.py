@@ -215,7 +215,9 @@ def generate_launch_description():
                 "'^/local_plan$', '^/goal_pose$', '^/move_base_simple/goal$', "
                 "'^/initialpose$', '^/clicked_point$', "
                 "'^/behavior/stop_sign_position$', "
-                "'^/behavior/traffic_light_position$']"
+                "'^/behavior/traffic_light_position$', "
+                "'^/behavior/stop_sign_markers$', "
+                "'^/behavior/traffic_light_markers$']"
             ),
             description='Foxglove Bridge topic whitelist'),
         DeclareLaunchArgument(

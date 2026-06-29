@@ -19,17 +19,92 @@ from geometry_msgs.msg import PointStamped
 from nav_msgs.msg import Odometry, Path
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from rclpy.time import Time as RclpyTime
 from sensor_msgs.msg import CameraInfo, LaserScan
 from std_msgs.msg import Bool, String
 from tf2_ros import Buffer, TransformException, TransformListener
+from visualization_msgs.msg import Marker, MarkerArray
 
 
 NORMAL_NAV2 = "NORMAL_NAV2"
 STOP_SIGN = "STOP_SIGN"
 TRAFFIC_LIGHT = "TRAFFIC_LIGHT"
 AUTO_DRIVE = "AUTO_DRIVE"
+
+
+def object_marker_array(
+    frame_id: str,
+    stamp: Time,
+    x: float,
+    y: float,
+    namespace: str,
+    label: str,
+    color: tuple[float, float, float],
+) -> MarkerArray:
+    """Build a Foxglove/RViz-compatible symbol and label for a map object."""
+    symbol = Marker()
+    symbol.header.frame_id = frame_id
+    symbol.header.stamp = stamp
+    symbol.ns = namespace
+    symbol.id = 0
+    symbol.type = Marker.SPHERE
+    symbol.action = Marker.ADD
+    symbol.pose.position.x = float(x)
+    symbol.pose.position.y = float(y)
+    symbol.pose.position.z = 0.22
+    symbol.pose.orientation.w = 1.0
+    symbol.scale.x = 0.45
+    symbol.scale.y = 0.45
+    symbol.scale.z = 0.45
+    symbol.color.r, symbol.color.g, symbol.color.b = color
+    symbol.color.a = 1.0
+    symbol.frame_locked = True
+
+    text = Marker()
+    text.header.frame_id = frame_id
+    text.header.stamp = stamp
+    text.ns = namespace
+    text.id = 1
+    text.type = Marker.TEXT_VIEW_FACING
+    text.action = Marker.ADD
+    text.pose.position.x = float(x)
+    text.pose.position.y = float(y)
+    text.pose.position.z = 0.62
+    text.pose.orientation.w = 1.0
+    text.scale.z = 0.25
+    text.color.r = 1.0
+    text.color.g = 1.0
+    text.color.b = 1.0
+    text.color.a = 1.0
+    text.text = label
+    text.frame_locked = True
+
+    output = MarkerArray()
+    output.markers = [symbol, text]
+    return output
+
+
+def delete_object_marker_array(
+    frame_id: str,
+    stamp: Time,
+    namespace: str,
+) -> MarkerArray:
+    output = MarkerArray()
+    for marker_id in (0, 1):
+        marker = Marker()
+        marker.header.frame_id = frame_id
+        marker.header.stamp = stamp
+        marker.ns = namespace
+        marker.id = marker_id
+        marker.action = Marker.DELETE
+        output.markers.append(marker)
+    return output
 
 
 class ObjectLocation:
@@ -381,6 +456,22 @@ class BehaviorCenterNode(Node):
             PointStamped,
             "/behavior/traffic_light_position",
             10,
+        )
+        marker_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+        self.stop_sign_markers_pub = self.create_publisher(
+            MarkerArray,
+            "/behavior/stop_sign_markers",
+            marker_qos,
+        )
+        self.traffic_light_markers_pub = self.create_publisher(
+            MarkerArray,
+            "/behavior/traffic_light_markers",
+            marker_qos,
         )
 
         self.timer = self.create_timer(0.05, self.timer_callback)
@@ -757,6 +848,7 @@ class BehaviorCenterNode(Node):
     def clear_traffic_light_track(self) -> None:
         if self.traffic_light_stop_engaged:
             return
+        had_track = bool(self.traffic_light_tracks)
         self.traffic_light_tracks = []
         self.traffic_light_stop_engaged = False
         self.latest_traffic_light_color = (
@@ -764,6 +856,14 @@ class BehaviorCenterNode(Node):
         )
         self.traffic_light_stop_color_frames = 0
         self.traffic_light_green_frames = 0
+        if had_track and hasattr(self, "traffic_light_markers_pub"):
+            self.traffic_light_markers_pub.publish(
+                delete_object_marker_array(
+                    self.stop_sign_map_frame,
+                    self.get_clock().now().to_msg(),
+                    "traffic_light",
+                )
+            )
 
     def update_traffic_light_color_state(self, color: int) -> None:
         self.latest_traffic_light_color = color
@@ -823,12 +923,30 @@ class BehaviorCenterNode(Node):
         if track is None:
             return
 
+        stamp = self.get_clock().now().to_msg()
         msg = PointStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.stamp = stamp
         msg.header.frame_id = self.stop_sign_map_frame
         msg.point.x = float(track.x)
         msg.point.y = float(track.y)
         self.traffic_light_position_pub.publish(msg)
+        color_name = self.traffic_light_color_name(track.color)
+        marker_color = {
+            "red": (1.0, 0.05, 0.05),
+            "yellow": (1.0, 0.75, 0.0),
+            "green": (0.05, 1.0, 0.15),
+        }.get(color_name, (0.0, 0.35, 1.0))
+        self.traffic_light_markers_pub.publish(
+            object_marker_array(
+                self.stop_sign_map_frame,
+                stamp,
+                track.x,
+                track.y,
+                "traffic_light",
+                f"TRAFFIC LIGHT ({color_name.upper()})",
+                marker_color,
+            )
+        )
 
     def primary_traffic_light_track(self) -> Optional[TrafficLightTrack]:
         for track in self.traffic_light_tracks:
@@ -952,6 +1070,17 @@ class BehaviorCenterNode(Node):
         msg.point.x = float(track.x)
         msg.point.y = float(track.y)
         self.stop_sign_position_pub.publish(msg)
+        self.stop_sign_markers_pub.publish(
+            object_marker_array(
+                self.stop_sign_map_frame,
+                stamp,
+                track.x,
+                track.y,
+                "stop_sign",
+                "STOP SIGN",
+                (1.0, 0.05, 0.05),
+            )
+        )
 
     def stop_sign_track_reliable(self, track: StopSignTrack) -> bool:
         return (

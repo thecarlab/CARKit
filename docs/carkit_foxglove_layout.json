@@ -38,8 +38,8 @@
         "t:/plan_smoothed",
         "t:/received_global_plan",
         "t:/local_plan",
-        "t:/behavior/stop_sign_position",
-        "t:/behavior/traffic_light_position",
+        "t:/behavior/stop_sign_markers",
+        "t:/behavior/traffic_light_markers",
         "t:/initialpose",
         "t:/goal_pose",
         "t:/move_base_simple/goal",
@@ -128,14 +128,10 @@
           "lineWidth": 0.025,
           "visible": true
         },
-        "t:/behavior/stop_sign_position": {
-          "color": "#ff0000",
-          "pointSize": 14,
+        "t:/behavior/stop_sign_markers": {
           "visible": true
         },
-        "t:/behavior/traffic_light_position": {
-          "color": "#0055ff",
-          "pointSize": 14,
+        "t:/behavior/traffic_light_markers": {
           "visible": true
         },
         "t:/initialpose": {
@@ -204,14 +200,10 @@
           "lineWidth": 0.025,
           "visible": true
         },
-        "/behavior/stop_sign_position": {
-          "color": "#ff0000",
-          "pointSize": 14,
+        "/behavior/stop_sign_markers": {
           "visible": true
         },
-        "/behavior/traffic_light_position": {
-          "color": "#0055ff",
-          "pointSize": 14,
+        "/behavior/traffic_light_markers": {
           "visible": true
         },
         "/initialpose": {

@@ -1,15 +1,19 @@
 import math
 from types import SimpleNamespace
 
+from builtin_interfaces.msg import Time
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 from sensor_msgs.msg import LaserScan
 from carkit_perception_msgs.msg import YoloTrafficLightDetection2D
+from visualization_msgs.msg import Marker
 
 from carkit_behavior.behavior_center_node import (
     BehaviorCenterNode,
     StopSignTrack,
     TrafficLightTrack,
+    delete_object_marker_array,
+    object_marker_array,
 )
 
 
@@ -122,6 +126,34 @@ def global_plan(*points):
         pose.pose.position.y = float(y)
         plan.poses.append(pose)
     return plan
+
+
+def test_map_object_markers_are_supported_visualization_messages():
+    markers = object_marker_array(
+        "map",
+        Time(sec=12),
+        3.0,
+        4.0,
+        "stop_sign",
+        "STOP SIGN",
+        (1.0, 0.05, 0.05),
+    )
+
+    assert len(markers.markers) == 2
+    symbol, label = markers.markers
+    assert symbol.type == Marker.SPHERE
+    assert symbol.header.frame_id == "map"
+    assert symbol.pose.position.x == 3.0
+    assert symbol.pose.position.y == 4.0
+    assert symbol.color.a == 1.0
+    assert label.type == Marker.TEXT_VIEW_FACING
+    assert label.text == "STOP SIGN"
+
+    deleted = delete_object_marker_array("map", Time(sec=13), "stop_sign")
+    assert [marker.action for marker in deleted.markers] == [
+        Marker.DELETE,
+        Marker.DELETE,
+    ]
 
 
 def test_stop_sign_tracking_requires_confidence_and_observations():

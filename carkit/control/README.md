@@ -116,6 +116,12 @@ Publications:
 - `/behavior/override_cmd`
 - `/behavior/stop_sign_position`
 - `/behavior/traffic_light_position`
+- `/behavior/stop_sign_markers` (`visualization_msgs/MarkerArray`)
+- `/behavior/traffic_light_markers` (`visualization_msgs/MarkerArray`)
+
+The `*_markers` topics are the Foxglove/RViz visualization topics. The
+`*_position` topics remain available as machine-readable `PointStamped`
+outputs.
 
 Behavior only affects the car while `/control_center/main_state` is
 `AUTO_DRIVE`. Outside autonomous mode it publishes inactive behavior state.
