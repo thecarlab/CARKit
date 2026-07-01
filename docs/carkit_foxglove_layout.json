@@ -40,6 +40,7 @@
         "t:/local_plan",
         "t:/behavior/stop_sign_markers",
         "t:/behavior/traffic_light_markers",
+        "t:/foxglove/waypoints/markers",
         "t:/initialpose",
         "t:/goal_pose",
         "t:/move_base_simple/goal",
@@ -48,7 +49,7 @@
         "tf:base_link",
         "tf:laser"
       ],
-      "clickToPublishPoseTopic": "/goal_pose",
+      "clickToPublishPoseTopic": "/foxglove/waypoints/goal",
       "clickToPublishPointTopic": "/clicked_point",
       "clickToPublishPoseEstimateTopic": "/initialpose",
       "clickToPublishPoseEstimateXDeviation": 0.5,
@@ -66,7 +67,7 @@
       "pinTopics": true,
       "publish": {
         "type": "pose",
-        "poseTopic": "/goal_pose",
+        "poseTopic": "/foxglove/waypoints/goal",
         "pointTopic": "/clicked_point",
         "poseEstimateTopic": "/initialpose",
         "poseEstimateXDeviation": 0.5,
@@ -132,6 +133,9 @@
           "visible": true
         },
         "t:/behavior/traffic_light_markers": {
+          "visible": true
+        },
+        "t:/foxglove/waypoints/markers": {
           "visible": true
         },
         "t:/initialpose": {
@@ -206,6 +210,9 @@
         "/behavior/traffic_light_markers": {
           "visible": true
         },
+        "/foxglove/waypoints/markers": {
+          "visible": true
+        },
         "/initialpose": {
           "axisScale": 0.65,
           "color": "#ffcc33",
@@ -253,11 +260,41 @@
       },
       "useThemeBackgroundColor": false,
       "foxglovePanelTitle": "CARKit Minimal Nav"
+    },
+    "Publish!start_waypoints": {
+      "topicName": "/foxglove/waypoints/command",
+      "datatype": "std_msgs/msg/String",
+      "buttonText": "Start route",
+      "buttonTooltip": "Navigate through the accumulated poses",
+      "buttonColor": "#2e7d32",
+      "advancedView": false,
+      "value": "{\"data\":\"start\"}",
+      "foxglovePanelTitle": "Start route"
+    },
+    "Publish!clear_waypoints": {
+      "topicName": "/foxglove/waypoints/command",
+      "datatype": "std_msgs/msg/String",
+      "buttonText": "Clear poses",
+      "buttonTooltip": "Clear poses that have not been started",
+      "buttonColor": "#ed6c02",
+      "advancedView": false,
+      "value": "{\"data\":\"clear\"}",
+      "foxglovePanelTitle": "Clear poses"
+    },
+    "Publish!cancel_waypoints": {
+      "topicName": "/foxglove/waypoints/command",
+      "datatype": "std_msgs/msg/String",
+      "buttonText": "Cancel route",
+      "buttonTooltip": "Cancel the active NavigateThroughPoses action",
+      "buttonColor": "#d32f2f",
+      "advancedView": false,
+      "value": "{\"data\":\"cancel\"}",
+      "foxglovePanelTitle": "Cancel route"
     }
   },
   "globalVariables": {
     "fixed_frame": "map",
-    "goal_topic": "/goal_pose",
+    "goal_topic": "/foxglove/waypoints/goal",
     "initial_pose_topic": "/initialpose"
   },
   "userNodes": {},
@@ -266,5 +303,20 @@
     "speed": 1,
     "messageOrder": "receiveTime"
   },
-  "layout": "3D!minimal_nav"
+  "layout": {
+    "direction": "column",
+    "first": "3D!minimal_nav",
+    "second": {
+      "direction": "row",
+      "first": "Publish!start_waypoints",
+      "second": {
+        "direction": "row",
+        "first": "Publish!clear_waypoints",
+        "second": "Publish!cancel_waypoints",
+        "splitPercentage": 50
+      },
+      "splitPercentage": 50
+    },
+    "splitPercentage": 88
+  }
 }

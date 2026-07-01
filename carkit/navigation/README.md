@@ -106,6 +106,20 @@ Use **Cancel Accumulation** to clear poses that have not been started.
 **Start Waypoint Following** executes the same list through the waypoint
 follower and may run the configured task at every waypoint.
 
+## Multiple Poses In Foxglove
+
+Import `docs/carkit_foxglove_layout.json`, then connect to the bridge and:
+
+1. In the 3D panel, choose the **2D pose** publish tool.
+2. Click and drag on the map for each pose, in driving order. Green numbered
+   markers show the accumulated route.
+3. Click **Start route**. Active poses turn blue while Nav2 executes one
+   `NavigateThroughPoses` action.
+
+**Clear poses** removes poses that have not started. **Cancel route** cancels
+the active route. The manager publishes text status on
+`/foxglove/waypoints/status`.
+
 ## Topic Flow
 
 ```text

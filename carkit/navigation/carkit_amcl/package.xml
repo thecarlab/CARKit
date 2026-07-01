@@ -7,8 +7,12 @@
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>
+  <depend>action_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>nav2_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>visualization_msgs</depend>
   <depend>ackermann_msgs</depend>
   <depend>tf2_ros</depend>
 

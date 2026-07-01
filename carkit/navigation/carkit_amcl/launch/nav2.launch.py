@@ -95,6 +95,13 @@ def generate_launch_description():
         condition=IfCondition(start_command_mux),
     )
 
+    foxglove_waypoints = Node(
+        package='carkit_amcl',
+        executable='foxglove_waypoints',
+        name='foxglove_waypoints',
+        output='screen',
+    )
+
     foxglove_bridge = IncludeLaunchDescription(
         XMLLaunchDescriptionSource(
             PathJoinSubstitution([
@@ -214,6 +221,10 @@ def generate_launch_description():
                 "'^/plan$', '^/plan_smoothed$', '^/received_global_plan$', "
                 "'^/local_plan$', '^/goal_pose$', '^/move_base_simple/goal$', "
                 "'^/initialpose$', '^/clicked_point$', "
+                "'^/foxglove/waypoints/goal$', "
+                "'^/foxglove/waypoints/command$', "
+                "'^/foxglove/waypoints/markers$', "
+                "'^/foxglove/waypoints/status$', "
                 "'^/behavior/stop_sign_position$', "
                 "'^/behavior/traffic_light_position$', "
                 "'^/behavior/stop_sign_markers$', "
@@ -224,7 +235,9 @@ def generate_launch_description():
             'foxglove_client_topic_whitelist',
             default_value=(
                 "['^/goal_pose$', '^/move_base_simple/goal$', "
-                "'^/initialpose$', '^/clicked_point$']"
+                "'^/initialpose$', '^/clicked_point$', "
+                "'^/foxglove/waypoints/goal$', "
+                "'^/foxglove/waypoints/command$']"
             ),
             description='Topics Foxglove clients may publish'),
         DeclareLaunchArgument(
@@ -242,6 +255,7 @@ def generate_launch_description():
         nav2_bringup,
         cmd_bridge,
         command_mux,
+        foxglove_waypoints,
         foxglove_bridge,
         rviz,
     ])

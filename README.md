@@ -87,14 +87,14 @@ Start human control as shown above, then launch mapping:
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
-  mode:=mapping
+  mode:=mapping visualization:=rviz
 ```
 
 Drive through the environment, then save the occupancy map:
 
 ```bash
 ros2 run nav2_map_server map_saver_cli \
-  -f /workspaces/CARKit/map/map
+  -f /workspaces/CARKit/map/test
 ```
 
 Maps belong in the repository's top-level `map/` folder.
