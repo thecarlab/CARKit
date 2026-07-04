@@ -115,9 +115,9 @@ controller_server:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
       desired_linear_vel: 1.2 # for forward motion velocity
       lookahead_dist: 0.75
-      min_lookahead_dist: 0.45
-      max_lookahead_dist: 1.4
-      lookahead_time: 1.5
+      min_lookahead_dist: 0.5
+      max_lookahead_dist: 1.0
+      lookahead_time: 0.5
       rotate_to_heading_angular_vel: 0.6
       transform_tolerance: 0.5
       use_velocity_scaled_lookahead_dist: true
@@ -224,8 +224,8 @@ global_costmap:
           min_obstacle_height: 0.0
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.2
+        cost_scaling_factor: 1.5
+        inflation_radius: 0.4
       always_send_full_costmap: true
 
 map_server:
