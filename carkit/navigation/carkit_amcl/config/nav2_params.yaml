@@ -115,9 +115,9 @@ controller_server:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
       desired_linear_vel: 1.2 # for forward motion velocity
       lookahead_dist: 0.75
-      min_lookahead_dist: 0.5
-      max_lookahead_dist: 1.0
-      lookahead_time: 0.5
+      min_lookahead_dist: 0.9
+      max_lookahead_dist: 1.2
+      lookahead_time: 1.0
       rotate_to_heading_angular_vel: 0.6
       transform_tolerance: 0.5
       use_velocity_scaled_lookahead_dist: true
