@@ -1,0 +1,5 @@
+scenario	rs_affinity	burn_affinity	burn	tload	hz
+A_baseline	any	none	no	2x60%	13.462
+B_unpinned_burn	any	none	yes	2x60%	11.900
+C_rs0_burn0	0	0	yes	2x60%	12.564
+D_rs01_burn45	0,1	4,5	yes	2x60%	12.214

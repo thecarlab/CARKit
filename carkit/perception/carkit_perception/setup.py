@@ -27,6 +27,7 @@ setup(
     entry_points={
         'console_scripts': [
             'perception_2d_node = carkit_perception.perception_2d_node:main',
+            'mimic_perception = carkit_perception.mimic_perception:main',
         ],
     },
 )

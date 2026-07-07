@@ -86,6 +86,43 @@ In Foxglove or RViz:
 2. Wait for the AMCL particle cloud to converge around the vehicle.
 3. Use **Nav2 Goal** to send a single navigation goal.
 
+## Simple Localization Loop Controller
+
+To drive a fixed loop from the current localized pose, enable the simple
+controller:
+
+```bash
+ros2 launch carkit_navigation navigation.launch.py \
+  map:=/workspaces/CARKit/map/map_3f.yaml \
+  start_simple_loop_controller:=true
+```
+
+After the first `map -> base_link` transform is available, the controller
+drives straight 3.5 m, turns a half circle with a 1.7 m radius, drives straight
+3.5 m, then turns a second 1.7 m half circle. It publishes
+`AckermannDriveStamped` commands on `/ackermann_cmd`, so stop joystick commands
+before starting it. The loop repeats until the controller node is stopped.
+
+Useful overrides:
+
+```bash
+simple_loop_speed:=0.25
+simple_loop_turn_direction:=right
+simple_loop_lookahead:=0.6
+simple_loop_loop_path:=false  # one lap only
+```
+
+When running the controller directly in a terminal, press `w` to increase
+speed and `s` to decrease speed. The default step is `0.1 m/s`; override it
+with `-p speed_step:=0.05` when using `ros2 run`.
+
+Speed can also be adjusted from another terminal:
+
+```bash
+ros2 param set /simple_loop_controller linear_speed 0.5
+ros2 param set /simple_loop_controller linear_speed 0.0
+```
+
 Use `visualization:=rviz` to start RViz instead of Foxglove Bridge. Use
 `visualization:=none` to start neither. Foxglove bind settings are still
 available as `foxglove_address:=...` and `foxglove_port:=...`.

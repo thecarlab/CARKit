@@ -7,7 +7,7 @@ ROSDEP_SKIP_KEYS="${ROSDEP_SKIP_KEYS:-librealsense2}"
 REALSENSE_MIN_VERSION="${REALSENSE_MIN_VERSION:-2.58.0}"
 BUILD_JOBS="${BUILD_JOBS:-1}"
 PARALLEL_WORKERS="${PARALLEL_WORKERS:-1}"
-REALSENSE_ACCELERATE_GPU_WITH_GLSL="${REALSENSE_ACCELERATE_GPU_WITH_GLSL:-auto}"
+REALSENSE_ACCELERATE_GPU_WITH_GLSL="${REALSENSE_ACCELERATE_GPU_WITH_GLSL:-0}"
 ROSDEP_SKIP_ARGS=()
 if [ -n "${ROSDEP_SKIP_KEYS}" ]; then
   read -r -a ROSDEP_SKIP_ARGS <<< "${ROSDEP_SKIP_KEYS}"
@@ -87,6 +87,7 @@ case "${REALSENSE_ACCELERATE_GPU_WITH_GLSL}" in
       COLCON_CMAKE_ARGS+=(-DBUILD_ACCELERATE_GPU_WITH_GLSL=ON)
       echo "Building realsense2_camera with GLSL GPU acceleration support."
     else
+      COLCON_CMAKE_ARGS+=(-DBUILD_ACCELERATE_GPU_WITH_GLSL=OFF)
       echo "realsense2-gl not found; building realsense2_camera without GLSL GPU acceleration support."
     fi
     ;;
@@ -103,6 +104,8 @@ EOF
     COLCON_CMAKE_ARGS+=(-DBUILD_ACCELERATE_GPU_WITH_GLSL=ON)
     ;;
   0|false|FALSE|off|OFF)
+    COLCON_CMAKE_ARGS+=(-DBUILD_ACCELERATE_GPU_WITH_GLSL=OFF)
+    echo "Building realsense2_camera without GLSL GPU acceleration support."
     ;;
   *)
     echo "REALSENSE_ACCELERATE_GPU_WITH_GLSL must be auto, 1, or 0" >&2

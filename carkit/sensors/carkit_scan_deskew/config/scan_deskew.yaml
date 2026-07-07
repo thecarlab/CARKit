@@ -1,0 +1,11 @@
+scan_deskew_node:
+  ros__parameters:
+    scan_topic: /scan
+    output_topic: /scan_deskewed
+    odom_topic: /odom
+    odom_frame: odom
+    base_frame: base_link
+    laser_frame: ""
+    odom_buffer_duration_sec: 2.0
+    transform_timeout_sec: 0.1
+    use_tf_extrinsic: true

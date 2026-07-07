@@ -38,7 +38,7 @@ vesc_to_odom_node:
     odom_speed_sign: 1.0
     use_servo_cmd_to_calc_angular_velocity: true
     # wheelbase (used as kinematic calibration; not necessarily geometric truth)
-    wheelbase: 0.25
+    wheelbase: 0.275
 
 # No longer needed, all parameters are shared
 # vesc_driver:

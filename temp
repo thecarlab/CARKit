@@ -1,0 +1,17 @@
+ros2 launch carkit_human_control joystick.launch.py \
+  vehicle_command_topic:=/ackermann_mux_unused
+
+ros2 launch carkit_navigation navigation.launch.py \
+  map:=/workspaces/CARKit/map/map_5fs.yaml
+
+ros2 run carkit_amcl simple_loop_controller --ros-args \
+  -p turn_radius:=1.2 \
+  -p straight_distance:=2.5 \
+  -p ackermann_topic:=/drive
+
+ros2 launch carkit_control_center baseline_control_center.launch.py
+
+ros2 run carkit_perception mimic_perception
+
+ros2 topic pub --once /yolo/detections_2d carkit_perception_msgs/msg/YoloDetection2DArray \
+  "{detections: [{class_name: 'stop sign', confidence: 0.99}]}"

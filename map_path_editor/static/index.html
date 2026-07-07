@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CARKit Map Path Editor</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="header">
+    <div>
+      <p class="eyebrow">CARKit map path editor</p>
+      <h1>Align reusable path shapes on occupancy maps</h1>
+      <p class="subtitle">
+        Load a Nav2 <code>.yaml</code> and <code>.pgm</code> occupancy grid, then position
+        line, circle, half-circle, or track paths in the <code>map</code> frame.
+      </p>
+    </div>
+    <div class="header-meta">
+      <span id="status-pill" class="pill pill-idle">Loading maps</span>
+      <button id="fit-map" class="secondary" type="button">Fit map</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel controls">
+      <section>
+        <h2>Map Source</h2>
+        <label>
+          Repository map
+          <select id="map-select"></select>
+        </label>
+        <div class="button-row">
+          <button id="load-map" type="button">Load selected map</button>
+          <button id="refresh-maps" class="secondary" type="button">Refresh</button>
+        </div>
+        <div id="map-errors" class="errors hidden"></div>
+      </section>
+
+      <section class="divider">
+        <h2>Load local pair</h2>
+        <label>
+          YAML metadata
+          <input id="local-yaml" type="file" accept=".yaml,.yml">
+        </label>
+        <label>
+          PGM image
+          <input id="local-pgm" type="file" accept=".pgm">
+        </label>
+        <button id="load-local" class="secondary" type="button">Load local files</button>
+      </section>
+
+      <section class="divider">
+        <h2>Path Shape</h2>
+        <label>
+          Shape
+          <select id="shape-type">
+            <option value="line">Straight line</option>
+            <option value="circle">Circle</option>
+            <option value="halfCircle">Half circle</option>
+            <option value="track">Track</option>
+          </select>
+        </label>
+        <div class="grid-2">
+          <label>
+            Center X (m)
+            <input id="center-x" type="number" step="0.05">
+          </label>
+          <label>
+            Center Y (m)
+            <input id="center-y" type="number" step="0.05">
+          </label>
+        </div>
+        <label>
+          Rotation (deg)
+          <input id="rotation" type="range" min="-180" max="180" step="1" value="0">
+          <span id="rotation-value" class="hint">0 deg</span>
+        </label>
+        <label id="line-length-row">
+          Line length (m)
+          <input id="line-length" type="number" min="0.05" step="0.05" value="2.0">
+        </label>
+        <label id="radius-row">
+          Radius (m)
+          <input id="radius" type="number" min="0.05" step="0.05" value="1.0">
+        </label>
+        <label id="track-straight-row">
+          Track straight length (m)
+          <input id="track-straight" type="number" min="0.05" step="0.05" value="3.0">
+        </label>
+        <label>
+          Samples
+          <input id="samples" type="number" min="8" max="720" step="4" value="120">
+        </label>
+      </section>
+
+      <section class="divider">
+        <h2>Export</h2>
+        <p class="hint">
+          Drag on the map to place the path. Export includes sampled points in meters.
+        </p>
+        <div class="button-row">
+          <button id="copy-json" type="button">Copy JSON</button>
+          <button id="download-json" class="secondary" type="button">Download</button>
+        </div>
+        <textarea id="export-output" spellcheck="false" readonly></textarea>
+      </section>
+    </aside>
+
+    <section class="panel workspace">
+      <div class="canvas-toolbar">
+        <div>
+          <strong id="map-title">No map loaded</strong>
+          <p id="map-meta" class="hint">Choose a repository map or load a local YAML/PGM pair.</p>
+        </div>
+        <label class="zoom-control">
+          Zoom
+          <input id="zoom" type="range" min="50" max="400" step="10" value="100">
+          <span id="zoom-value">100%</span>
+        </label>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="map-canvas"></canvas>
+        <div id="cursor-readout" class="readout">x: --, y: --</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

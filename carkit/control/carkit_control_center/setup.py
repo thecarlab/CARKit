@@ -28,6 +28,10 @@ setup(
         "console_scripts": [
             "control_center_node = "
             "carkit_control_center.control_center_node:main",
+            "baseline_control_center_node = "
+            "carkit_control_center.baseline_control_center_node:main",
+            "baseline_behavior_center_node = "
+            "carkit_control_center.baseline_behavior_center_node:main",
         ],
     },
 )

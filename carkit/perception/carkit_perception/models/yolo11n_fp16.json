@@ -1,8 +1,8 @@
 {
-  "created_utc": "2026-06-15T02:50:24.775243+00:00",
+  "created_utc": "2026-06-24T20:17:57.338231+00:00",
   "source_model": "/workspaces/CARKit/carkit/perception/carkit_perception/models/yolo11n.pt",
   "source_model_sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
-  "engine_sha256": "59cfa1d6d1b488a32c3591108a0d05ec73c315cb5480ed8f76e76e4c1bd4fc13",
+  "engine_sha256": "65b97e7ef707a615fa98668637233a31246e9ad58c660186c7bf114d7b0e373a",
   "precision": "FP16",
   "batch": 1,
   "image_size": 640,
