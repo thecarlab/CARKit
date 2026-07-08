@@ -13,7 +13,9 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name, 'launch'), [
+            *glob('launch/*.launch.py')
+        ]),
         (os.path.join('share', package_name, 'models'), glob('models/*.pt')),
         (os.path.join('share', package_name, 'rviz'), glob('rviz/*.rviz')),
     ],
@@ -27,6 +29,10 @@ setup(
     entry_points={
         'console_scripts': [
             'perception_2d_node = carkit_perception.perception_2d_node:main',
+            (
+                'speed_sign_perception_node = '
+                'carkit_perception.speed_sign_perception_node:main'
+            ),
         ],
     },
 )
