@@ -5,19 +5,17 @@
 
 from pathlib import Path
 
-import cv2
 import rclpy
 from cv_bridge import CvBridge
-from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import Image
 from ultralytics import YOLO
 
-from carkit_perception.perception_math import Detection2D, clipped_bbox
+from carkit_perception.perception_math import Detection2D
 from carkit_perception_msgs.msg import YoloDetection2D, YoloDetection2DArray
 
-
+# TODO: change the model path to your own trained model.
 SPEED_SIGN_CLASS_NAMES = {
     0: "speed_sign",
     1: "traffic_cone",
@@ -26,21 +24,6 @@ TRAFFIC_SIGN_WEIGHT = Path("models/traffic_sign.pt")
 
 
 def default_model_path() -> str:
-    try:
-        from ament_index_python.packages import (
-            PackageNotFoundError,
-            get_package_share_directory,
-        )
-
-        installed_path = (
-            Path(get_package_share_directory("carkit_perception"))
-            / TRAFFIC_SIGN_WEIGHT
-        )
-        if installed_path.is_file():
-            return str(installed_path)
-    except (ImportError, PackageNotFoundError):
-        pass
-
     source_path = Path(__file__).resolve().parents[1] / TRAFFIC_SIGN_WEIGHT
     return str(source_path)
 
@@ -70,19 +53,19 @@ class SpeedSignPerceptionNode(Node):
             depth=1,
         )
         self.image_sub = self.create_subscription(
-            Image,
-            str(self.get_parameter("image_topic").value),
-            self.image_callback,
+            ___,  # Hint: ROS Image message type
+            str(self.get_parameter(___).value),  # Hint: camera topic parameter
+            ___,  # Hint: callback function for each camera frame
             sensor_qos,
         )
         self.detection_pub = self.create_publisher(
-            YoloDetection2DArray,
-            str(self.get_parameter("detection_topic").value),
+            ___,  # Hint: detection-array message type
+            str(self.get_parameter(___).value),  # Hint: detection topic param
             10,
         )
         self.image_pub = self.create_publisher(
-            Image,
-            str(self.get_parameter("visualization_topic").value),
+            ___,  # Hint: ROS Image message type
+            str(self.get_parameter(___).value),  # Hint: visualization topic
             sensor_qos,
         )
 
@@ -98,67 +81,63 @@ class SpeedSignPerceptionNode(Node):
             raise RuntimeError(f"Speed sign model not found: {model_path}")
 
     def image_callback(self, image_msg: Image) -> None:
-        try:
-            color_image = self.bridge.imgmsg_to_cv2(
-                image_msg,
-                desired_encoding="bgr8",
-            )
-        except Exception as exc:
-            self.get_logger().error(f"Failed to convert color image: {exc}")
-            return
+        """Handle one camera frame and publish speed-sign detections."""
+        color_image = self.bridge.imgmsg_to_cv2(
+            image_msg,
+            desired_encoding="bgr8",
+        )
 
+        # TODO(student): Run YOLO on the camera image.
         results = self.model.predict(
-            color_image,
+            ___,  # Hint: the OpenCV image variable created above
             imgsz=self.image_size,
-            conf=self.min_confidence,
+            conf=0.001,
             batch=1,
             verbose=False,
         )
         detections = self.extract_detections(results)
 
-        output = YoloDetection2DArray()
-        output.header = image_msg.header
-        output.image_height, output.image_width = color_image.shape[:2]
+        output = ___()  # Hint: create the detection-array message
+        output.header = ___.header  # Hint: copy the incoming image header
+        output.image_height, output.image_width = ___.shape[:2]
         output.detections = [
             self.to_detection_message(detection) for detection in detections
         ]
         output.traffic_lights = []
-        self.detection_pub.publish(output)
+        self.detection_pub.publish(___)  # Hint: publish the output message
 
-        if detections:
-            self.log_detections(detections)
+        self.log_detections(detections)
 
-        self.publish_visualization_image(color_image, detections, image_msg)
+        self.publish_visualization_image(results, image_msg)
 
     def extract_detections(self, results) -> list[Detection2D]:
+        """Convert raw YOLO result boxes into CARKit Detection2D objects."""
         detections = []
         for result in results:
             if result.boxes is None or result.boxes.data.numel() == 0:
                 continue
+
             rows = result.boxes.data.detach().cpu().numpy()
             for row in rows:
                 x1, y1, x2, y2, confidence, class_id = row[:6]
-                class_id = int(class_id)
+                # TODO(student): Skip detections below the node threshold.
+                if confidence < ___:  # Hint: use self.min_confidence
+                    continue
+
+                class_id = int(___)  # Hint: convert YOLO's class id to int
                 detections.append(
                     Detection2D(
                         class_id=class_id,
                         class_name=self.class_name(class_id),
                         bbox=(float(x1), float(y1), float(x2), float(y2)),
-                        confidence=float(confidence),
+                        confidence=float(___),  # Hint: YOLO confidence score
                     )
                 )
         return detections
 
     def class_name(self, class_id: int) -> str:
-        if class_id in SPEED_SIGN_CLASS_NAMES:
-            return SPEED_SIGN_CLASS_NAMES[class_id]
-
-        names = self.model.names
-        if isinstance(names, dict):
-            return str(names.get(class_id, class_id))
-        if 0 <= class_id < len(names):
-            return str(names[class_id])
-        return str(class_id)
+        """Return the readable label for a detected class id."""
+        return SPEED_SIGN_CLASS_NAMES[class_id]
 
     def log_detections(self, detections: list[Detection2D]) -> None:
         for detection in detections:
@@ -173,84 +152,20 @@ class SpeedSignPerceptionNode(Node):
 
     def publish_visualization_image(
         self,
-        color_image,
-        detections: list[Detection2D],
+        results,
         image_msg: Image,
     ) -> None:
-        if self.image_pub.get_subscription_count() == 0:
-            return
-
-        annotated = self.annotate_image(color_image, detections)
-        annotated_msg = self.bridge.cv2_to_imgmsg(
-            annotated,
-            encoding="bgr8",
-        )
-        annotated_msg.header = image_msg.header
-        self.image_pub.publish(annotated_msg)
-
-    def annotate_image(self, color_image, detections: list[Detection2D]):
-        annotated = color_image.copy()
-        height, width = annotated.shape[:2]
-        for detection in detections:
-            bounds = clipped_bbox(detection.bbox, width, height)
-            if bounds is None:
-                continue
-
-            left, top, right, bottom = bounds
-            color = self.detection_color(detection.class_id)
-            cv2.rectangle(annotated, (left, top), (right, bottom), color, 2)
-            label = (
-                f"id={detection.class_id} "
-                f"{detection.class_name} "
-                f"{detection.confidence:.2f}"
-            )
-            self.draw_label(annotated, label, left, top, color)
-        return annotated
-
-    def detection_color(self, class_id: int) -> tuple[int, int, int]:
-        if class_id == 0:
-            return (40, 220, 40)
-        if class_id == 1:
-            return (0, 170, 255)
-        return (255, 255, 255)
-
-    def draw_label(self, image, label: str, left: int, top: int, color) -> None:
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.5
-        thickness = 1
-        text_size, baseline = cv2.getTextSize(
-            label,
-            font,
-            font_scale,
-            thickness,
-        )
-        text_width, text_height = text_size
-        label_top = max(0, top - text_height - baseline - 4)
-        label_bottom = label_top + text_height + baseline + 4
-        label_right = min(image.shape[1], left + text_width + 6)
-        cv2.rectangle(
-            image,
-            (left, label_top),
-            (label_right, label_bottom),
-            color,
-            cv2.FILLED,
-        )
-        cv2.putText(
-            image,
-            label,
-            (left + 3, label_bottom - baseline - 2),
-            font,
-            font_scale,
-            (0, 0, 0),
-            thickness,
-            cv2.LINE_AA,
-        )
+        """Publish YOLO's annotated speed-sign image for visualization."""
+        # TODO(student): In the visualization lab, use YOLO's plot() result,
+        # convert it to a ROS Image, copy the header, and publish it.
+        pass
 
     def to_detection_message(
         self,
         detection: Detection2D,
     ) -> YoloDetection2D:
-        message = YoloDetection2D()
+        """Convert one Detection2D into the ROS detection message type."""
+        message = ___()  # Hint: create a YoloDetection2D message
         message.class_id = detection.class_id
         message.class_name = detection.class_name
         message.confidence = detection.confidence
@@ -266,14 +181,10 @@ class SpeedSignPerceptionNode(Node):
 def main(args=None) -> None:
     rclpy.init(args=args)
     node = SpeedSignPerceptionNode()
-    try:
-        rclpy.spin(node)
-    except (KeyboardInterrupt, ExternalShutdownException):
-        pass
-    finally:
-        node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+    rclpy.spin(node)
+    node.destroy_node()
+    if rclpy.ok():
+        rclpy.shutdown()
 
 
 if __name__ == "__main__":

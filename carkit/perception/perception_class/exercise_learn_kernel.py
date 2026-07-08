@@ -75,8 +75,12 @@ def print_grid(name, grid):
     print()
 
 
-kernel = np.zeros((3, 3))
-learning_rate = 0.1
+kernel = np.array([
+    [0, -2, 0],
+    [0, -2, 0],
+    [0, -2, 0],
+])
+learning_rate = 0.01
 epochs = 200
 
 print_grid("Teacher kernel used to create target scores:", teacher_kernel)
@@ -114,9 +118,3 @@ for name, image, target_score in zip(pattern_names, training_images, target_scor
         f"target={target_score:5.2f}"
     )
 
-print()
-print("Challenge:")
-print("1. Which kernel positions became positive?")
-print("2. Which kernel positions became negative?")
-print("3. Why does this kernel give the horizontal line a score near 0?")
-print("4. Can you change the target scores to learn a horizontal-line kernel?")

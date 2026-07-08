@@ -29,10 +29,11 @@ setup(
     entry_points={
         'console_scripts': [
             'perception_2d_node = carkit_perception.perception_2d_node:main',
-            (
-                'speed_sign_perception_node = '
-                'carkit_perception.speed_sign_perception_node:main'
-            ),
+            # TODO: Re-enable after speed_sign_perception_node is implemented.
+            # (
+            #     'speed_sign_perception_node = '
+            #     'carkit_perception.speed_sign_perception_node:main'
+            # ),
         ],
     },
 )
