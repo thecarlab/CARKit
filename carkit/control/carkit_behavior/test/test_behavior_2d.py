@@ -63,6 +63,7 @@ def make_node():
     node.active_plan_goal = None
     node.stop_sign_tracks = []
     node.traffic_light_tracks = []
+    node.speed_sign_tracks = []
     return node
 
 

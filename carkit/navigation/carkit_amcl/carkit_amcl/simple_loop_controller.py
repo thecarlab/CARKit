@@ -336,6 +336,11 @@ class SimpleLoopController(Node):
         )
         return 1.0
 
+    def _resolve_turn_direction(self, direction):
+        if direction is None:
+            return self.turn_direction
+        return self._turn_direction_sign(direction)
+
     def pose_callback(self, msg):
         if self.pose_source != 'amcl_pose':
             return
@@ -383,12 +388,12 @@ class SimpleLoopController(Node):
             )
         return points[-1].x, points[-1].y, yaw
 
-    def _append_half_circle(self, points, start_x, start_y, yaw, radius):
-        direction = self.turn_direction
+    def _append_arc(self, points, start_x, start_y, yaw, radius, arc_angle, direction=None):
+        direction = self._resolve_turn_direction(direction)
         center_x = start_x - direction * radius * math.sin(yaw)
         center_y = start_y + direction * radius * math.cos(yaw)
         start_angle = math.atan2(start_y - center_y, start_x - center_x)
-        arc_length = math.pi * radius
+        arc_length = arc_angle * radius
         steps = max(1, int(math.ceil(arc_length / self.path_resolution)))
         start_s = points[-1].s
 
@@ -406,6 +411,18 @@ class SimpleLoopController(Node):
             )
 
         return points[-1].x, points[-1].y, points[-1].yaw
+
+    def _append_half_circle(self, points, start_x, start_y, yaw, radius, direction=None):
+        return self._append_arc(
+            points, start_x, start_y, yaw, radius, math.pi, direction
+        )
+
+    def _append_quarter_circle(
+        self, points, start_x, start_y, yaw, radius, direction=None
+    ):
+        return self._append_arc(
+            points, start_x, start_y, yaw, radius, math.pi * 0.5, direction
+        )
 
     def _publish_path(self, frame_id):
         path = Path()

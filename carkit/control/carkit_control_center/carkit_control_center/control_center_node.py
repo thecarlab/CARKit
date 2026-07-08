@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+"""Control center: decides which command drives the car.
+
+Read this file top to bottom:
+
+  1. ``timer_callback`` - runs 50x per second and answers one question:
+     "which command drives the car right now?"
+       EMERGENCY_STOP -> zero command
+       HUMAN_CONTROL  -> pick_human_command (joystick)
+       AUTO_DRIVE     -> pick_auto_command  (behavior override, then Nav2)
+  2. The small pick_* helpers right below it - one per mode.
+  3. Everything else is plumbing: subscriptions, mode switching buttons,
+     freshness timeouts, clamping, and debug output.
+"""
 
 import math
 from copy import deepcopy
@@ -10,7 +23,7 @@ from builtin_interfaces.msg import Time
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import Joy
-from std_msgs.msg import Bool, Int8, String
+from std_msgs.msg import Bool, Float32, Int8, String
 
 
 HUMAN_CONTROL = "HUMAN_CONTROL"
@@ -90,6 +103,7 @@ class ControlCenterNode(Node):
         self.nav2 = TimedMessage()
         self.behavior_override = TimedMessage()
         self.behavior_override_active = TimedMessage()
+        self.speed_limit_mps = 0.0
         self.previous_buttons: list[int] = []
         self.debug_counter = 0
 
@@ -116,6 +130,12 @@ class ControlCenterNode(Node):
             AckermannDriveStamped,
             "/behavior/override_cmd",
             self.behavior_cmd_callback,
+            10,
+        )
+        self.create_subscription(
+            Float32,
+            "/behavior/speed_limit",
+            self.speed_limit_callback,
             10,
         )
         if self.use_autonomy_enable_topic:
@@ -200,40 +220,29 @@ class ControlCenterNode(Node):
     def behavior_cmd_callback(self, msg: AckermannDriveStamped) -> None:
         self.behavior_override.update(msg, self.now_sec())
 
+    def speed_limit_callback(self, msg: Float32) -> None:
+        self.speed_limit_mps = max(0.0, float(msg.data))
+
+    # =========================================================================
+    # MAIN LOOP - runs 50x per second.
+    #
+    # Step 1: pick a command based on the current mode.
+    # Step 2: apply the behavior speed limit (if one is active).
+    # Step 3: clamp it to safe values and publish it.
+    # =========================================================================
     def timer_callback(self) -> None:
         now = self.now_sec()
-        selected = "zero"
 
         if self.main_state == EMERGENCY_STOP:
-            command = self.zero_command()
-            selected = "emergency_stop"
+            command, selected = self.zero_command(), "emergency_stop"
         elif self.main_state == HUMAN_CONTROL:
-            if self.teleop.fresh(now, self.teleop_timeout_sec):
-                command = self.copy_command(self.teleop.msg)
-                selected = "teleop"
-            else:
-                command = self.zero_command()
-                selected = "teleop_stale_zero"
+            command, selected = self.pick_human_command(now)
         elif self.main_state == AUTO_DRIVE:
-            behavior_active = (
-                self.behavior_override_active.fresh(now, self.behavior_timeout_sec)
-                and bool(self.behavior_override_active.msg.data)
-            )
-            if behavior_active and self.behavior_override.fresh(
-                now,
-                self.behavior_timeout_sec,
-            ):
-                command = self.copy_command(self.behavior_override.msg)
-                selected = "behavior_override"
-            elif self.nav2.fresh(now, self.nav2_timeout_sec):
-                command = self.copy_command(self.nav2.msg)
-                selected = "nav2_drive"
-            else:
-                command = self.zero_command()
-                selected = "nav2_stale_zero"
+            command, selected = self.pick_auto_command(now)
         else:
-            command = self.zero_command()
-            selected = "invalid_state_zero"
+            command, selected = self.zero_command(), "invalid_state_zero"
+
+        selected = self.apply_speed_limit(command, selected)
 
         self.clamp_command(command)
         command.header.stamp = self.get_clock().now().to_msg()
@@ -241,6 +250,59 @@ class ControlCenterNode(Node):
         self.publish_text(self.state_pub, self.main_state)
         self.publish_text(self.selected_pub, selected)
         self.publish_debug(selected, now)
+
+    def pick_human_command(
+        self,
+        now: float,
+    ) -> tuple[AckermannDriveStamped, str]:
+        """Human mode: relay the joystick, or stop if it went silent."""
+        if self.teleop.fresh(now, self.teleop_timeout_sec):
+            return self.copy_command(self.teleop.msg), "teleop"
+        return self.zero_command(), "teleop_stale_zero"
+
+    def pick_auto_command(
+        self,
+        now: float,
+    ) -> tuple[AckermannDriveStamped, str]:
+        """Auto mode: a behavior override wins, then Nav2, otherwise stop."""
+        if self.behavior_override_requested(now):
+            return (
+                self.copy_command(self.behavior_override.msg),
+                "behavior_override",
+            )
+        if self.nav2.fresh(now, self.nav2_timeout_sec):
+            return self.copy_command(self.nav2.msg), "nav2_drive"
+        return self.zero_command(), "nav2_stale_zero"
+
+    def behavior_override_requested(self, now: float) -> bool:
+        """True when the behavior center is actively asking to take over."""
+        active = (
+            self.behavior_override_active.fresh(now, self.behavior_timeout_sec)
+            and bool(self.behavior_override_active.msg.data)
+        )
+        return active and self.behavior_override.fresh(
+            now,
+            self.behavior_timeout_sec,
+        )
+
+    def apply_speed_limit(
+        self,
+        command: AckermannDriveStamped,
+        selected: str,
+    ) -> str:
+        """While a speed-sign limit is active, drive Nav2 at that speed."""
+        if (
+            self.main_state == AUTO_DRIVE
+            and selected == "nav2_drive"
+            and self.speed_limit_mps > 0.0
+            and command.drive.speed != 0.0
+        ):
+            command.drive.speed = math.copysign(
+                self.speed_limit_mps,
+                command.drive.speed,
+            )
+            selected = f"{selected} (speed {self.speed_limit_mps:.2f} m/s)"
+        return selected
 
     def rising_edge(self, buttons: list[int], index: int) -> bool:
         if index < 0 or index >= len(buttons):

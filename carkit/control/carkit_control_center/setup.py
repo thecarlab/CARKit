@@ -32,6 +32,8 @@ setup(
             "carkit_control_center.baseline_control_center_node:main",
             "baseline_behavior_center_node = "
             "carkit_control_center.baseline_behavior_center_node:main",
+            "student_behavior_center_node = "
+            "carkit_control_center.student_behavior_center_node:main",
         ],
     },
 )

@@ -1,4 +1,19 @@
 #!/usr/bin/env python3
+"""Behavior center: stop sign, traffic light, and speed sign behaviors.
+
+Read this file top to bottom:
+
+  1. ``timer_callback``  - runs 20x per second and picks the car's state.
+  2. The three behaviors - each one is a small function you can read alone:
+       stop_sign_behavior(now)     -> True while stopping at a stop sign
+       traffic_light_behavior(now) -> True while stopping at a red light
+       speed_sign_behavior(now)    -> (active, limit_mps) after a speed sign
+
+Everything below the "PLUMBING" banner is infrastructure that turns raw
+camera + LiDAR data into the simple facts the behaviors use (where is the
+sign on the map, how far ahead is it along the Nav2 path). You do not need
+to read it to understand what the robot does.
+"""
 
 import math
 from typing import Optional
@@ -15,6 +30,10 @@ from carkit_behavior.path_geometry import (
     distance_along_path,
     should_stop_before_line,
 )
+from carkit_behavior.speed_sign_lab import (
+    best_speed_sign_detection,
+    speed_sign_boost_active,
+)
 from geometry_msgs.msg import PointStamped
 from nav_msgs.msg import Odometry, Path
 from rclpy.executors import ExternalShutdownException
@@ -22,13 +41,14 @@ from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.time import Time as RclpyTime
 from sensor_msgs.msg import CameraInfo, LaserScan
-from std_msgs.msg import Bool, String
+from std_msgs.msg import Bool, Float32, String
 from tf2_ros import Buffer, TransformException, TransformListener
 
 
 NORMAL_NAV2 = "NORMAL_NAV2"
 STOP_SIGN = "STOP_SIGN"
 TRAFFIC_LIGHT = "TRAFFIC_LIGHT"
+SPEED_SIGN = "SPEED_SIGN"
 AUTO_DRIVE = "AUTO_DRIVE"
 
 
@@ -144,147 +164,208 @@ class TrafficLightTrack:
             self.green_observations = 0
 
 
+class SpeedSignTrack:
+    __slots__ = (
+        "x",
+        "y",
+        "weight",
+        "observations",
+        "limit_mps",
+        "passed",
+        "boost_until",
+        "last_distance_m",
+        "rearm_for_new_plan",
+    )
+
+    def __init__(self, x: float, y: float, confidence: float, limit_mps: float) -> None:
+        self.x = x
+        self.y = y
+        self.weight = max(0.01, confidence)
+        self.observations = 1
+        self.limit_mps = limit_mps
+        self.passed = False
+        self.boost_until: Optional[float] = None
+        self.last_distance_m: Optional[float] = None
+        self.rearm_for_new_plan = False
+
+    def update(
+        self,
+        x: float,
+        y: float,
+        confidence: float,
+        limit_mps: float,
+    ) -> None:
+        weight = max(0.01, confidence)
+        total_weight = self.weight + weight
+        self.x = (self.x * self.weight + x * weight) / total_weight
+        self.y = (self.y * self.weight + y * weight) / total_weight
+        self.weight = total_weight
+        self.observations += 1
+        self.limit_mps = limit_mps
+
+
 class BehaviorCenterNode(Node):
     def __init__(self) -> None:
         super().__init__("behavior_center_node")
 
-        self.declare_parameter("min_confidence", 0.55)
-        self.declare_parameter("detection_timeout_sec", 0.5)
-        self.declare_parameter("scan_topic", "/scan")
-        self.declare_parameter("odom_topic", "/odom")
-        self.declare_parameter("scan_timeout_sec", 0.5)
-        self.declare_parameter(
-            "camera_info_topic",
-            "/camera/camera/color/camera_info",
+        self.declare_parameters(
+            namespace="",
+            parameters=[
+                ("min_confidence", 0.55),
+                ("detection_timeout_sec", 0.5),
+                ("scan_topic", "/scan"),
+                ("odom_topic", "/odom"),
+                ("scan_timeout_sec", 0.5),
+                ("camera_info_topic", "/camera/camera/color/camera_info"),
+                ("camera_horizontal_fov_deg", 69.4),
+                ("camera_to_scan_yaw_offset_rad", 0.0),
+                ("camera_forward_offset_m", 0.08),
+                ("camera_lateral_offset_m", 0.0),
+                ("global_plan_topic", "/plan"),
+                ("stop_sign_stop_before_distance_m", 0.5),
+                ("stop_sign_stop_line_tolerance_m", 0.25),
+                ("stop_sign_rearm_distance_m", 1.0),
+                ("stop_sign_lidar_angle_window_deg", 8.0),
+                ("stop_sign_lidar_min_range_m", 0.15),
+                ("stop_sign_lidar_max_range_m", 10.0),
+                ("stop_sign_stop_duration_sec", 5.0),
+                ("stop_sign_cooldown_sec", 10.0),
+                ("stop_sign_min_confidence", 0.75),
+                ("stop_sign_map_frame", "map"),
+                ("robot_base_frame", "base_link"),
+                ("stop_sign_required_observations", 3),
+                ("stop_sign_track_match_distance_m", 1.0),
+                ("stop_sign_clear_distance_m", 10.0),
+                ("traffic_light_min_confidence", 0.6),
+                ("traffic_light_lidar_angle_window_deg", 8.0),
+                ("traffic_light_lidar_min_range_m", 0.15),
+                ("traffic_light_lidar_max_range_m", 10.0),
+                ("traffic_light_stop_ahead_distance_m", 2.0),
+                ("traffic_light_required_observations", 3),
+                ("traffic_light_stop_required_frames", 3),
+                ("traffic_light_green_required_frames", 3),
+                ("traffic_light_track_match_distance_m", 1.0),
+                ("traffic_light_clear_distance_m", 10.0),
+                ("plan_goal_change_distance_m", 0.25),
+                ("speed_sign_min_confidence", 0.6),
+                ("speed_sign_boost_duration_sec", 3.0),
+                ("speed_sign_lidar_angle_window_deg", 8.0),
+                ("speed_sign_lidar_min_range_m", 0.15),
+                ("speed_sign_lidar_max_range_m", 10.0),
+                ("speed_sign_required_observations", 3),
+                ("speed_sign_track_match_distance_m", 1.0),
+                ("speed_sign_clear_distance_m", 10.0),
+                ("speed_sign_rearm_distance_m", 1.0),
+            ],
         )
-        self.declare_parameter("camera_horizontal_fov_deg", 69.4)
-        self.declare_parameter("camera_to_scan_yaw_offset_rad", 0.0)
-        self.declare_parameter("camera_forward_offset_m", 0.08)
-        self.declare_parameter("camera_lateral_offset_m", 0.0)
-        self.declare_parameter("global_plan_topic", "/plan")
-        self.declare_parameter("stop_sign_stop_before_distance_m", 0.5)
-        self.declare_parameter("stop_sign_stop_line_tolerance_m", 0.25)
-        self.declare_parameter("stop_sign_rearm_distance_m", 1.0)
-        self.declare_parameter("stop_sign_lidar_angle_window_deg", 8.0)
-        self.declare_parameter("stop_sign_lidar_min_range_m", 0.15)
-        self.declare_parameter("stop_sign_lidar_max_range_m", 10.0)
-        self.declare_parameter("stop_sign_stop_duration_sec", 5.0)
-        self.declare_parameter("stop_sign_cooldown_sec", 10.0)
-        self.declare_parameter("stop_sign_min_confidence", 0.75)
-        self.declare_parameter("stop_sign_map_frame", "map")
-        self.declare_parameter("robot_base_frame", "base_link")
-        self.declare_parameter("stop_sign_required_observations", 3)
-        self.declare_parameter("stop_sign_track_match_distance_m", 1.0)
-        self.declare_parameter("stop_sign_clear_distance_m", 10.0)
-        self.declare_parameter("traffic_light_min_confidence", 0.6)
-        self.declare_parameter("traffic_light_lidar_angle_window_deg", 8.0)
-        self.declare_parameter("traffic_light_lidar_min_range_m", 0.15)
-        self.declare_parameter("traffic_light_lidar_max_range_m", 10.0)
-        self.declare_parameter("traffic_light_stop_ahead_distance_m", 2.0)
-        self.declare_parameter("traffic_light_required_observations", 3)
-        self.declare_parameter("traffic_light_stop_required_frames", 3)
-        self.declare_parameter("traffic_light_green_required_frames", 3)
-        self.declare_parameter("traffic_light_track_match_distance_m", 1.0)
-        self.declare_parameter("traffic_light_clear_distance_m", 10.0)
-        self.declare_parameter("plan_goal_change_distance_m", 0.25)
 
-        self.min_confidence = float(self.get_parameter("min_confidence").value)
-        self.detection_timeout_sec = float(
-            self.get_parameter("detection_timeout_sec").value
+        float_param = self.float_param
+        deg_param = self.deg_to_rad_param
+        int_param = self.int_param
+        str_param = self.str_param
+
+        self.min_confidence = float_param("min_confidence")
+        self.detection_timeout_sec = float_param("detection_timeout_sec")
+        self.scan_timeout_sec = float_param("scan_timeout_sec")
+        self.camera_horizontal_fov_rad = deg_param("camera_horizontal_fov_deg")
+        self.camera_to_scan_yaw_offset_rad = float_param(
+            "camera_to_scan_yaw_offset_rad"
         )
-        self.scan_timeout_sec = float(
-            self.get_parameter("scan_timeout_sec").value
+        self.camera_forward_offset_m = float_param("camera_forward_offset_m")
+        self.camera_lateral_offset_m = float_param("camera_lateral_offset_m")
+        self.stop_sign_stop_before_distance_m = float_param(
+            "stop_sign_stop_before_distance_m"
         )
-        self.camera_horizontal_fov_rad = math.radians(
-            float(self.get_parameter("camera_horizontal_fov_deg").value)
+        self.stop_sign_stop_line_tolerance_m = float_param(
+            "stop_sign_stop_line_tolerance_m"
         )
-        self.camera_to_scan_yaw_offset_rad = float(
-            self.get_parameter("camera_to_scan_yaw_offset_rad").value
+        self.stop_sign_rearm_distance_m = float_param(
+            "stop_sign_rearm_distance_m"
         )
-        self.camera_forward_offset_m = float(
-            self.get_parameter("camera_forward_offset_m").value
+        self.stop_sign_lidar_angle_window_rad = deg_param(
+            "stop_sign_lidar_angle_window_deg"
         )
-        self.camera_lateral_offset_m = float(
-            self.get_parameter("camera_lateral_offset_m").value
+        self.stop_sign_lidar_min_range_m = float_param(
+            "stop_sign_lidar_min_range_m"
         )
-        self.stop_sign_stop_before_distance_m = float(
-            self.get_parameter("stop_sign_stop_before_distance_m").value
+        self.stop_sign_lidar_max_range_m = float_param(
+            "stop_sign_lidar_max_range_m"
         )
-        self.stop_sign_stop_line_tolerance_m = float(
-            self.get_parameter("stop_sign_stop_line_tolerance_m").value
+        self.stop_sign_stop_duration_sec = float_param(
+            "stop_sign_stop_duration_sec"
         )
-        self.stop_sign_rearm_distance_m = float(
-            self.get_parameter("stop_sign_rearm_distance_m").value
+        self.stop_sign_cooldown_sec = float_param("stop_sign_cooldown_sec")
+        self.stop_sign_min_confidence = float_param("stop_sign_min_confidence")
+        self.stop_sign_map_frame = str_param("stop_sign_map_frame")
+        self.robot_base_frame = str_param("robot_base_frame")
+        self.stop_sign_required_observations = int_param(
+            "stop_sign_required_observations"
         )
-        self.stop_sign_lidar_angle_window_rad = math.radians(
-            float(self.get_parameter("stop_sign_lidar_angle_window_deg").value)
+        self.stop_sign_track_match_distance_m = float_param(
+            "stop_sign_track_match_distance_m"
         )
-        self.stop_sign_lidar_min_range_m = float(
-            self.get_parameter("stop_sign_lidar_min_range_m").value
+        self.stop_sign_clear_distance_m = float_param(
+            "stop_sign_clear_distance_m"
         )
-        self.stop_sign_lidar_max_range_m = float(
-            self.get_parameter("stop_sign_lidar_max_range_m").value
+        self.traffic_light_min_confidence = float_param(
+            "traffic_light_min_confidence"
         )
-        self.stop_sign_stop_duration_sec = float(
-            self.get_parameter("stop_sign_stop_duration_sec").value
+        self.traffic_light_lidar_angle_window_rad = deg_param(
+            "traffic_light_lidar_angle_window_deg"
         )
-        self.stop_sign_cooldown_sec = float(
-            self.get_parameter("stop_sign_cooldown_sec").value
+        self.traffic_light_lidar_min_range_m = float_param(
+            "traffic_light_lidar_min_range_m"
         )
-        self.stop_sign_min_confidence = float(
-            self.get_parameter("stop_sign_min_confidence").value
+        self.traffic_light_lidar_max_range_m = float_param(
+            "traffic_light_lidar_max_range_m"
         )
-        self.stop_sign_map_frame = str(
-            self.get_parameter("stop_sign_map_frame").value
+        self.traffic_light_stop_ahead_distance_m = float_param(
+            "traffic_light_stop_ahead_distance_m"
         )
-        self.robot_base_frame = str(
-            self.get_parameter("robot_base_frame").value
+        self.traffic_light_required_observations = int_param(
+            "traffic_light_required_observations"
         )
-        self.stop_sign_required_observations = int(
-            self.get_parameter("stop_sign_required_observations").value
+        self.traffic_light_stop_required_frames = int_param(
+            "traffic_light_stop_required_frames"
         )
-        self.stop_sign_track_match_distance_m = float(
-            self.get_parameter("stop_sign_track_match_distance_m").value
+        self.traffic_light_green_required_frames = int_param(
+            "traffic_light_green_required_frames"
         )
-        self.stop_sign_clear_distance_m = float(
-            self.get_parameter("stop_sign_clear_distance_m").value
+        self.traffic_light_track_match_distance_m = float_param(
+            "traffic_light_track_match_distance_m"
         )
-        self.traffic_light_min_confidence = float(
-            self.get_parameter("traffic_light_min_confidence").value
+        self.traffic_light_clear_distance_m = float_param(
+            "traffic_light_clear_distance_m"
         )
-        self.traffic_light_lidar_angle_window_rad = math.radians(
-            float(
-                self.get_parameter(
-                    "traffic_light_lidar_angle_window_deg"
-                ).value
-            )
+        self.plan_goal_change_distance_m = float_param(
+            "plan_goal_change_distance_m"
         )
-        self.traffic_light_lidar_min_range_m = float(
-            self.get_parameter("traffic_light_lidar_min_range_m").value
+        self.speed_sign_min_confidence = float_param(
+            "speed_sign_min_confidence"
         )
-        self.traffic_light_lidar_max_range_m = float(
-            self.get_parameter("traffic_light_lidar_max_range_m").value
+        self.speed_sign_boost_duration_sec = float_param(
+            "speed_sign_boost_duration_sec"
         )
-        self.traffic_light_stop_ahead_distance_m = float(
-            self.get_parameter("traffic_light_stop_ahead_distance_m").value
+        self.speed_sign_lidar_angle_window_rad = deg_param(
+            "speed_sign_lidar_angle_window_deg"
         )
-        self.traffic_light_required_observations = int(
-            self.get_parameter("traffic_light_required_observations").value
+        self.speed_sign_lidar_min_range_m = float_param(
+            "speed_sign_lidar_min_range_m"
         )
-        self.traffic_light_stop_required_frames = int(
-            self.get_parameter("traffic_light_stop_required_frames").value
+        self.speed_sign_lidar_max_range_m = float_param(
+            "speed_sign_lidar_max_range_m"
         )
-        self.traffic_light_green_required_frames = int(
-            self.get_parameter("traffic_light_green_required_frames").value
+        self.speed_sign_required_observations = int_param(
+            "speed_sign_required_observations"
         )
-        self.traffic_light_track_match_distance_m = float(
-            self.get_parameter("traffic_light_track_match_distance_m").value
+        self.speed_sign_track_match_distance_m = float_param(
+            "speed_sign_track_match_distance_m"
         )
-        self.traffic_light_clear_distance_m = float(
-            self.get_parameter("traffic_light_clear_distance_m").value
+        self.speed_sign_clear_distance_m = float_param(
+            "speed_sign_clear_distance_m"
         )
-        self.plan_goal_change_distance_m = float(
-            self.get_parameter("plan_goal_change_distance_m").value
+        self.speed_sign_rearm_distance_m = float_param(
+            "speed_sign_rearm_distance_m"
         )
 
         self.main_state = ""
@@ -315,6 +396,8 @@ class BehaviorCenterNode(Node):
         self.active_plan_goal: Optional[MapPoint] = None
         self.stop_sign_tracks: list[StopSignTrack] = []
         self.traffic_light_tracks: list[TrafficLightTrack] = []
+        self.speed_sign_tracks: list[SpeedSignTrack] = []
+        self.last_speed_sign_debug_sec = 0.0
         self.last_behavior_state = NORMAL_NAV2
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -382,6 +465,16 @@ class BehaviorCenterNode(Node):
             "/behavior/traffic_light_position",
             10,
         )
+        self.speed_sign_position_pub = self.create_publisher(
+            PointStamped,
+            "/behavior/speed_sign_position",
+            10,
+        )
+        self.speed_limit_pub = self.create_publisher(
+            Float32,
+            "/behavior/speed_limit",
+            10,
+        )
 
         self.timer = self.create_timer(0.05, self.timer_callback)
         self.get_logger().info(
@@ -433,6 +526,9 @@ class BehaviorCenterNode(Node):
         for track in self.stop_sign_tracks:
             if track.stopped:
                 track.rearm_for_new_plan = True
+        for track in self.speed_sign_tracks:
+            if track.passed:
+                track.rearm_for_new_plan = True
 
     def camera_info_callback(self, msg: CameraInfo) -> None:
         if msg.width <= 0 or msg.height <= 0:
@@ -442,49 +538,100 @@ class BehaviorCenterNode(Node):
         self.camera_cx = float(msg.k[2])
         self.camera_fx = float(msg.k[0])
 
+    # =========================================================================
+    # MAIN LOOP - runs 20x per second.
+    #
+    # Step 1: update the sign/light tracks from the latest camera + LiDAR data.
+    # Step 2: ask each behavior if it wants to act (first match wins):
+    #           stop sign -> traffic light -> speed sign -> normal driving.
+    # Step 3: publish the result for the control center.
+    # =========================================================================
     def timer_callback(self) -> None:
         now = self.now_sec()
-        state = NORMAL_NAV2
-        override_active = False
-        publish_override_cmd = False
+        self.update_tracks_from_sensors(now)
 
+        if self.main_state != AUTO_DRIVE:
+            self.last_behavior_state = NORMAL_NAV2
+            self.publish_state(NORMAL_NAV2, override_active=False)
+            self.publish_speed_limit(0.0)
+            return
+
+        state = NORMAL_NAV2
+        stop_the_car = False
+        speed_limit_mps = 0.0
+
+        if self.stop_sign_behavior(now):
+            state = STOP_SIGN
+            stop_the_car = True
+        elif self.traffic_light_behavior(now):
+            state = TRAFFIC_LIGHT
+            stop_the_car = True
+        else:
+            speed_active, speed_limit_mps = self.speed_sign_behavior(now)
+            if speed_active:
+                state = SPEED_SIGN
+
+        self.log_behavior_transition(state)
+        self.publish_state(state, override_active=stop_the_car)
+        self.publish_speed_limit(speed_limit_mps)
+        if stop_the_car:
+            self.override_cmd_pub.publish(self.zero_command())
+
+    # =========================================================================
+    # STOP SIGN
+    #
+    # Goal: reach the stop line of a tracked stop sign -> stop for 5 seconds
+    #       -> go (and do not stop at the same sign again).
+    # =========================================================================
+    def stop_sign_behavior(self, now: float) -> bool:
+        if now < self.stop_until:
+            return True
+
+        if self.stop_sign_triggered(now):
+            self.stop_until = now + self.stop_sign_stop_duration_sec
+            self.stop_cooldown_until = (
+                self.stop_until + self.stop_sign_cooldown_sec
+            )
+            return True
+
+        return False
+
+    # =========================================================================
+    # TRAFFIC LIGHT
+    #
+    # Goal: red or yellow light close ahead on the path -> stop.
+    #       Green light -> go.
+    # =========================================================================
+    def traffic_light_behavior(self, now: float) -> bool:
+        return self.traffic_light_stop_active(now)
+
+    # =========================================================================
+    # SPEED SIGN
+    #
+    # Goal: drive past a tracked speed sign -> use its speed limit for
+    #       3 seconds -> back to normal.
+    # =========================================================================
+    def speed_sign_behavior(self, now: float) -> tuple[bool, float]:
+        self.rearm_speed_sign_tracks()
+        return speed_sign_boost_active(self, now)
+
+    # =========================================================================
+    # PLUMBING - everything below turns raw sensor data into the simple
+    # facts used above (tracked sign positions, distance along the path).
+    # The behaviors do not care how this works.
+    # =========================================================================
+    def update_tracks_from_sensors(self, now: float) -> None:
         scan = self.fresh_scan(now)
         detections = self.fresh_detections(now)
 
         if detections is not None:
             self.publish_traffic_light_from_detections(detections, scan)
             self.publish_stop_sign_from_detections(detections, scan)
+            self.publish_speed_sign_from_detections(detections, scan)
         else:
             self.clear_traffic_light_track()
             self.publish_stop_sign_tracks()
-
-        if self.main_state != AUTO_DRIVE:
-            self.last_behavior_state = NORMAL_NAV2
-            self.publish_state(state, override_active)
-            return
-
-        if now < self.stop_until:
-            state = STOP_SIGN
-            override_active = True
-            publish_override_cmd = True
-        else:
-            if self.stop_sign_triggered(now):
-                state = STOP_SIGN
-                override_active = True
-                publish_override_cmd = True
-                self.stop_until = now + self.stop_sign_stop_duration_sec
-                self.stop_cooldown_until = (
-                    self.stop_until + self.stop_sign_cooldown_sec
-                )
-            elif self.traffic_light_stop_active(now):
-                state = TRAFFIC_LIGHT
-                override_active = True
-                publish_override_cmd = True
-
-        self.log_behavior_transition(state)
-        self.publish_state(state, override_active)
-        if publish_override_cmd:
-            self.override_cmd_pub.publish(self.zero_command())
+            self.publish_speed_sign_tracks()
 
     def fresh_detections(self, now: float) -> Optional[YoloDetection2DArray]:
         if (
@@ -679,6 +826,143 @@ class BehaviorCenterNode(Node):
             self.traffic_light_lidar_min_range_m,
             self.traffic_light_lidar_max_range_m,
         )
+
+    def localize_speed_sign(
+        self,
+        detection: YoloDetection2D,
+        image_width: float,
+        scan: LaserScan,
+    ) -> Optional[ObjectLocation]:
+        return self.localize_detection(
+            detection,
+            image_width,
+            scan,
+            self.speed_sign_lidar_angle_window_rad,
+            self.speed_sign_lidar_min_range_m,
+            self.speed_sign_lidar_max_range_m,
+        )
+
+    def publish_speed_sign_from_detections(
+        self,
+        detections: YoloDetection2DArray,
+        scan: Optional[LaserScan],
+    ) -> None:
+        if scan is None:
+            self.publish_speed_sign_tracks()
+            return
+        candidate = best_speed_sign_detection(self, detections)
+        if candidate is None:
+            self.publish_speed_sign_tracks()
+            return
+        detection, limit_mps = candidate
+        location = self.localize_speed_sign(
+            detection,
+            float(detections.image_width),
+            scan,
+        )
+        if location is None:
+            self.publish_speed_sign_tracks()
+            return
+        point = self.transform_location_to_map(
+            location,
+            scan.header.frame_id or "laser",
+            scan.header.stamp,
+        )
+        if point is None:
+            self.publish_speed_sign_tracks()
+            return
+        self.record_speed_sign_observation(
+            point.x,
+            point.y,
+            float(detection.confidence),
+            limit_mps,
+        )
+        self.publish_speed_sign_tracks()
+
+    def record_speed_sign_observation(
+        self,
+        x: float,
+        y: float,
+        confidence: float,
+        limit_mps: float,
+    ) -> SpeedSignTrack:
+        reliable_track = self.reliable_speed_sign_track()
+        if reliable_track is not None:
+            distance = math.hypot(reliable_track.x - x, reliable_track.y - y)
+            if distance > self.speed_sign_clear_distance_m:
+                self.speed_sign_tracks = []
+            else:
+                if distance <= self.speed_sign_track_match_distance_m:
+                    reliable_track.update(x, y, confidence, limit_mps)
+                return reliable_track
+
+        nearest_track = None
+        nearest_distance = math.inf
+        for track in self.speed_sign_tracks:
+            distance = math.hypot(track.x - x, track.y - y)
+            if distance < nearest_distance:
+                nearest_track = track
+                nearest_distance = distance
+
+        if (
+            nearest_track is not None
+            and nearest_distance <= self.speed_sign_track_match_distance_m
+        ):
+            nearest_track.update(x, y, confidence, limit_mps)
+            return nearest_track
+
+        track = SpeedSignTrack(x, y, confidence, limit_mps)
+        self.speed_sign_tracks.append(track)
+        return track
+
+    def publish_speed_sign_tracks(self) -> None:
+        track = self.reliable_speed_sign_track()
+        if track is None:
+            return
+
+        msg = PointStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = self.stop_sign_map_frame
+        msg.point.x = float(track.x)
+        msg.point.y = float(track.y)
+        self.speed_sign_position_pub.publish(msg)
+
+    def reliable_speed_sign_track(self) -> Optional[SpeedSignTrack]:
+        for track in self.speed_sign_tracks:
+            if self.speed_sign_track_reliable(track):
+                return track
+        return None
+
+    def speed_sign_track_reliable(self, track: SpeedSignTrack) -> bool:
+        return (
+            track.observations
+            >= max(1, self.speed_sign_required_observations)
+        )
+
+    def rearm_speed_sign_tracks(self) -> None:
+        robot_position = self.robot_position_in_map()
+        if robot_position is None:
+            return
+
+        for track in self.speed_sign_tracks:
+            if not track.passed or not track.rearm_for_new_plan:
+                continue
+            remaining_distance = self.stop_line_path_distance(
+                robot_position,
+                MapPoint(track.x, track.y),
+            )
+            if remaining_distance is None:
+                continue
+            if remaining_distance > self.speed_sign_rearm_distance_m:
+                track.passed = False
+                track.boost_until = None
+                track.rearm_for_new_plan = False
+                track.last_distance_m = remaining_distance
+
+    def publish_speed_limit(self, speed_limit_mps: float) -> None:
+        msg = Float32()
+        msg.data = float(speed_limit_mps)
+        self.speed_limit_pub.publish(msg)
 
     def publish_stop_sign_from_detections(
         self,
@@ -1141,6 +1425,12 @@ class BehaviorCenterNode(Node):
                 "[BEHAVIOR] TRAFFIC_LIGHT called | "
                 f"current velocity: {velocity} | stopping until green"
             )
+        elif state == SPEED_SIGN:
+            logger.info(
+                "[BEHAVIOR] SPEED_SIGN called | "
+                f"current velocity: {velocity} | "
+                f"boosting for {self.speed_sign_boost_duration_sec:.1f} s"
+            )
         elif state == NORMAL_NAV2:
             if previous_state == STOP_SIGN:
                 logger.info(
@@ -1150,6 +1440,11 @@ class BehaviorCenterNode(Node):
             elif previous_state == TRAFFIC_LIGHT:
                 logger.info(
                     "[BEHAVIOR] TRAFFIC_LIGHT complete | "
+                    f"current velocity: {velocity} | returning to Nav2"
+                )
+            elif previous_state == SPEED_SIGN:
+                logger.info(
+                    "[BEHAVIOR] SPEED_SIGN complete | "
                     f"current velocity: {velocity} | returning to Nav2"
                 )
 
@@ -1186,6 +1481,18 @@ class BehaviorCenterNode(Node):
 
     def now_sec(self) -> float:
         return stamp_to_sec(self.get_clock().now().to_msg())
+
+    def float_param(self, name: str) -> float:
+        return float(self.get_parameter(name).value)
+
+    def deg_to_rad_param(self, name: str) -> float:
+        return math.radians(float(self.get_parameter(name).value))
+
+    def int_param(self, name: str) -> int:
+        return int(self.get_parameter(name).value)
+
+    def str_param(self, name: str) -> str:
+        return str(self.get_parameter(name).value)
 
 
 def lidar_range_valid(
