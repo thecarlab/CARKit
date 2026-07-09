@@ -1,0 +1,18 @@
+{
+  "created_utc": "2026-07-09T22:51:17.240326+00:00",
+  "source_model": "/workspaces/CARKit/carkit/perception/carkit_perception/models/traffic_sign.pt",
+  "source_model_sha256": "b8ce9ffc783e6a1d87a850e3858f3bfefbf0b83e75e3aef242ac33b2bd8e5107",
+  "engine_sha256": "60868e4df9c3eda766d5485f82fb2c87dd599764593b167dfaaa98f04cbb72ec",
+  "precision": "FP16",
+  "batch": 1,
+  "image_size": 640,
+  "dynamic": false,
+  "platform": "Linux-5.15.185-tegra-aarch64-with-glibc2.35",
+  "machine": "aarch64",
+  "versions": {
+    "cuda": "12.6",
+    "pytorch": "2.5.0a0+872d972e41.nv24.08",
+    "tensorrt": "10.3.0",
+    "ultralytics": "8.4.54"
+  }
+}
