@@ -36,6 +36,7 @@ def make_node():
     node.stop_sign_required_observations = 3
     node.stop_sign_track_match_distance_m = 1.0
     node.stop_sign_clear_distance_m = 10.0
+    node.stop_sign_passed_distance_m = 1.0
     node.traffic_light_min_confidence = 0.6
     node.traffic_light_lidar_angle_window_rad = math.radians(8.0)
     node.traffic_light_lidar_min_range_m = 0.15
@@ -46,8 +47,11 @@ def make_node():
     node.traffic_light_green_required_frames = 3
     node.traffic_light_track_match_distance_m = 1.0
     node.traffic_light_clear_distance_m = 10.0
+    node.traffic_light_passed_distance_m = 1.0
     node.plan_goal_change_distance_m = 0.25
+    node.stop_until = 0.0
     node.stop_cooldown_until = 0.0
+    node.get_logger = lambda: SimpleNamespace(info=lambda msg: None)
     node.last_stop_sign_debug_sec = 10.0
     node.last_traffic_light_debug_sec = 10.0
     node.traffic_light_stop_engaged = False
@@ -503,6 +507,103 @@ def test_green_yolo_state_releases_even_with_location_jitter():
     assert track.color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
     assert not node.traffic_light_stop_active(1.1)
     assert not node.traffic_light_stop_engaged
+
+
+def test_stop_sign_track_removed_after_stop_done_and_sign_passed():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    track = reliable_track(5.0, 0.0)
+    track.stopped = True
+    node.stop_sign_tracks = [track]
+
+    node.current_robot_x = 5.5
+    node.prune_passed_stop_sign_tracks(1.0)
+    assert node.stop_sign_tracks == [track]
+
+    node.current_robot_x = 6.1
+    node.prune_passed_stop_sign_tracks(1.1)
+    assert node.stop_sign_tracks == []
+
+
+def test_stop_sign_track_kept_while_not_stopped_or_still_holding():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    track = reliable_track(5.0, 0.0)
+    node.stop_sign_tracks = [track]
+    node.current_robot_x = 6.5
+
+    node.prune_passed_stop_sign_tracks(1.0)
+    assert node.stop_sign_tracks == [track]
+
+    track.stopped = True
+    node.stop_until = 10.0
+    node.prune_passed_stop_sign_tracks(1.1)
+    assert node.stop_sign_tracks == [track]
+
+    node.stop_until = 0.0
+    node.prune_passed_stop_sign_tracks(1.2)
+    assert node.stop_sign_tracks == []
+
+
+def test_stop_sign_track_kept_when_rearm_pending():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    track = reliable_track(5.0, 0.0)
+    track.stopped = True
+    track.rearm_for_new_plan = True
+    node.stop_sign_tracks = [track]
+    node.current_robot_x = 6.5
+
+    node.prune_passed_stop_sign_tracks(1.0)
+    assert node.stop_sign_tracks == [track]
+
+
+def test_traffic_light_track_removed_after_light_passed():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    track = traffic_light_track(
+        5.0,
+        0.0,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN,
+    )
+    node.traffic_light_tracks = [track]
+    node.latest_traffic_light_color = (
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN
+    )
+    node.traffic_light_green_frames = 3
+
+    node.current_robot_x = 5.5
+    node.prune_passed_traffic_light_tracks()
+    assert node.traffic_light_tracks == [track]
+
+    node.current_robot_x = 6.1
+    node.prune_passed_traffic_light_tracks()
+    assert node.traffic_light_tracks == []
+    assert node.latest_traffic_light_color == (
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
+    )
+    assert node.traffic_light_green_frames == 0
+    assert node.traffic_light_stop_color_frames == 0
+
+
+def test_traffic_light_track_kept_while_stop_engaged():
+    node = make_node()
+    node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
+    track = traffic_light_track(
+        5.0,
+        0.0,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    node.traffic_light_tracks = [track]
+    node.traffic_light_stop_engaged = True
+    node.current_robot_x = 6.5
+
+    node.prune_passed_traffic_light_tracks()
+    assert node.traffic_light_tracks == [track]
+
+    node.traffic_light_stop_engaged = False
+    node.prune_passed_traffic_light_tracks()
+    assert node.traffic_light_tracks == []
 
 
 def test_single_green_yolo_update_does_not_release_active_traffic_light_stop():

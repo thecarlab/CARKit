@@ -236,6 +236,7 @@ class BehaviorCenterNode(Node):
                 ("stop_sign_required_observations", 3),
                 ("stop_sign_track_match_distance_m", 1.0),
                 ("stop_sign_clear_distance_m", 10.0),
+                ("stop_sign_passed_distance_m", 1.0),
                 ("traffic_light_min_confidence", 0.6),
                 ("traffic_light_lidar_angle_window_deg", 8.0),
                 ("traffic_light_lidar_min_range_m", 0.15),
@@ -246,6 +247,7 @@ class BehaviorCenterNode(Node):
                 ("traffic_light_green_required_frames", 3),
                 ("traffic_light_track_match_distance_m", 1.0),
                 ("traffic_light_clear_distance_m", 10.0),
+                ("traffic_light_passed_distance_m", 1.0),
                 ("plan_goal_change_distance_m", 0.25),
                 ("speed_sign_min_confidence", 0.6),
                 ("speed_sign_boost_duration_sec", 3.0),
@@ -307,6 +309,9 @@ class BehaviorCenterNode(Node):
         self.stop_sign_clear_distance_m = float_param(
             "stop_sign_clear_distance_m"
         )
+        self.stop_sign_passed_distance_m = float_param(
+            "stop_sign_passed_distance_m"
+        )
         self.traffic_light_min_confidence = float_param(
             "traffic_light_min_confidence"
         )
@@ -336,6 +341,9 @@ class BehaviorCenterNode(Node):
         )
         self.traffic_light_clear_distance_m = float_param(
             "traffic_light_clear_distance_m"
+        )
+        self.traffic_light_passed_distance_m = float_param(
+            "traffic_light_passed_distance_m"
         )
         self.plan_goal_change_distance_m = float_param(
             "plan_goal_change_distance_m"
@@ -549,6 +557,8 @@ class BehaviorCenterNode(Node):
     def timer_callback(self) -> None:
         now = self.now_sec()
         self.update_tracks_from_sensors(now)
+        self.prune_passed_stop_sign_tracks(now)
+        self.prune_passed_traffic_light_tracks()
 
         if self.main_state != AUTO_DRIVE:
             self.last_behavior_state = NORMAL_NAV2
@@ -632,6 +642,85 @@ class BehaviorCenterNode(Node):
             self.clear_traffic_light_track()
             self.publish_stop_sign_tracks()
             self.publish_speed_sign_tracks()
+
+    def prune_passed_stop_sign_tracks(self, now: float) -> None:
+        """Remove stop sign tracks once their stop is done and the sign is behind.
+
+        A track is removed only when all of these hold:
+          - the robot already stopped for it (``track.stopped``),
+          - the stop hold period is over (``now >= self.stop_until``),
+          - no pending rearm for a new plan, and
+          - the sign is more than ``stop_sign_passed_distance_m`` behind the
+            robot along the current plan.
+        """
+        if not self.stop_sign_tracks or now < self.stop_until:
+            return
+        robot_position = self.robot_position_in_map()
+        if robot_position is None:
+            return
+
+        kept_tracks: list[StopSignTrack] = []
+        for track in self.stop_sign_tracks:
+            if not track.stopped or track.rearm_for_new_plan:
+                kept_tracks.append(track)
+                continue
+            remaining_distance = self.stop_line_path_distance(
+                robot_position,
+                MapPoint(track.x, track.y),
+            )
+            if (
+                remaining_distance is None
+                or remaining_distance >= -self.stop_sign_passed_distance_m
+            ):
+                kept_tracks.append(track)
+                continue
+            self.get_logger().info(
+                "Removing passed stop sign track at "
+                f"({track.x:.2f}, {track.y:.2f}), "
+                f"{-remaining_distance:.2f} m behind on the path"
+            )
+        if len(kept_tracks) != len(self.stop_sign_tracks):
+            self.stop_sign_tracks = kept_tracks
+
+    def prune_passed_traffic_light_tracks(self) -> None:
+        """Remove traffic light tracks once the light is behind the robot.
+
+        A track is removed only when the stop override is not engaged and the
+        light is more than ``traffic_light_passed_distance_m`` behind the robot
+        along the current plan. When the last track is removed, the color
+        confirmation state is reset so it cannot leak into the next light.
+        """
+        if not self.traffic_light_tracks or self.traffic_light_stop_engaged:
+            return
+        robot_position = self.robot_position_in_map()
+        if robot_position is None:
+            return
+
+        kept_tracks: list[TrafficLightTrack] = []
+        for track in self.traffic_light_tracks:
+            remaining_distance = self.stop_line_path_distance(
+                robot_position,
+                MapPoint(track.x, track.y),
+            )
+            if (
+                remaining_distance is None
+                or remaining_distance >= -self.traffic_light_passed_distance_m
+            ):
+                kept_tracks.append(track)
+                continue
+            self.get_logger().info(
+                "Removing passed traffic light track at "
+                f"({track.x:.2f}, {track.y:.2f}), "
+                f"{-remaining_distance:.2f} m behind on the path"
+            )
+        if len(kept_tracks) != len(self.traffic_light_tracks):
+            self.traffic_light_tracks = kept_tracks
+            if not self.traffic_light_tracks:
+                self.latest_traffic_light_color = (
+                    YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
+                )
+                self.traffic_light_stop_color_frames = 0
+                self.traffic_light_green_frames = 0
 
     def fresh_detections(self, now: float) -> Optional[YoloDetection2DArray]:
         if (

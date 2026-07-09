@@ -139,6 +139,8 @@ Stop signs use YOLO plus lidar plus the Nav2 global plan.
 7. Stop once when the robot reaches the configured distance before the sign.
 8. Hold zero speed for `stop_sign_stop_duration_sec`.
 9. Do not stop for the same sign again unless a new goal/path rearms it.
+10. Remove the sign's track once the stop is done and the sign is more than
+    `stop_sign_passed_distance_m` behind the robot on the path.
 
 Stop sign parameters in `carkit_behavior/config/behavior_center.yaml`:
 
@@ -154,6 +156,7 @@ Stop sign parameters in `carkit_behavior/config/behavior_center.yaml`:
 - `stop_sign_lidar_max_range_m`
 - `stop_sign_track_match_distance_m`
 - `stop_sign_clear_distance_m`
+- `stop_sign_passed_distance_m`
 - `stop_sign_map_frame`
 - `robot_base_frame`
 - `plan_goal_change_distance_m`
@@ -171,6 +174,8 @@ Traffic lights use the classified traffic-light output in
    frames, publish a zero-speed override.
 6. If the light is green for enough frames, release the override and continue
    normal Nav2 driving.
+7. Remove the light's track once the override is released and the light is
+   more than `traffic_light_passed_distance_m` behind the robot on the path.
 
 The behavior node compares `traffic_light_color` to
 `YoloTrafficLightDetection2D` constants:
@@ -191,6 +196,7 @@ Traffic light parameters:
 - `traffic_light_lidar_max_range_m`
 - `traffic_light_track_match_distance_m`
 - `traffic_light_clear_distance_m`
+- `traffic_light_passed_distance_m`
 
 ## Shared Sensor Parameters
 

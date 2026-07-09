@@ -25,6 +25,7 @@ behavior_center_node:
     stop_sign_required_observations: 2
     stop_sign_track_match_distance_m: 1.0
     stop_sign_clear_distance_m: 10.0
+    stop_sign_passed_distance_m: 1.0
     traffic_light_min_confidence: 0.6
     traffic_light_lidar_angle_window_deg: 20.0
     traffic_light_lidar_min_range_m: 0.15
@@ -35,6 +36,7 @@ behavior_center_node:
     traffic_light_green_required_frames: 2
     traffic_light_track_match_distance_m: 1.0
     traffic_light_clear_distance_m: 10.0
+    traffic_light_passed_distance_m: 1.0
     plan_goal_change_distance_m: 0.25
     speed_sign_min_confidence: 0.6
     speed_sign_boost_duration_sec: 3.0
