@@ -4,6 +4,7 @@ import numpy as np
 import torch
 
 from carkit_perception.perception_2d_node import Perception2DNode
+from carkit_perception.perception_2d_node import TRAFFIC_SIGN_CLASS_NAMES
 from carkit_perception.perception_math import Detection2D, TRAFFIC_LIGHT_RED
 
 
@@ -55,6 +56,24 @@ def test_extract_detections_preserves_stop_sign_from_single_table_transfer():
     assert abs(detections[0].confidence - 0.8) < 1.0e-6
 
 
+def test_extract_detections_uses_traffic_sign_class_overrides():
+    node = object.__new__(Perception2DNode)
+    traffic_sign_model = SimpleNamespace(names={0: "class_0"})
+    boxes = SimpleNamespace(
+        data=torch.tensor([[10.0, 20.0, 30.0, 60.0, 0.8, 0.0]])
+    )
+
+    detections = node.extract_detections(
+        [SimpleNamespace(boxes=boxes)],
+        traffic_sign_model,
+        TRAFFIC_SIGN_CLASS_NAMES,
+    )
+
+    assert len(detections) == 1
+    assert detections[0].class_id == 0
+    assert detections[0].class_name == "speed_sign"
+
+
 def test_inference_image_is_not_rendered_without_subscribers():
     node = object.__new__(Perception2DNode)
     node.image_pub = SimpleNamespace(
@@ -76,6 +95,7 @@ def test_inference_image_is_not_rendered_without_subscribers():
 
     node.publish_inference_image(
         [result],
+        [],
         SimpleNamespace(header=SimpleNamespace()),
     )
 
@@ -94,7 +114,9 @@ def test_inference_image_is_still_published_with_a_subscriber():
     header = SimpleNamespace(frame_id="camera")
     result = SimpleNamespace(plot=lambda: np.zeros((2, 2, 3), dtype=np.uint8))
 
-    node.publish_inference_image([result], SimpleNamespace(header=header))
+    node.draw_detections = lambda image, detections, color: None
+
+    node.publish_inference_image([result], [], SimpleNamespace(header=header))
 
     assert published == [annotated_message]
     assert annotated_message.header is header
