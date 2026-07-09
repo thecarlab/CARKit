@@ -1,11 +1,13 @@
 # Perception
 
-CARKit perception runs YOLO on the RealSense color stream only. It does not
-start or subscribe to depth, infrared, alignment, point-cloud, or IMU streams.
+CARKit perception runs the general YOLO detector and traffic-sign detector on
+the RealSense color stream only. It does not start or subscribe to depth,
+infrared, alignment, point-cloud, or IMU streams.
 
 Packages:
 
-- `carkit_perception`: color-only YOLO and traffic-light color classification
+- `carkit_perception`: color-only YOLO, traffic-sign detection, and
+  traffic-light color classification
 - `carkit_perception_msgs`: typed 2D detection messages
 
 The supported runtime is a fixed-shape, batch-one, 640-pixel FP16 TensorRT
@@ -68,10 +70,12 @@ Outputs:
 - `/yolo/inference_image` (`sensor_msgs/Image`)
 
 Ordinary detections contain their class, confidence, and color-image bounding
-box. Traffic lights are published in the array's `traffic_lights` field as
-`YoloTrafficLightDetection2D` records; only those records contain a
-`traffic_light_color`. The array also contains the source image dimensions so
-consumers can use normalized box sizes. Empty frames publish empty arrays.
+box. This includes detections from both the general YOLO model and the
+traffic-sign model. Traffic lights are published in the array's
+`traffic_lights` field as `YoloTrafficLightDetection2D` records; only those
+records contain a `traffic_light_color`. The array also contains the source
+image dimensions so consumers can use normalized box sizes. Empty frames
+publish empty arrays.
 
 The behavior layer uses a configured 0.08 m forward camera-to-lidar offset for
 horizontal bearing fusion. The camera is also mounted 0.08 m below the lidar;
@@ -83,11 +87,13 @@ Traffic-light color values are unknown `0`, red `1`, yellow `2`, and green
 ## Parameters
 
 - `model_path`: FP16 TensorRT engine path
+- `traffic_sign_model_path`: traffic-sign YOLO model path
 - `image_size`: fixed engine input size, default `640`
 - `image_topic`: color image input
 - `inference_image_topic`: annotated image output
 - `detection_2d_topic`: typed detection output
 - `min_confidence`: YOLO confidence threshold
+- `traffic_sign_min_confidence`: traffic-sign model confidence threshold
 - `require_engine_metadata`: reject engines without matching metadata
 - `start_camera`: launch the RealSense color driver, default `true`
 - `visualization`: `none`, `rviz`, or `foxglove`, default `none`

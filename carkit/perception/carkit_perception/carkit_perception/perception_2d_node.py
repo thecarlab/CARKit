@@ -7,6 +7,11 @@ import hashlib
 import json
 from pathlib import Path
 
+from ament_index_python.packages import (
+    PackageNotFoundError,
+    get_package_share_directory,
+)
+import cv2
 import rclpy
 from cv_bridge import CvBridge
 from rclpy.executors import ExternalShutdownException
@@ -27,6 +32,24 @@ from carkit_perception_msgs.msg import (
 )
 
 
+TRAFFIC_SIGN_CLASS_NAMES = {
+    0: "speed_sign",
+    1: "traffic_cone",
+}
+TRAFFIC_SIGN_WEIGHT = Path("models/traffic_sign.pt")
+
+
+def default_traffic_sign_model_path() -> str:
+    try:
+        share_path = Path(get_package_share_directory("carkit_perception"))
+        return str(share_path / TRAFFIC_SIGN_WEIGHT)
+    except PackageNotFoundError:
+        pass
+
+    source_path = Path(__file__).resolve().parents[1] / TRAFFIC_SIGN_WEIGHT
+    return str(source_path)
+
+
 class Perception2DNode(Node):
     def __init__(self) -> None:
         super().__init__("perception_2d_node")
@@ -38,6 +61,10 @@ class Perception2DNode(Node):
                 "carkit_perception/models/yolo11n_fp16.engine"
             ),
         )
+        self.declare_parameter(
+            "traffic_sign_model_path",
+            default_traffic_sign_model_path(),
+        )
         self.declare_parameter("image_size", 640)
         self.declare_parameter("image_topic", "/camera/camera/color/image_raw")
         self.declare_parameter(
@@ -46,15 +73,27 @@ class Perception2DNode(Node):
         )
         self.declare_parameter("detection_2d_topic", "/yolo/detections_2d")
         self.declare_parameter("min_confidence", 0.2)
+        self.declare_parameter("traffic_sign_min_confidence", 0.2)
         self.declare_parameter("require_engine_metadata", True)
 
         self.model_path = str(self.get_parameter("model_path").value)
+        self.traffic_sign_model_path = str(
+            self.get_parameter("traffic_sign_model_path").value
+        )
         self.image_size = int(self.get_parameter("image_size").value)
         self.min_confidence = float(self.get_parameter("min_confidence").value)
+        self.traffic_sign_min_confidence = float(
+            self.get_parameter("traffic_sign_min_confidence").value
+        )
 
         self._validate_fp16_engine()
+        self._validate_traffic_sign_model_path()
         self.bridge = CvBridge()
         self.model = YOLO(self.model_path, task="detect")
+        self.traffic_sign_model = YOLO(
+            self.traffic_sign_model_path,
+            task="detect",
+        )
         self.light_classifier = TrafficLightClassifier()
 
         sensor_qos = QoSProfile(
@@ -81,9 +120,15 @@ class Perception2DNode(Node):
 
         self.get_logger().info(
             f"Loaded FP16 TensorRT model {self.model_path}; "
+            f"loaded traffic-sign model {self.traffic_sign_model_path}; "
             "using color images only and publishing "
             f"{self.get_parameter('detection_2d_topic').value}"
         )
+
+    def _validate_traffic_sign_model_path(self) -> None:
+        model_path = Path(self.traffic_sign_model_path)
+        if not model_path.is_file():
+            raise RuntimeError(f"Traffic-sign model not found: {model_path}")
 
     def _validate_fp16_engine(self) -> None:
         engine_path = Path(self.model_path)
@@ -174,14 +219,26 @@ class Perception2DNode(Node):
             batch=1,
             verbose=False,
         )
+        traffic_sign_results = self.traffic_sign_model.predict(
+            color_image,
+            imgsz=self.image_size,
+            conf=self.traffic_sign_min_confidence,
+            batch=1,
+            verbose=False,
+        )
         detections = self.extract_detections(results)
+        traffic_sign_detections = self.extract_detections(
+            traffic_sign_results,
+            self.traffic_sign_model,
+            TRAFFIC_SIGN_CLASS_NAMES,
+        )
 
         output = YoloDetection2DArray()
         output.header = image_msg.header
         output.image_height, output.image_width = color_image.shape[:2]
         output.detections = [
             self.to_detection_message(detection)
-            for detection in detections
+            for detection in detections + traffic_sign_detections
             if detection.class_name != "traffic light"
         ]
         output.traffic_lights = [
@@ -191,13 +248,27 @@ class Perception2DNode(Node):
         ]
         self.detection_pub.publish(output)
 
-        self.publish_inference_image(results, image_msg)
+        self.publish_inference_image(
+            results,
+            traffic_sign_detections,
+            image_msg,
+        )
 
-    def publish_inference_image(self, results, image_msg: Image) -> None:
+    def publish_inference_image(
+        self,
+        results,
+        traffic_sign_detections: list[Detection2D],
+        image_msg: Image,
+    ) -> None:
         if not results or self.image_pub.get_subscription_count() == 0:
             return
 
         annotated = results[0].plot()
+        self.draw_detections(
+            annotated,
+            traffic_sign_detections,
+            color=(36, 255, 12),
+        )
         annotated_msg = self.bridge.cv2_to_imgmsg(
             annotated,
             encoding="bgr8",
@@ -205,7 +276,35 @@ class Perception2DNode(Node):
         annotated_msg.header = image_msg.header
         self.image_pub.publish(annotated_msg)
 
-    def extract_detections(self, results) -> list[Detection2D]:
+    def draw_detections(
+        self,
+        image,
+        detections: list[Detection2D],
+        color: tuple[int, int, int],
+    ) -> None:
+        for detection in detections:
+            x1, y1, x2, y2 = (int(value) for value in detection.bbox)
+            label = f"{detection.class_name} {detection.confidence:.2f}"
+            cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(
+                image,
+                label,
+                (x1, max(12, y1 - 6)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                color,
+                2,
+                cv2.LINE_AA,
+            )
+
+    def extract_detections(
+        self,
+        results,
+        model=None,
+        class_name_overrides: dict[int, str] | None = None,
+    ) -> list[Detection2D]:
+        model = self.model if model is None else model
+        class_name_overrides = class_name_overrides or {}
         detections = []
         for result in results:
             if result.boxes is None or result.boxes.data.numel() == 0:
@@ -215,15 +314,35 @@ class Perception2DNode(Node):
             rows = result.boxes.data.detach().cpu().numpy()
             for row in rows:
                 x1, y1, x2, y2, confidence, class_id = row[:6]
+                class_id = int(class_id)
                 detections.append(
                     Detection2D(
-                        class_id=int(class_id),
-                        class_name=str(self.model.names[int(class_id)]),
+                        class_id=class_id,
+                        class_name=self.class_name(
+                            model,
+                            class_id,
+                            class_name_overrides,
+                        ),
                         bbox=(float(x1), float(y1), float(x2), float(y2)),
                         confidence=float(confidence),
                     )
                 )
         return detections
+
+    def class_name(
+        self,
+        model,
+        class_id: int,
+        class_name_overrides: dict[int, str],
+    ) -> str:
+        if class_id in class_name_overrides:
+            return class_name_overrides[class_id]
+        names = getattr(model, "names", {})
+        if isinstance(names, dict):
+            return str(names.get(class_id, f"class_{class_id}"))
+        if 0 <= class_id < len(names):
+            return str(names[class_id])
+        return f"class_{class_id}"
 
     def to_detection_message(
         self,
