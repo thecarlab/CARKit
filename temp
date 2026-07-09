@@ -1,5 +1,5 @@
 1. Start camera 
-taskset -c 0 ros2 run realsense2_camera realsense2_camera_node \
+taskset -c 0,1 ros2 run realsense2_camera realsense2_camera_node \
       --ros-args \
       -r __ns:=/camera \
       -r __node:=camera \
@@ -20,27 +20,27 @@ taskset -c 0 ros2 run realsense2_camera realsense2_camera_node \
       -p rgb_camera.global_time_enabled:=false
 
 2. 
-taskset -c 1-5 ros2 launch carkit_human_control joystick.launch.py \
+taskset -c 2-5 ros2 launch carkit_human_control joystick.launch.py \
       vehicle_command_topic:=/ackermann_mux_unused
 
 3. 
-taskset -c 1-5 ros2 launch carkit_control_center control_center.launch.py
+taskset -c 2-5 ros2 launch carkit_control_center control_center.launch.py
 
 4.
-taskset -c 1-5 ros2 launch carkit_navigation navigation.launch.py \
+taskset -c 2-5 ros2 launch carkit_navigation navigation.launch.py \
   map:=/workspaces/CARKit/map/map_5fs.yaml \
   visualization:=foxglove
 
 5.
-taskset -c 1-5 ros2 launch carkit_perception perception.launch.py \
+taskset -c 2-5 ros2 launch carkit_perception perception.launch.py \
       start_camera:=false \
       visualization:=none
 
 6.
-taskset -c 1-5 ros2 launch carkit_behavior behavior_center.launch.py
+taskset -c 2-5 ros2 launch carkit_behavior behavior_center.launch.py
 
 7.
-taskset -c 1-5 ros2 run carkit_amcl simple_loop_controller --ros-args \
+taskset -c 2-5 ros2 run carkit_amcl simple_loop_controller --ros-args \
   -p turn_radius:=1.2 \
   -p straight_distance:=2.5 \
   -p ackermann_topic:=/drive
