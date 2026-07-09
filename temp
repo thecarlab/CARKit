@@ -2,7 +2,10 @@ ros2 launch carkit_human_control joystick.launch.py \
   vehicle_command_topic:=/ackermann_mux_unused
 
 ros2 launch carkit_navigation navigation.launch.py \
-  map:=/workspaces/CARKit/map/map_5fs.yaml
+  map:=/workspaces/CARKit/map/map_5fs.yaml \
+  visiuallization:=rviz
+  
+  
 
 ros2 run carkit_amcl simple_loop_controller --ros-args \
   -p turn_radius:=1.2 \
