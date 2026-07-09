@@ -133,29 +133,15 @@ class BehaviorCenterNode(Node):
 
     def traffic_light_behavior(self, color, now) -> bool:
         """Red or yellow -> stop. Green -> go. No light -> keep last answer."""
-        if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED:
-            self.traffic_light_stop = True
-        if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_YELLOW:
-            self.traffic_light_stop = True
-        if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_GREEN:
-            self.traffic_light_stop = False
+        pass
 
-        return self.traffic_light_stop
+        return False
 
     def speed_sign_behavior(self, speed_limit, now):
         """See a speed sign -> limit speed for 3 seconds -> back to normal."""
-        if speed_limit is not None:
-            self.speed_limit_mps = speed_limit
-            self.speed_limit_until = now + Duration(seconds=SPEED_SIGN_DURATION_SEC)
+        pass
 
-        if self.speed_limit_until is not None and now >= self.speed_limit_until:
-            self.speed_limit_mps = 0.0
-            self.speed_limit_until = None
-
-        if self.speed_limit_until is not None:
-            return True, self.speed_limit_mps
-        else:
-            return False, 0.0
+        return False, 0.0
 
 
 def main(args=None) -> None:

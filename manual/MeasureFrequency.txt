@@ -1,0 +1,46 @@
+#0 Enter workspace
+
+    cd ~/CARKit
+
+#1 Start docker image
+
+    ./docker/run_jetson.sh
+
+#2 Start joy control
+
+    docker exec -it carkit bash
+    source install/setup.bash
+    ros2 launch carkit_human_control joystick.launch.py \
+  vehicle_command_topic:=/ackermann_mux_unused
+
+#3 Start Navigation
+
+    docker exec -it carkit bash
+    source install/setup.bash
+    ros2 launch carkit_navigation navigation.launch.py \
+  map:=/workspaces/CARKit/map/map_5fs.yaml \
+  visualization:=rviz
+  
+Set up 2D initial pose in Rviz2 
+  
+
+#4 Start perception
+
+    docker exec -it carkit bash
+    source install/setup.bash
+    ros2 launch carkit_perception perception.launch.py
+  
+  
+#5 Start behavior center
+
+    docker exec -it carkit bash
+    source install/setup.bash
+    ros2 launch carkit_behavior behavior_center.launch.py
+    
+#6 Start control center
+    
+    docker exec -it carkit bash
+    source install/setup.bash
+    ros2 launch carkit_control_center control_center.launch.py
+    
+
