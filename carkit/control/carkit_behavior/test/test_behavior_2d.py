@@ -509,6 +509,18 @@ def test_green_yolo_state_releases_even_with_location_jitter():
     assert not node.traffic_light_stop_engaged
 
 
+def test_empty_global_plan_does_not_clear_existing_path():
+    node = make_node()
+    node.global_plan_callback(global_plan((0.0, 0.0), (10.0, 0.0)))
+    assert node.latest_global_plan is not None
+    assert len(node.latest_global_plan.poses) == 2
+
+    empty_plan = global_plan()
+    node.global_plan_callback(empty_plan)
+    assert node.latest_global_plan is not None
+    assert len(node.latest_global_plan.poses) == 2
+
+
 def test_stop_sign_track_removed_after_stop_done_and_sign_passed():
     node = make_node()
     node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))

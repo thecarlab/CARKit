@@ -11,6 +11,7 @@ behavior_center_node:
     camera_forward_offset_m: 0.08
     camera_lateral_offset_m: 0.0
     global_plan_topic: /plan
+    fallback_global_plan_topic: /simple_loop_path
     stop_sign_stop_before_distance_m: 1.0
     stop_sign_stop_line_tolerance_m: 0.25
     stop_sign_rearm_distance_m: 1.0

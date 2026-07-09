@@ -222,6 +222,7 @@ class BehaviorCenterNode(Node):
                 ("camera_forward_offset_m", 0.08),
                 ("camera_lateral_offset_m", 0.0),
                 ("global_plan_topic", "/plan"),
+                ("fallback_global_plan_topic", "/simple_loop_path"),
                 ("stop_sign_stop_before_distance_m", 0.5),
                 ("stop_sign_stop_line_tolerance_m", 0.25),
                 ("stop_sign_rearm_distance_m", 1.0),
@@ -439,12 +440,23 @@ class BehaviorCenterNode(Node):
             self.odom_callback,
             10,
         )
+        self.global_plan_topic = str(self.get_parameter("global_plan_topic").value)
+        self.fallback_global_plan_topic = str(
+            self.get_parameter("fallback_global_plan_topic").value
+        )
         self.create_subscription(
             Path,
-            str(self.get_parameter("global_plan_topic").value),
+            self.global_plan_topic,
             self.global_plan_callback,
             10,
         )
+        if self.fallback_global_plan_topic:
+            self.create_subscription(
+                Path,
+                self.fallback_global_plan_topic,
+                self.global_plan_callback,
+                10,
+            )
         self.create_subscription(
             CameraInfo,
             str(self.get_parameter("camera_info_topic").value),
@@ -513,9 +525,12 @@ class BehaviorCenterNode(Node):
         )
 
     def global_plan_callback(self, msg: Path) -> None:
-        self.latest_global_plan = msg
-        if not msg.poses:
+        if len(msg.poses) < 2:
             return
+        if msg.header.frame_id != self.stop_sign_map_frame:
+            return
+
+        self.latest_global_plan = msg
 
         goal_pose = msg.poses[-1].pose.position
         new_goal = MapPoint(float(goal_pose.x), float(goal_pose.y))
