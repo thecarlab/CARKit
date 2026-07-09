@@ -115,8 +115,8 @@ ros2 launch carkit_control_center control_center.launch.py
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
-  map:=/workspaces/CARKit/map/map.yaml \
-  visualization:=foxglove
+  map:=/workspaces/CARKit/map/map_5fs.yaml \
+  visualization:=rviz
 ```
 
 Connect Foxglove to `ws://<jetson-ip>:8765`, set the initial pose, then send a
