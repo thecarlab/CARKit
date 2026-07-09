@@ -196,6 +196,55 @@ use_cost_regulated_linear_velocity_scaling: false
 | `use_collision_detection` | `false` | `nav2_params.yaml:127` | It may be disabled during isolated tuning; enable it for normal obstacle-aware navigation | Predicts potential collisions and slows or stops the vehicle |
 | `use_cost_regulated_linear_velocity_scaling` | `false` | `nav2_params.yaml:131` | Enable it when the vehicle should slow near high-cost regions | Reduces speed when the local costmap cost is high |
 
+#### 2.1.1 Regulated Pure Pursuit Path-Tracking Parameters
+
+These parameters decide how `FollowPath` tracks the `/plan` produced by the planner. Tune them when the car cuts corners, oscillates, becomes unstable at speed, or cannot follow tight turns cleanly.
+
+Current controller:
+
+```yaml
+FollowPath:
+  plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
+  lookahead_dist: 0.75
+  min_lookahead_dist: 0.5
+  max_lookahead_dist: 1.0
+  lookahead_time: 0.5
+  use_velocity_scaled_lookahead_dist: true
+  use_regulated_linear_velocity_scaling: true
+  use_fixed_curvature_lookahead: false
+  curvature_lookahead_dist: 0.25
+  regulated_linear_scaling_min_radius: 0.95
+```
+
+| Parameter | Current | Location | Practical range | Increasing it | Decreasing it |
+|---|---:|---|---:|---|---|
+| `lookahead_dist` | `0.75 m` | `nav2_params.yaml:117` | `0.3 - 2.0 m` | Looks farther ahead and steers more smoothly; may cut inside corners | Tracks the path more tightly and reacts faster; may oscillate |
+| `min_lookahead_dist` | `0.5 m` | `nav2_params.yaml:118` | `0.2 - 1.0 m` | Smoother at low speed; less precise near the path | Tighter low-speed tracking; steering may become busy |
+| `max_lookahead_dist` | `1.0 m` | `nav2_params.yaml:119` | `0.8 - 3.0 m` | More stable at speed; may cut into sharp turns early | More responsive at speed; may correct too often |
+| `lookahead_time` | `0.5 s` | `nav2_params.yaml:120` | `0.5 - 3.0 s` | Extends lookahead as speed increases, smoother on straights and broad turns | Shorter high-speed lookahead, faster response but more oscillation risk |
+| `use_velocity_scaled_lookahead_dist` | `true` | `nav2_params.yaml:123` | `true/false` | `true` adapts lookahead to speed, better for real vehicles with changing speed | `false` uses fixed lookahead, simpler but less adaptive |
+| `regulated_linear_scaling_min_radius` | `0.95 m` | `nav2_params.yaml:132` | `0.5 - 2.0 m` | More conservative; speed is reduced on wider curves | More aggressive; speed is reduced only on tighter curves |
+| `use_fixed_curvature_lookahead` | `false` | `nav2_params.yaml:129` | usually keep `false` | If enabled, curvature can be estimated at a fixed distance for more stable regulation | Keeping it disabled follows the main lookahead logic and remains more adaptive |
+| `curvature_lookahead_dist` | `0.25 m` | `nav2_params.yaml:130` | `0.1 - 1.0 m` | Smoother curvature estimate; mainly matters when the previous option is enabled | More sensitive curvature estimate; mainly matters when the previous option is enabled |
+
+Recommended tuning order:
+
+1. Fix speed first, for example by lowering `desired_linear_vel`, then tune Pure Pursuit behavior.
+2. Tune `lookahead_dist`, `min_lookahead_dist`, and `max_lookahead_dist` first, observing the path-tracking shape.
+3. If velocity-scaled lookahead is enabled, fine-tune `lookahead_time`.
+4. If tight curves are too fast or the car cannot make them, tune `regulated_linear_scaling_min_radius` and `regulated_linear_scaling_min_speed`.
+5. Change one variable at a time, using the same short route to compare `/plan`, `/cmd_vel`, `/drive`, and the real turning radius.
+
+Common symptoms:
+
+| Symptom | Check first | Tuning direction |
+|---|---|---|
+| Cuts inside turns or gets close to obstacles | `lookahead_dist`, `max_lookahead_dist`, `lookahead_time`, speed | Lower speed first, then slightly shorten lookahead |
+| Oscillates on straights or gentle turns | `min_lookahead_dist`, `lookahead_dist`, steering center | Slightly increase lookahead; also confirm steering center calibration |
+| Unstable tracking at higher speed | `lookahead_time`, `max_lookahead_dist`, `desired_linear_vel` | Increase high-speed lookahead or lower speed |
+| Too fast in tight curves | `regulated_linear_scaling_min_radius`, `regulated_linear_scaling_min_speed` | Increase the radius where speed reduction starts, or lower the minimum curve speed |
+| Does not slow before obstacles | `use_collision_detection`, `use_cost_regulated_linear_velocity_scaling` | This is not only a lookahead issue; enable local-costmap safety logic |
+
 ### 2.2 Twist-to-Ackermann Limits
 
 Configuration:
@@ -373,8 +422,8 @@ Current values:
 global_costmap:
   resolution: 0.05
   track_unknown_space: true
-  inflation_radius: 0.3
-  cost_scaling_factor: 3.0
+  inflation_radius: 0.4
+  cost_scaling_factor: 1.5
   obstacle_max_range: 4.0
   raytrace_max_range: 4.5
 ```
@@ -382,8 +431,8 @@ global_costmap:
 | Parameter | Current | Location | Practical range | Increasing it | Decreasing it |
 |---|---:|---|---:|---|---|
 | `resolution` | `0.05 m` | `nav2_params.yaml:181` | `0.03 - 0.10 m` | A larger value makes global planning coarser and faster | A smaller value provides finer paths with greater computation |
-| `inflation_radius` | `0.3 m` | `nav2_params.yaml:206` | `0.2 - 0.8 m` | Keeps global paths farther from obstacles but may close narrow corridors | Allows paths closer to walls |
-| `cost_scaling_factor` | `3.0` | `nav2_params.yaml:205` | `1.0 - 10.0` | Makes inflated cost decay faster with distance | Makes high cost extend farther from obstacles |
+| `inflation_radius` | `0.4 m` | `nav2_params.yaml:228` | `0.2 - 0.8 m` | Keeps global paths farther from obstacles but may close narrow corridors | Allows paths closer to walls |
+| `cost_scaling_factor` | `1.5` | `nav2_params.yaml:227` | `1.0 - 10.0` | Makes inflated cost decay faster with distance | Makes high cost extend farther from obstacles |
 | `track_unknown_space` | `true` | `nav2_params.yaml:182` | `true` or `false` | This boolean does not have a numeric increase; `true` preserves unknown-space information | `false` removes unknown-space tracking and may make unexplored areas less distinguishable |
 | `obstacle_max_range` | `4.0 m` | `nav2_params.yaml:198` | `2.0 - 6.0 m` | Adds farther scan obstacles to the global costmap | Only marks closer obstacles |
 | `raytrace_max_range` | `4.5 m` | `nav2_params.yaml:200` | Slightly greater than obstacle range | Clears free space farther away | Leaves a smaller clearing region and may retain stale obstacles |
@@ -512,14 +561,14 @@ Behavior-tree rates:
 <RateController hz="1.0">
 
 <!-- Navigate through poses -->
-<RateController hz="0.333">
+<RateController hz="1.0">
 ```
 
 | Parameter | Current | Location | Practical range | Increasing it | Decreasing it |
 |---|---:|---|---:|---|---|
 | `bt_loop_duration` | `50 ms` | `nav2_params.yaml:49` | `20 - 100 ms` | Reduces BT tick frequency and CPU load but slightly delays high-level state handling | Raises tick frequency and CPU load and may trigger tick-rate warnings |
 | Single-goal `RateController` | `1.0 Hz` | `navigate_to_pose_ackermann.xml:11` | `0.5 - 2.0 Hz` | Replans more often | Updates the global path less often |
-| Multi-pose `RateController` | `0.333 Hz` | `navigate_through_poses_ackermann.xml:12` | `0.2 - 1.0 Hz` | Replans a multi-pose route more often | Reduces CPU usage but reacts more slowly to route changes |
+| Multi-pose `RateController` | `1.0 Hz` | `navigate_through_poses_ackermann.xml:13` | `0.2 - 1.0 Hz` | Replans a multi-pose route more often | Reduces CPU usage but reacts more slowly to route changes |
 
 `bt_loop_duration` controls high-level Behavior Tree scheduling. It does not directly control motor speed. Vehicle control output is mainly determined by `controller_frequency` and the downstream command chain.
 
@@ -545,7 +594,7 @@ Current values:
 
 ```xml
 <RecoveryNode number_of_retries="6" name="NavigateRecovery">
-<RateController hz="0.333">
+<RateController hz="1.0">
 <RemovePassedGoals radius="0.7"/>
 <Wait wait_duration="5"/>
 ```
@@ -553,7 +602,7 @@ Current values:
 | Parameter | Current | Location | Practical range | Increasing it | Decreasing it |
 |---|---:|---|---:|---|---|
 | `NavigateRecovery.number_of_retries` | `6` | `navigate_through_poses_ackermann.xml:10` | `1 - 6` | Performs more recovery cycles after planning or control failures and takes longer to abort | Aborts sooner but provides fewer opportunities for automatic recovery |
-| Multi-pose `RateController` | `0.333 Hz` | `navigate_through_poses_ackermann.xml:12` | `0.2 - 1.0 Hz` | Replans more frequently and responds faster to map changes, with greater computation | Saves CPU but reacts more slowly to route and obstacle changes |
+| Multi-pose `RateController` | `1.0 Hz` | `navigate_through_poses_ackermann.xml:13` | `0.2 - 1.0 Hz` | Replans more frequently and responds faster to map changes, with greater computation | Saves CPU but reacts more slowly to route and obstacle changes |
 | `RemovePassedGoals.radius` | `0.7 m` | `navigate_through_poses_ackermann.xml:15` | `0.3 - 1.0 m` | Marks poses as passed earlier, improving continuity but allowing more corner cutting | Requires the vehicle to pass closer to each pose and may cause slowing or returning |
 | Recovery `wait_duration` | `5 s` | `navigate_through_poses_ackermann.xml:33` | `1 - 10 s` | Waits longer for the environment or sensors to recover | Retries sooner but may repeat failures rapidly |
 

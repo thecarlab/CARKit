@@ -29,6 +29,7 @@ setup(
             'twist_to_ackermann = carkit_amcl.twist_to_ackermann:main',
             'odom_tf_broadcaster = carkit_amcl.odom_tf_broadcaster:main',
             'simple_loop_controller = carkit_amcl.simple_loop_controller:main',
+            'foxglove_waypoints = carkit_amcl.foxglove_waypoints:main',
         ],
     },
 )
