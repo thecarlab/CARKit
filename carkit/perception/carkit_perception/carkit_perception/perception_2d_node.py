@@ -36,7 +36,7 @@ TRAFFIC_SIGN_CLASS_NAMES = {
     0: "speed_sign",
     1: "traffic_cone",
 }
-TRAFFIC_SIGN_WEIGHT = Path("models/traffic_sign_fp16.engine")
+TRAFFIC_SIGN_WEIGHT = Path("models/traffic_sign_1_fp16.engine")
 
 
 def default_traffic_sign_model_path() -> str:
@@ -65,7 +65,7 @@ class Perception2DNode(Node):
             "traffic_sign_model_path",
             default_traffic_sign_model_path(),
         )
-        self.declare_parameter("image_size", 640)
+        self.declare_parameter("image_size", 448)
         self.declare_parameter("image_topic", "/camera/camera/color/image_raw")
         self.declare_parameter(
             "inference_image_topic",
@@ -86,8 +86,11 @@ class Perception2DNode(Node):
             self.get_parameter("traffic_sign_min_confidence").value
         )
 
-        self._validate_fp16_engine()
-        self._validate_traffic_sign_model_path()
+        self._validate_fp16_engine(self.model_path, "model_path")
+        self._validate_fp16_engine(
+            self.traffic_sign_model_path,
+            "traffic_sign_model_path",
+        )
         self.bridge = CvBridge()
         self.model = YOLO(self.model_path, task="detect")
         self.traffic_sign_model = YOLO(
@@ -125,16 +128,11 @@ class Perception2DNode(Node):
             f"{self.get_parameter('detection_2d_topic').value}"
         )
 
-    def _validate_traffic_sign_model_path(self) -> None:
-        model_path = Path(self.traffic_sign_model_path)
-        if not model_path.is_file():
-            raise RuntimeError(f"Traffic-sign model not found: {model_path}")
-
-    def _validate_fp16_engine(self) -> None:
-        engine_path = Path(self.model_path)
+    def _validate_fp16_engine(self, model_path: str, parameter_name: str) -> None:
+        engine_path = Path(model_path)
         if engine_path.suffix != ".engine":
             raise RuntimeError(
-                "model_path must point to an FP16 TensorRT .engine file"
+                f"{parameter_name} must point to an FP16 TensorRT .engine file"
             )
         if not engine_path.is_file():
             raise RuntimeError(
@@ -184,7 +182,9 @@ class Perception2DNode(Node):
                 "Only batch-one TensorRT engines are supported"
             )
         if metadata.get("image_size") != self.image_size:
-            raise RuntimeError("Engine image size does not match image_size")
+            raise RuntimeError(
+                f"{parameter_name} engine image size does not match image_size"
+            )
         exported_tensorrt = metadata.get("versions", {}).get("tensorrt")
         if exported_tensorrt and exported_tensorrt != tensorrt.__version__:
             raise RuntimeError(

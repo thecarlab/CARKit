@@ -31,8 +31,12 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration("start_camera")),
         parameters=[{
             "enable_color": True,
-            "rgb_camera.color_profile": "640x480x15",
-            "rgb_camera.color_format": "RGB8",
+            "rgb_camera.color_profile": LaunchConfiguration(
+                "camera_color_profile"
+            ),
+            "rgb_camera.color_format": LaunchConfiguration(
+                "camera_color_format"
+            ),
             "rgb_camera.global_time_enabled": False,
             "enable_depth": False,
             "enable_infra": False,
@@ -121,11 +125,11 @@ def generate_launch_description():
             default_value=os.path.join(
                 package_share,
                 "models",
-                "traffic_sign.pt",
+                "traffic_sign_1_fp16.engine",
             ),
-            description="Traffic-sign YOLO model path.",
+            description="Traffic-sign FP16 TensorRT engine path.",
         ),
-        DeclareLaunchArgument("image_size", default_value="640"),
+        DeclareLaunchArgument("image_size", default_value="448"),
         DeclareLaunchArgument(
             "image_topic",
             default_value="/camera/camera/color/image_raw",
@@ -147,6 +151,18 @@ def generate_launch_description():
             "start_camera",
             default_value="true",
             description="Start a color-only RealSense driver.",
+        ),
+        DeclareLaunchArgument(
+            "camera_color_profile",
+            default_value="424x240x6",
+            description=(
+                "RealSense color profile in WIDTHxHEIGHTxFPS format."
+            ),
+        ),
+        DeclareLaunchArgument(
+            "camera_color_format",
+            default_value="RGB8",
+            description="RealSense color stream format.",
         ),
         DeclareLaunchArgument(
             "rviz_config",

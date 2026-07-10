@@ -35,7 +35,7 @@ def main() -> None:
         type=Path,
     )
     parser.add_argument("--name", default="yolo11n_fp16.engine")
-    parser.add_argument("--image-size", default=640, type=int)
+    parser.add_argument("--image-size", default=448, type=int)
     args = parser.parse_args()
 
     if not torch.cuda.is_available():
