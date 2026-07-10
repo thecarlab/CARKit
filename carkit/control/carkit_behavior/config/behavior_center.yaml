@@ -36,23 +36,28 @@ behavior_center_node:
     traffic_light_track_match_distance_m: 1.0
     traffic_light_clear_distance_m: 10.0
     plan_goal_change_distance_m: 0.25
-    speed_sign_detection_topic: /speed_sign
     nav2_drive_topic: /drive
-    speed_sign_min_confidence: 0.6
-    speed_sign_lidar_angle_window_deg: 8.0
+    speed_sign_min_confidence: 0.2
+    speed_sign_lidar_angle_window_deg: 20.0
     speed_sign_lidar_min_range_m: 0.15
     speed_sign_lidar_max_range_m: 10.0
     speed_sign_required_observations: 2
     speed_sign_track_match_distance_m: 1.0
     speed_sign_clear_distance_m: 10.0
     speed_sign_pass_tolerance_m: 0.25
-    speed_sign_override_speed_mps: 3.5
+    speed_sign_pass_near_distance_m: 1.5
+    speed_sign_pass_range_rearm_m: 0.4
+    speed_sign_fallback_range_m: 3.0
+    speed_sign_override_min_speed_mps: 1.0
+    speed_sign_override_multiplier: 1.5
+    speed_sign_override_max_speed_mps: 3.0
     speed_sign_override_duration_sec: 3.0
-    cone_min_confidence: 0.6
-    cone_lidar_angle_window_deg: 8.0
+    cone_min_confidence: 0.2
+    cone_lidar_angle_window_deg: 20.0
     cone_lidar_min_range_m: 0.15
     cone_lidar_max_range_m: 10.0
     cone_required_observations: 2
     cone_track_match_distance_m: 1.0
     cone_clear_distance_m: 10.0
-    cone_override_speed_mps: 1.0
+    cone_override_speed_mps: 0.8
+    cone_fallback_range_m: 2.0

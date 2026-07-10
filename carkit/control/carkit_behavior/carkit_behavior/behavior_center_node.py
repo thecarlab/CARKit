@@ -229,6 +229,8 @@ class SpeedSignTrack:
         "observations",
         "passed",
         "last_distance_m",
+        "last_range_m",
+        "min_range_m",
     )
 
     def __init__(self, x: float, y: float, confidence: float) -> None:
@@ -238,14 +240,28 @@ class SpeedSignTrack:
         self.observations = 1
         self.passed = False
         self.last_distance_m: Optional[float] = None
+        self.last_range_m: Optional[float] = None
+        self.min_range_m: Optional[float] = None
 
-    def update(self, x: float, y: float, confidence: float) -> None:
+    def update(
+        self,
+        x: float,
+        y: float,
+        confidence: float,
+        range_m: Optional[float] = None,
+    ) -> None:
         weight = max(0.01, confidence)
         total_weight = self.weight + weight
         self.x = (self.x * self.weight + x * weight) / total_weight
         self.y = (self.y * self.weight + y * weight) / total_weight
         self.weight = total_weight
         self.observations += 1
+        if range_m is not None:
+            self.last_range_m = range_m
+            if self.min_range_m is None:
+                self.min_range_m = range_m
+            else:
+                self.min_range_m = min(self.min_range_m, range_m)
 
 
 class ConeTrack:
@@ -309,7 +325,6 @@ class BehaviorCenterNode(Node):
         self.declare_parameter("traffic_light_track_match_distance_m", 1.0)
         self.declare_parameter("traffic_light_clear_distance_m", 10.0)
         self.declare_parameter("plan_goal_change_distance_m", 0.25)
-        self.declare_parameter("speed_sign_detection_topic", "/speed_sign")
         self.declare_parameter("nav2_drive_topic", "/drive")
         self.declare_parameter("speed_sign_min_confidence", 0.6)
         self.declare_parameter("speed_sign_lidar_angle_window_deg", 8.0)
@@ -319,7 +334,12 @@ class BehaviorCenterNode(Node):
         self.declare_parameter("speed_sign_track_match_distance_m", 1.0)
         self.declare_parameter("speed_sign_clear_distance_m", 10.0)
         self.declare_parameter("speed_sign_pass_tolerance_m", 0.25)
-        self.declare_parameter("speed_sign_override_speed_mps", 3.5)
+        self.declare_parameter("speed_sign_pass_near_distance_m", 1.5)
+        self.declare_parameter("speed_sign_pass_range_rearm_m", 0.4)
+        self.declare_parameter("speed_sign_fallback_range_m", 3.0)
+        self.declare_parameter("speed_sign_override_min_speed_mps", 1.0)
+        self.declare_parameter("speed_sign_override_multiplier", 1.5)
+        self.declare_parameter("speed_sign_override_max_speed_mps", 3.0)
         self.declare_parameter("speed_sign_override_duration_sec", 3.0)
         self.declare_parameter("cone_min_confidence", 0.6)
         self.declare_parameter("cone_lidar_angle_window_deg", 8.0)
@@ -328,7 +348,8 @@ class BehaviorCenterNode(Node):
         self.declare_parameter("cone_required_observations", 2)
         self.declare_parameter("cone_track_match_distance_m", 1.0)
         self.declare_parameter("cone_clear_distance_m", 10.0)
-        self.declare_parameter("cone_override_speed_mps", 1.0)
+        self.declare_parameter("cone_override_speed_mps", 0.8)
+        self.declare_parameter("cone_fallback_range_m", 2.0)
 
         self.min_confidence = float(self.get_parameter("min_confidence").value)
         self.detection_timeout_sec = float(
@@ -454,8 +475,23 @@ class BehaviorCenterNode(Node):
         self.speed_sign_pass_tolerance_m = float(
             self.get_parameter("speed_sign_pass_tolerance_m").value
         )
-        self.speed_sign_override_speed_mps = float(
-            self.get_parameter("speed_sign_override_speed_mps").value
+        self.speed_sign_pass_near_distance_m = float(
+            self.get_parameter("speed_sign_pass_near_distance_m").value
+        )
+        self.speed_sign_pass_range_rearm_m = float(
+            self.get_parameter("speed_sign_pass_range_rearm_m").value
+        )
+        self.speed_sign_fallback_range_m = float(
+            self.get_parameter("speed_sign_fallback_range_m").value
+        )
+        self.speed_sign_override_min_speed_mps = float(
+            self.get_parameter("speed_sign_override_min_speed_mps").value
+        )
+        self.speed_sign_override_multiplier = float(
+            self.get_parameter("speed_sign_override_multiplier").value
+        )
+        self.speed_sign_override_max_speed_mps = float(
+            self.get_parameter("speed_sign_override_max_speed_mps").value
         )
         self.speed_sign_override_duration_sec = float(
             self.get_parameter("speed_sign_override_duration_sec").value
@@ -484,12 +520,13 @@ class BehaviorCenterNode(Node):
         self.cone_override_speed_mps = float(
             self.get_parameter("cone_override_speed_mps").value
         )
+        self.cone_fallback_range_m = float(
+            self.get_parameter("cone_fallback_range_m").value
+        )
 
         self.main_state = ""
         self.latest_detections: Optional[YoloDetection2DArray] = None
         self.latest_detection_time = None
-        self.latest_speed_sign_detections: Optional[YoloDetection2DArray] = None
-        self.latest_speed_sign_detection_time = None
         self.latest_nav2_drive: Optional[AckermannDriveStamped] = None
         self.latest_scan: Optional[LaserScan] = None
         self.latest_scan_time = None
@@ -520,8 +557,10 @@ class BehaviorCenterNode(Node):
         self.cone_tracks: list[ConeTrack] = []
         self.cone_visible = False
         self.speed_sign_override_until = 0.0
+        self.active_speed_sign_override_speed: Optional[float] = None
         self.last_speed_sign_debug_sec = 0.0
         self.last_cone_debug_sec = 0.0
+        self.last_speed_sign_localize_debug_sec = 0.0
         self.last_behavior_state = NORMAL_NAV2
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -541,12 +580,6 @@ class BehaviorCenterNode(Node):
             YoloDetection2DArray,
             "/yolo/detections_2d",
             self.detections_callback,
-            10,
-        )
-        self.create_subscription(
-            YoloDetection2DArray,
-            str(self.get_parameter("speed_sign_detection_topic").value),
-            self.speed_sign_detections_callback,
             10,
         )
         self.create_subscription(
@@ -650,10 +683,6 @@ class BehaviorCenterNode(Node):
         self.latest_detections = msg
         self.latest_detection_time = self.now_sec()
 
-    def speed_sign_detections_callback(self, msg: YoloDetection2DArray) -> None:
-        self.latest_speed_sign_detections = msg
-        self.latest_speed_sign_detection_time = self.now_sec()
-
     def nav2_drive_callback(self, msg: AckermannDriveStamped) -> None:
         self.latest_nav2_drive = msg
 
@@ -713,20 +742,16 @@ class BehaviorCenterNode(Node):
 
         scan = self.fresh_scan(now)
         detections = self.fresh_detections(now)
-        speed_sign_detections = self.fresh_speed_sign_detections(now)
 
         if detections is not None:
             self.publish_traffic_light_from_detections(detections, scan)
             self.publish_stop_sign_from_detections(detections, scan)
+            self.publish_speed_sign_from_detections(detections, scan)
+            self.publish_cone_from_detections(detections, scan)
         else:
             self.clear_traffic_light_track()
-            self.publish_stop_sign_tracks()
-
-        if speed_sign_detections is not None:
-            self.publish_speed_sign_from_detections(speed_sign_detections, scan)
-            self.publish_cone_from_detections(speed_sign_detections, scan)
-        else:
             self.cone_visible = False
+            self.publish_stop_sign_tracks()
             self.publish_speed_sign_tracks()
             self.publish_cone_tracks()
 
@@ -758,18 +783,22 @@ class BehaviorCenterNode(Node):
                 publish_override_cmd = True
                 override_speed = self.cone_override_speed_mps
             elif now < self.speed_sign_override_until:
-                state = SPEED_SIGN
-                override_active = True
-                publish_override_cmd = True
-                override_speed = self.speed_sign_override_speed_mps
+                override_speed = self.speed_sign_override_speed()
+                if override_speed is not None:
+                    state = SPEED_SIGN
+                    override_active = True
+                    publish_override_cmd = True
+                    self.active_speed_sign_override_speed = override_speed
             elif self.speed_sign_pass_triggered(now):
-                state = SPEED_SIGN
-                override_active = True
-                publish_override_cmd = True
-                override_speed = self.speed_sign_override_speed_mps
                 self.speed_sign_override_until = (
                     now + self.speed_sign_override_duration_sec
                 )
+                override_speed = self.speed_sign_override_speed()
+                if override_speed is not None:
+                    state = SPEED_SIGN
+                    override_active = True
+                    publish_override_cmd = True
+                    self.active_speed_sign_override_speed = override_speed
 
         self.log_behavior_transition(state)
         self.publish_state(state, override_active)
@@ -790,22 +819,6 @@ class BehaviorCenterNode(Node):
         if now - self.latest_detection_time > self.detection_timeout_sec:
             return None
         return self.latest_detections
-
-    def fresh_speed_sign_detections(
-        self,
-        now: float,
-    ) -> Optional[YoloDetection2DArray]:
-        if (
-            self.latest_speed_sign_detections is None
-            or self.latest_speed_sign_detection_time is None
-        ):
-            return None
-        if (
-            now - self.latest_speed_sign_detection_time
-            > self.detection_timeout_sec
-        ):
-            return None
-        return self.latest_speed_sign_detections
 
     def fresh_scan(self, now: float) -> Optional[LaserScan]:
         if self.latest_scan is None or self.latest_scan_time is None:
@@ -927,6 +940,42 @@ class BehaviorCenterNode(Node):
             y=range_m * math.sin(scan_angle_rad),
         )
 
+    def localize_detection_with_fallback(
+        self,
+        detection: YoloDetection2D,
+        image_width: float,
+        scan: LaserScan,
+        angle_window_rad: float,
+        min_range_m: float,
+        max_range_m: float,
+        fallback_range_m: float,
+    ) -> Optional[ObjectLocation]:
+        location = self.localize_detection(
+            detection,
+            image_width,
+            scan,
+            angle_window_rad,
+            min_range_m,
+            max_range_m,
+        )
+        if location is not None:
+            return location
+
+        camera_bearing = self.detection_horizontal_bearing_rad(
+            detection,
+            image_width,
+        )
+        if camera_bearing is None:
+            return None
+        target_angle = self.camera_bearing_to_scan_angle(camera_bearing)
+        range_m = clamp(fallback_range_m, min_range_m, max_range_m)
+        return ObjectLocation(
+            range_m=range_m,
+            scan_angle_rad=target_angle,
+            x=range_m * math.cos(target_angle),
+            y=range_m * math.sin(target_angle),
+        )
+
     def find_lidar_hit_at_bearing(
         self,
         scan: LaserScan,
@@ -1021,13 +1070,14 @@ class BehaviorCenterNode(Node):
         image_width: float,
         scan: LaserScan,
     ) -> Optional[ObjectLocation]:
-        return self.localize_detection(
+        return self.localize_detection_with_fallback(
             detection,
             image_width,
             scan,
             self.speed_sign_lidar_angle_window_rad,
             self.speed_sign_lidar_min_range_m,
             self.speed_sign_lidar_max_range_m,
+            self.speed_sign_fallback_range_m,
         )
 
     def localize_cone(
@@ -1036,13 +1086,14 @@ class BehaviorCenterNode(Node):
         image_width: float,
         scan: LaserScan,
     ) -> Optional[ObjectLocation]:
-        return self.localize_detection(
+        return self.localize_detection_with_fallback(
             detection,
             image_width,
             scan,
             self.cone_lidar_angle_window_rad,
             self.cone_lidar_min_range_m,
             self.cone_lidar_max_range_m,
+            self.cone_fallback_range_m,
         )
 
     def publish_stop_sign_from_detections(
@@ -1124,11 +1175,20 @@ class BehaviorCenterNode(Node):
         detections: YoloDetection2DArray,
         scan: Optional[LaserScan],
     ) -> None:
+        now = self.now_sec()
         if scan is None:
+            self.log_speed_sign_stage(
+                now,
+                "no fresh /scan; cannot localize speed sign",
+            )
             self.publish_speed_sign_tracks()
             return
         detection = self.best_speed_sign_detection(detections)
         if detection is None:
+            self.log_speed_sign_stage(
+                now,
+                "no speed_sign detection above confidence threshold",
+            )
             self.publish_speed_sign_tracks()
             return
         location = self.localize_speed_sign(
@@ -1137,6 +1197,10 @@ class BehaviorCenterNode(Node):
             scan,
         )
         if location is None:
+            self.log_speed_sign_stage(
+                now,
+                "speed_sign localization failed (bearing unavailable)",
+            )
             self.publish_speed_sign_tracks()
             return
         point = self.transform_location_to_map(
@@ -1145,14 +1209,34 @@ class BehaviorCenterNode(Node):
             scan.header.stamp,
         )
         if point is None:
+            self.log_speed_sign_stage(
+                now,
+                "speed_sign map transform failed; check TF map<-laser",
+            )
             self.publish_speed_sign_tracks()
             return
         self.record_speed_sign_observation(
             point.x,
             point.y,
             float(detection.confidence),
+            location.range_m,
         )
+        track = self.reliable_speed_sign_track()
+        if track is not None:
+            self.log_speed_sign_stage(
+                now,
+                "tracking speed sign at "
+                f"({track.x:.2f}, {track.y:.2f}), "
+                f"range={location.range_m:.2f} m, "
+                f"observations={track.observations}",
+            )
         self.publish_speed_sign_tracks()
+
+    def log_speed_sign_stage(self, now: float, message: str) -> None:
+        if now - self.last_speed_sign_localize_debug_sec < 2.0:
+            return
+        self.last_speed_sign_localize_debug_sec = now
+        self.get_logger().info(f"Speed sign: {message}")
 
     def publish_cone_from_detections(
         self,
@@ -1446,6 +1530,7 @@ class BehaviorCenterNode(Node):
         x: float,
         y: float,
         confidence: float,
+        range_m: Optional[float] = None,
     ) -> SpeedSignTrack:
         reliable_track = self.reliable_speed_sign_track()
         if reliable_track is not None:
@@ -1454,7 +1539,16 @@ class BehaviorCenterNode(Node):
                 self.speed_sign_tracks = []
             else:
                 if distance <= self.speed_sign_track_match_distance_m:
-                    reliable_track.update(x, y, confidence)
+                    reliable_track.update(x, y, confidence, range_m)
+                elif range_m is not None:
+                    reliable_track.last_range_m = range_m
+                    if reliable_track.min_range_m is None:
+                        reliable_track.min_range_m = range_m
+                    else:
+                        reliable_track.min_range_m = min(
+                            reliable_track.min_range_m,
+                            range_m,
+                        )
                 return reliable_track
 
         nearest_track = None
@@ -1469,10 +1563,13 @@ class BehaviorCenterNode(Node):
             nearest_track is not None
             and nearest_distance <= self.speed_sign_track_match_distance_m
         ):
-            nearest_track.update(x, y, confidence)
+            nearest_track.update(x, y, confidence, range_m)
             return nearest_track
 
         track = SpeedSignTrack(x, y, confidence)
+        if range_m is not None:
+            track.last_range_m = range_m
+            track.min_range_m = range_m
         self.speed_sign_tracks.append(track)
         return track
 
@@ -1580,45 +1677,99 @@ class BehaviorCenterNode(Node):
                 return track
         return None
 
-    def cone_speed_override_active(self) -> bool:
+    def cone_present(self) -> bool:
         return self.cone_visible and self.reliable_cone_track() is not None
 
-    def speed_sign_pass_triggered(self, now: float) -> bool:
-        robot_position = self.robot_position_in_map()
-        if robot_position is None:
-            return False
+    def current_speed_mps(self) -> Optional[float]:
+        if self.current_velocity_mps is not None:
+            return abs(float(self.current_velocity_mps))
+        if self.latest_nav2_drive is not None:
+            return abs(float(self.latest_nav2_drive.drive.speed))
+        return None
 
+    def cone_speed_override_active(self) -> bool:
+        if not self.cone_present():
+            return False
+        current_speed = self.current_speed_mps()
+        if current_speed is None:
+            return False
+        return current_speed > self.cone_override_speed_mps
+
+    def speed_sign_override_speed(self) -> Optional[float]:
+        current_speed = self.current_speed_mps()
+        if current_speed is None:
+            return None
+        if current_speed <= self.speed_sign_override_min_speed_mps:
+            return None
+        boosted_speed = current_speed * self.speed_sign_override_multiplier
+        return min(boosted_speed, self.speed_sign_override_max_speed_mps)
+
+    def speed_sign_pass_triggered(self, now: float) -> bool:
         track = self.reliable_speed_sign_track()
         if track is None or track.passed:
+            if track is None and now - self.last_speed_sign_debug_sec >= 2.0:
+                self.last_speed_sign_debug_sec = now
+                self.get_logger().info(
+                    "Speed sign: waiting for stable track before pass trigger"
+                )
             return False
 
-        remaining_distance = self.stop_line_path_distance(
-            robot_position,
-            MapPoint(track.x, track.y),
-        )
-        if remaining_distance is None:
-            return False
+        robot_position = self.robot_position_in_map()
+        remaining_distance = None
+        if robot_position is not None:
+            remaining_distance = self.stop_line_path_distance(
+                robot_position,
+                MapPoint(track.x, track.y),
+            )
 
         previous_distance = track.last_distance_m
-        track.last_distance_m = remaining_distance
+        if remaining_distance is not None:
+            track.last_distance_m = remaining_distance
+
         crossed_sign = (
-            previous_distance is not None
+            remaining_distance is not None
+            and previous_distance is not None
             and previous_distance > 0.0
             and remaining_distance < -self.speed_sign_pass_tolerance_m
         )
-        passed_sign = remaining_distance < -self.speed_sign_pass_tolerance_m
+        passed_on_path = (
+            remaining_distance is not None
+            and remaining_distance < -self.speed_sign_pass_tolerance_m
+        )
+        passed_by_range = self.speed_sign_passed_by_range(track)
+
         if now - self.last_speed_sign_debug_sec >= 1.0:
             self.last_speed_sign_debug_sec = now
+            path_text = (
+                f"{remaining_distance:.2f} m ahead on the path"
+                if remaining_distance is not None
+                else "path distance unavailable"
+            )
+            range_text = (
+                f"range={track.last_range_m:.2f} m, min={track.min_range_m:.2f} m"
+                if track.last_range_m is not None
+                and track.min_range_m is not None
+                else "range unavailable"
+            )
             self.get_logger().info(
                 "Speed sign track at "
-                f"({track.x:.2f}, {track.y:.2f}) "
-                f"is {remaining_distance:.2f} m ahead on the path "
-                f"({track.observations} observations)"
+                f"({track.x:.2f}, {track.y:.2f}) is {path_text} "
+                f"({track.observations} observations, {range_text})"
             )
-        if crossed_sign or passed_sign:
+
+        if crossed_sign or passed_on_path or passed_by_range:
             track.passed = True
             return True
         return False
+
+    def speed_sign_passed_by_range(self, track: SpeedSignTrack) -> bool:
+        if track.last_range_m is None or track.min_range_m is None:
+            return False
+        return (
+            track.min_range_m <= self.speed_sign_pass_near_distance_m
+            and track.last_range_m
+            >= track.min_range_m + self.speed_sign_pass_range_rearm_m
+        )
 
     def robot_position_in_map(self) -> Optional[MapPoint]:
         if hasattr(self, "tf_buffer"):
@@ -1803,10 +1954,16 @@ class BehaviorCenterNode(Node):
                 f"limiting to {self.cone_override_speed_mps:.1f} m/s"
             )
         elif state == SPEED_SIGN:
+            boost_speed = self.active_speed_sign_override_speed
+            boost_text = (
+                f"{boost_speed:.2f} m/s"
+                if boost_speed is not None
+                else "boosted speed"
+            )
             logger.info(
                 "[BEHAVIOR] SPEED_SIGN called | "
                 f"current velocity: {velocity} | "
-                f"boosting to {self.speed_sign_override_speed_mps:.1f} m/s "
+                f"boosting to {boost_text} "
                 f"for {self.speed_sign_override_duration_sec:.1f} s"
             )
         elif state == NORMAL_NAV2:
@@ -1924,6 +2081,12 @@ def transform_xy(x: float, y: float, transform) -> MapPoint:
         float(translation.x) + cos_yaw * x - sin_yaw * y,
         float(translation.y) + sin_yaw * x + cos_yaw * y,
     )
+
+
+def clamp(value: float, lower: float, upper: float) -> float:
+    if not math.isfinite(value):
+        return lower
+    return min(max(float(value), lower), upper)
 
 
 def stamp_to_sec(stamp: Time) -> float:

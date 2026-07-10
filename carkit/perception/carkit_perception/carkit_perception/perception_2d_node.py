@@ -36,7 +36,7 @@ TRAFFIC_SIGN_CLASS_NAMES = {
     0: "speed_sign",
     1: "traffic_cone",
 }
-TRAFFIC_SIGN_WEIGHT = Path("models/traffic_sign.pt")
+TRAFFIC_SIGN_WEIGHT = Path("models/traffic_sign_fp16.engine")
 
 
 def default_traffic_sign_model_path() -> str:

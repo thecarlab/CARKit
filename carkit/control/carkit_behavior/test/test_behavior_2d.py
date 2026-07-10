@@ -53,27 +53,34 @@ def make_node():
     node.traffic_light_track_match_distance_m = 1.0
     node.traffic_light_clear_distance_m = 10.0
     node.plan_goal_change_distance_m = 0.25
-    node.speed_sign_min_confidence = 0.6
-    node.speed_sign_lidar_angle_window_rad = math.radians(8.0)
+    node.speed_sign_min_confidence = 0.2
+    node.speed_sign_lidar_angle_window_rad = math.radians(20.0)
     node.speed_sign_lidar_min_range_m = 0.15
     node.speed_sign_lidar_max_range_m = 10.0
     node.speed_sign_required_observations = 2
     node.speed_sign_track_match_distance_m = 1.0
     node.speed_sign_clear_distance_m = 10.0
     node.speed_sign_pass_tolerance_m = 0.25
-    node.speed_sign_override_speed_mps = 3.5
+    node.speed_sign_pass_near_distance_m = 1.5
+    node.speed_sign_pass_range_rearm_m = 0.4
+    node.speed_sign_fallback_range_m = 3.0
+    node.speed_sign_override_min_speed_mps = 1.0
+    node.speed_sign_override_multiplier = 1.5
+    node.speed_sign_override_max_speed_mps = 3.0
     node.speed_sign_override_duration_sec = 3.0
-    node.cone_min_confidence = 0.6
-    node.cone_lidar_angle_window_rad = math.radians(8.0)
+    node.cone_min_confidence = 0.2
+    node.cone_lidar_angle_window_rad = math.radians(20.0)
     node.cone_lidar_min_range_m = 0.15
     node.cone_lidar_max_range_m = 10.0
     node.cone_required_observations = 2
     node.cone_track_match_distance_m = 1.0
     node.cone_clear_distance_m = 10.0
-    node.cone_override_speed_mps = 1.0
+    node.cone_override_speed_mps = 0.8
+    node.cone_fallback_range_m = 2.0
     node.cone_visible = False
     node.speed_sign_override_until = 0.0
     node.last_speed_sign_debug_sec = 10.0
+    node.last_speed_sign_localize_debug_sec = 10.0
     node.last_cone_debug_sec = 10.0
     node.latest_nav2_drive = None
     node.stop_cooldown_until = 0.0
@@ -598,7 +605,7 @@ def cone_track(x, y):
 
 def test_speed_sign_tracking_requires_confidence_and_observations():
     node = make_node()
-    low_confidence = detection("speed_sign", confidence=0.5)
+    low_confidence = detection("speed_sign", confidence=0.1)
     assert node.best_speed_sign_detection(detection_array(low_confidence)) is None
 
     track = node.record_speed_sign_observation(4.0, 0.0, 0.9)
@@ -612,7 +619,10 @@ def test_speed_sign_tracking_requires_confidence_and_observations():
 def test_speed_sign_triggers_after_passing_projected_line():
     node = make_node()
     node.latest_global_plan = global_plan((0.0, 0.0), (10.0, 0.0))
-    node.speed_sign_tracks = [speed_sign_track(5.0, 1.0)]
+    track = speed_sign_track(5.0, 1.0)
+    track.last_range_m = 2.0
+    track.min_range_m = 2.0
+    node.speed_sign_tracks = [track]
 
     node.current_robot_x = 4.5
     assert not node.speed_sign_pass_triggered(1.0)
@@ -620,6 +630,17 @@ def test_speed_sign_triggers_after_passing_projected_line():
     assert node.speed_sign_pass_triggered(1.1)
     assert node.speed_sign_tracks[0].passed
     assert not node.speed_sign_pass_triggered(1.2)
+
+
+def test_speed_sign_triggers_after_closest_range_then_receding():
+    node = make_node()
+    track = speed_sign_track(5.0, 0.0)
+    track.last_range_m = 1.0
+    track.min_range_m = 0.8
+    node.speed_sign_tracks = [track]
+
+    assert node.speed_sign_pass_triggered(1.0)
+    assert track.passed
 
 
 def test_speed_sign_does_not_retrigger_after_pass():
@@ -633,9 +654,27 @@ def test_speed_sign_does_not_retrigger_after_pass():
     assert not node.speed_sign_pass_triggered(1.0)
 
 
+def test_speed_sign_override_multiplies_current_speed_with_cap():
+    node = make_node()
+    node.current_velocity_mps = 1.2
+    assert node.speed_sign_override_speed() == 1.8
+    node.current_velocity_mps = 2.0
+    assert node.speed_sign_override_speed() == 3.0
+    node.current_velocity_mps = 2.5
+    assert node.speed_sign_override_speed() == 3.0
+
+
+def test_speed_sign_does_not_override_at_or_below_min_speed():
+    node = make_node()
+    node.current_velocity_mps = 1.0
+    assert node.speed_sign_override_speed() is None
+    node.current_velocity_mps = 0.5
+    assert node.speed_sign_override_speed() is None
+
+
 def test_cone_tracking_requires_confidence_and_observations():
     node = make_node()
-    low_confidence = detection("traffic_cone", confidence=0.5)
+    low_confidence = detection("traffic_cone", confidence=0.1)
     assert node.best_cone_detection(detection_array(low_confidence)) is None
 
     track = node.record_cone_observation(3.0, 0.0, 0.9)
@@ -650,16 +689,34 @@ def test_cone_speed_override_requires_stable_visible_track():
     node = make_node()
     node.cone_tracks = [cone_track(3.0, 0.0)]
 
-    assert not node.cone_speed_override_active()
+    assert not node.cone_present()
     node.cone_visible = True
+    assert node.cone_present()
+    assert not node.cone_speed_override_active()
+    node.current_velocity_mps = 0.5
+    assert not node.cone_speed_override_active()
+    node.current_velocity_mps = 1.0
     assert node.cone_speed_override_active()
     node.cone_visible = False
+    assert not node.cone_present()
+    assert not node.cone_speed_override_active()
+
+
+def test_cone_does_not_override_at_or_below_limit_speed():
+    node = make_node()
+    node.cone_tracks = [cone_track(3.0, 0.0)]
+    node.cone_visible = True
+
+    node.current_velocity_mps = 0.8
+    assert not node.cone_speed_override_active()
+    node.current_velocity_mps = 0.3
     assert not node.cone_speed_override_active()
 
 
 def test_cone_detection_visibility_controls_override_release():
     node = make_node()
     node.cone_tracks = [cone_track(3.0, 0.0)]
+    node.current_velocity_mps = 1.2
     cone = detection("traffic_cone", confidence=0.9)
     msg = detection_array(cone)
 

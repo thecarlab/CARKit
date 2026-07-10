@@ -12,8 +12,11 @@ Panels:
         - /TF1
         - /AMCL Pose1
         - /Waypoints1
+        - /Image1
+        - /Image1/Status1
+        - /Image1/Topic1
       Splitter Ratio: 0.5
-    Tree Height: 166
+    Tree Height: 212
   - Class: rviz_common/Selection
     Name: Selection
   - Class: rviz_common/Tool Properties
@@ -316,7 +319,7 @@ Visualization Manager:
       Enabled: true
       Name: Stop Sign Markers
       Namespaces:
-        {}
+        stop_sign: true
       Topic:
         Depth: 5
         Durability Policy: Transient Local
@@ -328,13 +331,51 @@ Visualization Manager:
       Enabled: true
       Name: Traffic Light Markers
       Namespaces:
-        {}
+        traffic_light: true
       Topic:
         Depth: 5
         Durability Policy: Transient Local
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /behavior/traffic_light_markers
+      Value: true
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Max Value: 1
+      Median window: 5
+      Min Value: 0
+      Name: Image
+      Normalize Range: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Best Effort
+        Value: /yolo/inference_image
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MarkerArray
+      Namespaces:
+        speed_sign: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /behavior/speed_sign_markers
+      Value: true
+    - Class: rviz_default_plugins/MarkerArray
+      Enabled: true
+      Name: MarkerArray
+      Namespaces:
+        cone: true
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /behavior/cone_markers
       Value: true
   Enabled: true
   Global Options:
@@ -383,41 +424,43 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 15.724712371826172
+      Distance: 32.32903289794922
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 5.0046491622924805
-        Y: -1.893489122390747
-        Z: 0.0014597163535654545
+        X: 0.9347728490829468
+        Y: 4.197984218597412
+        Z: 0.7346120476722717
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 1.3747963905334473
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.485398292541504
+      Yaw: 1.3353983163833618
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 944
+  Height: 1016
   Hide Left Dock: false
   Hide Right Dock: false
+  Image:
+    collapsed: false
   Navigation 2:
     collapsed: false
-  QMainWindow State: 000000ff00000000fd00000001000000000000019b0000035afc0200000005fb000000100044006900730070006c006100790073010000003b000000e1000000c700fffffffb0000001200530065006c0065006300740069006f006e00000001080000005c0000005c00fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730100000122000000680000005c00fffffffb0000000a005600690065007700730100000190000000b6000000a000fffffffb00000018004e0061007600690067006100740069006f006e00200032010000024c000001490000012300ffffff0000030f0000035a00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd0000000100000000000003a4000003a2fc0200000006fb000000100044006900730070006c006100790073010000003b0000010f000000c700fffffffb0000001200530065006c0065006300740069006f006e00000001080000005c0000005c00fffffffb0000001e0054006f006f006c002000500072006f00700065007200740069006500730000000122000000680000005c00fffffffb0000000a005600690065007700730000000144000000d1000000a000fffffffb00000018004e0061007600690067006100740069006f006e002000320100000150000001120000011200fffffffb0000000a0049006d0061006700650100000268000001750000002800ffffff00000390000003a200000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Selection:
     collapsed: false
   Tool Properties:
     collapsed: false
   Views:
     collapsed: false
-  Width: 1200
-  X: 254
+  Width: 1850
+  X: 70
   Y: 27
