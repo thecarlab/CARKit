@@ -1236,7 +1236,7 @@ class BehaviorCenterNode(Node):
         if now - self.last_speed_sign_localize_debug_sec < 2.0:
             return
         self.last_speed_sign_localize_debug_sec = now
-        self.get_logger().info(f"Speed sign: {message}")
+        #self.get_logger().info(f"Speed sign: {message}")
 
     def publish_cone_from_detections(
         self,
