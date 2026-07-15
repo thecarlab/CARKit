@@ -42,6 +42,19 @@ source install/setup.bash
 `build_workspace.sh` fetches vendored sensor repos and builds the mounted
 workspace at `/workspaces/CARKit`.
 
+### Prepare every terminal window
+
+Every new terminal window used to run CARKit commands must first enter the
+running `carkit` container and source the workspace:
+
+```bash
+docker exec -it carkit bash
+source install/setup.bash
+```
+
+Run both commands above in each terminal window before using any of the
+`ros2 launch` or `ros2 run` commands below.
+
 ### Foxglove account and connection
 
 1. Register for a Foxglove account and sign in to Foxglove.
@@ -87,7 +100,7 @@ Start human control as shown above, then launch mapping:
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
-  mode:=mapping visualization:=rviz
+  mode:=mapping visualization:=foxglove
 ```
 
 Drive through the environment, then save the occupancy map:
@@ -109,8 +122,8 @@ ros2 launch carkit_human_control joystick.launch.py
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
-  map:=/workspaces/CARKit/map/map_5fs.yaml \
-  visualization:=rviz
+  map:=/workspaces/CARKit/map/map_3f.yaml \
+  visualization:=foxglove
 ```
 
 Connect Foxglove to `ws://<jetson-ip>:8765`, set the initial pose, then send a
@@ -119,11 +132,8 @@ Press the joystick mode toggle to enter `AUTO_DRIVE`; the current default is
 `mode_toggle_button: 10` in
 `f1tenth_stack/config/joy_teleop.yaml`.
 
-The main map is selected above. To use the 3F example map instead, pass:
-
-```bash
-map:=/workspaces/CARKit/map/map_3f.yaml
-```
+The default example above uses `map_3f.yaml`. Replace the `map:=...` value when
+using another saved map.
 
 ### 👁️ Perception And Behavior
 
