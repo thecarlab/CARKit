@@ -8,15 +8,6 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    vehicle_command_topic_arg = DeclareLaunchArgument(
-        'vehicle_command_topic',
-        default_value='/ackermann_cmd',
-        description=(
-            'Ackermann topic consumed by the low-level vehicle controller. '
-            'Use /ackermann_mux_unused when carkit_control_center owns '
-            'the final /ackermann_cmd in autonomous driving.'
-        )
-    )
     joy_config_arg = DeclareLaunchArgument(
         'joy_config',
         default_value=PathJoinSubstitution([
@@ -35,15 +26,6 @@ def generate_launch_description():
         ]),
         description='F1TENTH VESC config'
     )
-    mux_config_arg = DeclareLaunchArgument(
-        'mux_config',
-        default_value=PathJoinSubstitution([
-            FindPackageShare('f1tenth_stack'),
-            'config',
-            'mux.yaml',
-        ]),
-        description='F1TENTH Ackermann mux config for legacy/manual compatibility'
-    )
     f1tenth_bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
@@ -55,15 +37,22 @@ def generate_launch_description():
         launch_arguments={
             'joy_config': LaunchConfiguration('joy_config'),
             'vesc_config': LaunchConfiguration('vesc_config'),
-            'mux_config': LaunchConfiguration('mux_config'),
-            'vehicle_command_topic': LaunchConfiguration('vehicle_command_topic'),
+            'start_ackermann_mux': 'false',
         }.items(),
+    )
+    control_center = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                FindPackageShare('carkit_control_center'),
+                'launch',
+                'control_center.launch.py',
+            ])
+        )
     )
 
     return LaunchDescription([
-        vehicle_command_topic_arg,
         joy_config_arg,
         vesc_config_arg,
-        mux_config_arg,
         f1tenth_bringup,
+        control_center,
     ])

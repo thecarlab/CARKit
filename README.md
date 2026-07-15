@@ -79,8 +79,8 @@ For manual driving, mapping, and vehicle checks, launch human control directly:
 ros2 launch carkit_human_control joystick.launch.py
 ```
 
-This launches joystick teleop, VESC, odometry, and the legacy mux path from
-`/teleop` to `/ackermann_cmd`.
+This launches joystick teleop, the control center, VESC, and odometry. The
+control center is the only `/ackermann_cmd` publisher.
 
 
 Start human control as shown above, then launch mapping:
@@ -101,16 +101,10 @@ Maps belong in the repository's top-level `map/` folder.
 
 ## 🤖 Autonomous Driving
 
-Start human control with the legacy mux output remapped away from
-`/ackermann_cmd`, start the control center, then launch Nav2:
+Start human control, which now includes the control center, then launch Nav2:
 
 ```bash
-ros2 launch carkit_human_control joystick.launch.py \
-  vehicle_command_topic:=/ackermann_mux_unused
-```
-
-```bash
-ros2 launch carkit_control_center control_center.launch.py
+ros2 launch carkit_human_control joystick.launch.py
 ```
 
 ```bash

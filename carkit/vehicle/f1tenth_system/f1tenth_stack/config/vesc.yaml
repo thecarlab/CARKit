@@ -50,6 +50,8 @@ throttle_interpolator:
     rpm_output_topic: commands/motor/speed
     servo_input_topic: commands/servo/unsmoothed_position
     servo_output_topic: commands/servo/position
+    # Stop the motor and return steering to neutral if either input goes stale.
+    command_timeout_sec: 0.5
 
     # servo smoother - limits acceleration and smooths anything above limit
     max_acceleration: 2.5 # meters/second^2

@@ -21,6 +21,7 @@
 # SOFTWARE.
 
 from launch import LaunchDescription
+from launch.conditions import IfCondition
 from launch_ros.actions import Node
 from launch.substitutions import Command
 from launch.substitutions import LaunchConfiguration
@@ -64,8 +65,18 @@ def generate_launch_description():
         'vehicle_command_topic',
         default_value='/ackermann_cmd',
         description='Ackermann command topic consumed by the vehicle controller')
+    start_ackermann_mux_la = DeclareLaunchArgument(
+        'start_ackermann_mux',
+        default_value='false',
+        description='Start the legacy Ackermann command mux')
 
-    ld = LaunchDescription([joy_la, vesc_la, mux_la, vehicle_command_topic_la])
+    ld = LaunchDescription([
+        joy_la,
+        vesc_la,
+        mux_la,
+        vehicle_command_topic_la,
+        start_ackermann_mux_la,
+    ])
 
     joy_node = Node(
         package='joy',
@@ -112,7 +123,8 @@ def generate_launch_description():
         executable='ackermann_mux',
         name='ackermann_mux',
         parameters=[LaunchConfiguration('mux_config')],
-        remappings=[('ackermann_cmd', LaunchConfiguration('vehicle_command_topic'))]
+        remappings=[('ackermann_cmd', LaunchConfiguration('vehicle_command_topic'))],
+        condition=IfCondition(LaunchConfiguration('start_ackermann_mux')),
     )
     static_tf_node = Node(
         package='tf2_ros',
@@ -131,6 +143,8 @@ def generate_launch_description():
     ld.add_action(vesc_to_odom_node)
     ld.add_action(vesc_driver_node)
 
+    # The control center owns /ackermann_cmd in the supported CARKit flow.
+    # Keep this optional node only for legacy compatibility and rollback tests.
     ld.add_action(ackermann_mux_node)
     ld.add_action(static_tf_node)
 
