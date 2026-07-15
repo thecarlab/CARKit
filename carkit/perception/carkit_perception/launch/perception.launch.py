@@ -2,13 +2,10 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch.substitutions import PythonExpression
-from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 
 
 def visualization_is(name, legacy_argument):
@@ -80,33 +77,6 @@ def generate_launch_description():
         condition=visualization_is("rviz", "start_rviz"),
     )
 
-    foxglove_bridge = IncludeLaunchDescription(
-        XMLLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare("foxglove_bridge"),
-                "launch",
-                "foxglove_bridge_launch.xml",
-            ])
-        ),
-        launch_arguments={
-            "address": LaunchConfiguration("foxglove_address"),
-            "port": LaunchConfiguration("foxglove_port"),
-            "remote_access": LaunchConfiguration("foxglove_remote_access"),
-            "device_token": LaunchConfiguration("foxglove_device_token"),
-            "sysinfo": LaunchConfiguration("foxglove_sysinfo"),
-            "topic_whitelist": LaunchConfiguration("foxglove_topic_whitelist"),
-            "client_topic_whitelist": LaunchConfiguration(
-                "foxglove_client_topic_whitelist"
-            ),
-            "param_whitelist": LaunchConfiguration("foxglove_param_whitelist"),
-            "service_whitelist": LaunchConfiguration(
-                "foxglove_service_whitelist"
-            ),
-            "capabilities": LaunchConfiguration("foxglove_capabilities"),
-        }.items(),
-        condition=visualization_is("foxglove", "start_foxglove_bridge"),
-    )
-
     return LaunchDescription([
         DeclareLaunchArgument(
             "model_path",
@@ -160,9 +130,7 @@ def generate_launch_description():
         DeclareLaunchArgument(
             "visualization",
             default_value="none",
-            description=(
-                "Perception visualization mode: foxglove, rviz, or none."
-            ),
+            description="Perception visualization mode: rviz or none.",
         ),
         DeclareLaunchArgument(
             "start_rviz",
@@ -171,67 +139,7 @@ def generate_launch_description():
                 "Deprecated compatibility flag. Use visualization:=rviz."
             ),
         ),
-        DeclareLaunchArgument(
-            "start_foxglove_bridge",
-            default_value="false",
-            description=(
-                "Deprecated compatibility flag. Use visualization:=foxglove."
-            ),
-        ),
-        DeclareLaunchArgument(
-            "foxglove_address",
-            default_value="0.0.0.0",
-            description="Foxglove Bridge bind address.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_port",
-            default_value="8765",
-            description="Foxglove Bridge WebSocket port.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_remote_access",
-            default_value="false",
-            description="Enable Foxglove remote access.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_device_token",
-            default_value="",
-            description="Foxglove device token for remote access.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_sysinfo",
-            default_value="false",
-            description="Publish system info through Foxglove Bridge.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_topic_whitelist",
-            default_value=(
-                "['^/camera(/.*)?$', '^/yolo/.*$', '^/tf$', '^/tf_static$']"
-            ),
-            description="Foxglove Bridge topic whitelist.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_client_topic_whitelist",
-            default_value="['^$']",
-            description="Topics Foxglove clients may publish.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_param_whitelist",
-            default_value="['^$']",
-            description="Foxglove Bridge parameter whitelist.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_service_whitelist",
-            default_value="['^$']",
-            description="Foxglove Bridge service whitelist.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_capabilities",
-            default_value="[connectionGraph]",
-            description="Foxglove Bridge capabilities.",
-        ),
         camera,
         perception_2d_node,
         rviz_node,
-        foxglove_bridge,
     ])
