@@ -1,6 +1,6 @@
 control_center_node:
   ros__parameters:
-    publish_rate_hz: 50.0
+    publish_rate_hz: 20.0
     auto_button: 0
     human_button: 1
     estop_button: 2

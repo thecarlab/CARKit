@@ -9,6 +9,12 @@ from ackermann_msgs.msg import AckermannDriveStamped
 from builtin_interfaces.msg import Time
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from sensor_msgs.msg import Joy
 from std_msgs.msg import Bool, Int8, String
 
@@ -40,7 +46,7 @@ class ControlCenterNode(Node):
     def __init__(self) -> None:
         super().__init__("control_center_node")
 
-        self.declare_parameter("publish_rate_hz", 50.0)
+        self.declare_parameter("publish_rate_hz", 20.0)
         self.declare_parameter("auto_button", 0)
         self.declare_parameter("human_button", 1)
         self.declare_parameter("estop_button", 2)
@@ -92,6 +98,8 @@ class ControlCenterNode(Node):
         self.behavior_override_active = TimedMessage()
         self.previous_buttons: list[int] = []
         self.debug_counter = 0
+        self.last_published_state: Optional[str] = None
+        self.last_published_selected: Optional[str] = None
 
         self.create_subscription(Joy, "/joy", self.joy_callback, 10)
         self.create_subscription(
@@ -131,10 +139,16 @@ class ControlCenterNode(Node):
             "/ackermann_cmd",
             10,
         )
+        state_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
         self.state_pub = self.create_publisher(
             String,
             "/control_center/main_state",
-            10,
+            state_qos,
         )
         self.selected_pub = self.create_publisher(
             String,
@@ -238,8 +252,12 @@ class ControlCenterNode(Node):
         self.clamp_command(command)
         command.header.stamp = self.get_clock().now().to_msg()
         self.cmd_pub.publish(command)
-        self.publish_text(self.state_pub, self.main_state)
-        self.publish_text(self.selected_pub, selected)
+        if self.main_state != self.last_published_state:
+            self.publish_text(self.state_pub, self.main_state)
+            self.last_published_state = self.main_state
+        if selected != self.last_published_selected:
+            self.publish_text(self.selected_pub, selected)
+            self.last_published_selected = selected
         self.publish_debug(selected, now)
 
     def rising_edge(self, buttons: list[int], index: int) -> bool:

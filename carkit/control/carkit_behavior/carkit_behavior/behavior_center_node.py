@@ -570,11 +570,17 @@ class BehaviorCenterNode(Node):
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
         )
+        control_state_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
         self.create_subscription(
             String,
             "/control_center/main_state",
             self.main_state_callback,
-            10,
+            control_state_qos,
         )
         self.create_subscription(
             YoloDetection2DArray,
