@@ -21,6 +21,11 @@ from carkit_behavior.behavior_center_node import (
 
 def make_node():
     node = object.__new__(BehaviorCenterNode)
+    node.get_clock = lambda: SimpleNamespace(
+        now=lambda: SimpleNamespace(to_msg=lambda: Time())
+    )
+    node.detection_timeout_sec = 0.5
+    node.scan_timeout_sec = 0.25
     node.min_confidence = 0.55
     node.camera_fx = None
     node.camera_cx = None
@@ -78,11 +83,20 @@ def make_node():
     node.cone_override_speed_mps = 0.8
     node.cone_fallback_range_m = 2.0
     node.cone_visible = False
+    node.last_cone_seen_time = None
+    node.pending_detections = None
+    node.pending_detection_time = None
+    node.last_detection_received_time = None
+    node.last_detection_processed_time = None
+    node.detection_state_expired = True
+    node.latest_scan = None
+    node.latest_scan_time = None
     node.speed_sign_override_until = 0.0
     node.last_speed_sign_debug_sec = 10.0
     node.last_speed_sign_localize_debug_sec = 10.0
     node.last_cone_debug_sec = 10.0
     node.latest_nav2_drive = None
+    node.current_velocity_mps = None
     node.stop_cooldown_until = 0.0
     node.last_stop_sign_debug_sec = 10.0
     node.last_traffic_light_debug_sec = 10.0
@@ -101,6 +115,9 @@ def make_node():
     node.traffic_light_tracks = []
     node.speed_sign_tracks = []
     node.cone_tracks = []
+    no_op_publisher = SimpleNamespace(publish=lambda msg: None)
+    node.cone_position_pub = no_op_publisher
+    node.cone_markers_pub = no_op_publisher
     return node
 
 
@@ -137,6 +154,123 @@ def detection_array(item):
         image_height=480,
         detections=[item],
     )
+
+
+def test_detection_callback_processes_a_fresh_frame_once():
+    node = make_node()
+    scan = centered_scan(2.0)
+    node.latest_scan = scan
+    node.latest_scan_time = 9.9
+    node.now_sec = lambda: 10.0
+    calls = []
+    node.process_detection_frame = (
+        lambda detections, used_scan, now: calls.append(
+            (detections, used_scan, now)
+        )
+    )
+    msg = detection_array(detection("stop sign"))
+
+    node.detections_callback(msg)
+
+    assert calls == [(msg, scan, 10.0)]
+    assert node.pending_detections is None
+    assert node.last_detection_received_time == 10.0
+    assert not node.detection_state_expired
+
+
+def test_latest_pending_detection_is_processed_by_one_scan_once():
+    node = make_node()
+    now = [10.0]
+    node.now_sec = lambda: now[0]
+    calls = []
+    node.process_detection_frame = (
+        lambda detections, scan, timestamp: calls.append(
+            (detections, scan, timestamp)
+        )
+    )
+    first = detection_array(detection("stop sign"))
+    second = detection_array(detection("traffic_cone"))
+
+    node.detections_callback(first)
+    now[0] = 10.1
+    node.detections_callback(second)
+    assert node.pending_detections is second
+
+    now[0] = 10.2
+    scan = centered_scan(2.0)
+    node.scan_callback(scan)
+    assert calls == [(second, scan, 10.2)]
+    assert node.pending_detections is None
+
+    now[0] = 10.21
+    node.scan_callback(centered_scan(2.0))
+    assert len(calls) == 1
+
+
+def test_expired_pending_detection_is_not_processed():
+    node = make_node()
+    now = [10.0]
+    node.now_sec = lambda: now[0]
+    calls = []
+    node.process_detection_frame = lambda *args: calls.append(args)
+    msg = detection_array(detection("stop sign"))
+
+    node.detections_callback(msg)
+    now[0] = 10.6
+    node.scan_callback(centered_scan(2.0))
+
+    assert calls == []
+    assert node.pending_detections is None
+
+
+def test_detection_state_expires_only_once():
+    node = make_node()
+    node.last_detection_received_time = 10.0
+    node.detection_state_expired = False
+    node.pending_detections = detection_array(detection("traffic_cone"))
+    node.pending_detection_time = 10.0
+    node.cone_visible = True
+    calls = []
+    node.clear_traffic_light_track = lambda: calls.append("traffic_light")
+    node.publish_stop_sign_tracks = lambda: calls.append("stop_sign")
+    node.publish_speed_sign_tracks = lambda: calls.append("speed_sign")
+    node.publish_cone_tracks = lambda: calls.append("cone")
+
+    assert not node.expire_detection_state_if_needed(10.5)
+    assert node.cone_visible
+    assert node.expire_detection_state_if_needed(10.51)
+    assert not node.cone_visible
+    assert node.pending_detections is None
+    assert calls == ["traffic_light", "stop_sign", "speed_sign", "cone"]
+
+    assert not node.expire_detection_state_if_needed(11.0)
+    assert calls == ["traffic_light", "stop_sign", "speed_sign", "cone"]
+
+
+def test_detection_frame_dispatches_each_behavior_once():
+    node = make_node()
+    calls = []
+    node.publish_traffic_light_from_detections = (
+        lambda detections, scan: calls.append("traffic_light")
+    )
+    node.publish_stop_sign_from_detections = (
+        lambda detections, scan: calls.append("stop_sign")
+    )
+    node.publish_speed_sign_from_detections = (
+        lambda detections, scan: calls.append("speed_sign")
+    )
+    node.publish_cone_from_detections = (
+        lambda detections, scan, now: calls.append("cone")
+    )
+
+    node.process_detection_frame(
+        detection_array(detection("stop sign")),
+        centered_scan(2.0),
+        12.0,
+    )
+
+    assert calls == ["traffic_light", "stop_sign", "speed_sign", "cone"]
+    assert node.last_detection_processed_time == 12.0
 
 
 def reliable_track(x, y):
@@ -635,7 +769,7 @@ def test_speed_sign_triggers_after_passing_projected_line():
 def test_speed_sign_triggers_after_closest_range_then_receding():
     node = make_node()
     track = speed_sign_track(5.0, 0.0)
-    track.last_range_m = 1.0
+    track.last_range_m = 1.21
     track.min_range_m = 0.8
     node.speed_sign_tracks = [track]
 
@@ -657,7 +791,7 @@ def test_speed_sign_does_not_retrigger_after_pass():
 def test_speed_sign_override_multiplies_current_speed_with_cap():
     node = make_node()
     node.current_velocity_mps = 1.2
-    assert node.speed_sign_override_speed() == 1.8
+    assert math.isclose(node.speed_sign_override_speed(), 1.8)
     node.current_velocity_mps = 2.0
     assert node.speed_sign_override_speed() == 3.0
     node.current_velocity_mps = 2.5
@@ -700,6 +834,19 @@ def test_cone_speed_override_requires_stable_visible_track():
     node.cone_visible = False
     assert not node.cone_present()
     assert not node.cone_speed_override_active()
+
+
+def test_cone_visibility_expires_from_last_seen_time():
+    node = make_node()
+    node.cone_tracks = [cone_track(3.0, 0.0)]
+    node.cone_visible = True
+    node.last_cone_seen_time = 10.0
+    node.current_velocity_mps = 1.2
+
+    assert node.cone_present(10.5)
+    assert node.cone_speed_override_active(10.5)
+    assert not node.cone_present(10.51)
+    assert not node.cone_speed_override_active(10.51)
 
 
 def test_cone_does_not_override_at_or_below_limit_speed():

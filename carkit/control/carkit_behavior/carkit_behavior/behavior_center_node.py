@@ -525,8 +525,11 @@ class BehaviorCenterNode(Node):
         )
 
         self.main_state = ""
-        self.latest_detections: Optional[YoloDetection2DArray] = None
-        self.latest_detection_time = None
+        self.pending_detections: Optional[YoloDetection2DArray] = None
+        self.pending_detection_time: Optional[float] = None
+        self.last_detection_received_time: Optional[float] = None
+        self.last_detection_processed_time: Optional[float] = None
+        self.detection_state_expired = True
         self.latest_nav2_drive: Optional[AckermannDriveStamped] = None
         self.latest_scan: Optional[LaserScan] = None
         self.latest_scan_time = None
@@ -556,6 +559,7 @@ class BehaviorCenterNode(Node):
         self.speed_sign_tracks: list[SpeedSignTrack] = []
         self.cone_tracks: list[ConeTrack] = []
         self.cone_visible = False
+        self.last_cone_seen_time: Optional[float] = None
         self.speed_sign_override_until = 0.0
         self.active_speed_sign_override_speed: Optional[float] = None
         self.last_speed_sign_debug_sec = 0.0
@@ -567,6 +571,11 @@ class BehaviorCenterNode(Node):
 
         sensor_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+        detection_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
         )
@@ -586,7 +595,7 @@ class BehaviorCenterNode(Node):
             YoloDetection2DArray,
             "/yolo/detections_2d",
             self.detections_callback,
-            10,
+            detection_qos,
         )
         self.create_subscription(
             AckermannDriveStamped,
@@ -686,15 +695,31 @@ class BehaviorCenterNode(Node):
         self.main_state = msg.data
 
     def detections_callback(self, msg: YoloDetection2DArray) -> None:
-        self.latest_detections = msg
-        self.latest_detection_time = self.now_sec()
+        now = self.now_sec()
+        self.last_detection_received_time = now
+        self.detection_state_expired = False
+
+        scan = self.fresh_scan(now)
+        if scan is None:
+            # Keep only the newest frame while waiting for a usable scan.
+            self.pending_detections = msg
+            self.pending_detection_time = now
+            self.clear_traffic_light_track()
+            self.cone_visible = False
+            return
+
+        self.pending_detections = None
+        self.pending_detection_time = None
+        self.process_detection_frame(msg, scan, now)
 
     def nav2_drive_callback(self, msg: AckermannDriveStamped) -> None:
         self.latest_nav2_drive = msg
 
     def scan_callback(self, msg: LaserScan) -> None:
         self.latest_scan = msg
-        self.latest_scan_time = self.now_sec()
+        now = self.now_sec()
+        self.latest_scan_time = now
+        self.process_pending_detection(now)
 
     def odom_callback(self, msg: Odometry) -> None:
         self.current_velocity_mps = float(msg.twist.twist.linear.x)
@@ -739,27 +764,66 @@ class BehaviorCenterNode(Node):
         self.camera_cx = float(msg.k[2])
         self.camera_fx = float(msg.k[0])
 
+    def process_pending_detection(self, now: float) -> bool:
+        detections = self.pending_detections
+        detection_time = self.pending_detection_time
+        if detections is None or detection_time is None:
+            return False
+
+        if now - detection_time > self.detection_timeout_sec:
+            self.pending_detections = None
+            self.pending_detection_time = None
+            return False
+
+        scan = self.fresh_scan(now)
+        if scan is None:
+            return False
+
+        # Clear before processing so this frame cannot be counted twice.
+        self.pending_detections = None
+        self.pending_detection_time = None
+        self.process_detection_frame(detections, scan, now)
+        return True
+
+    def process_detection_frame(
+        self,
+        detections: YoloDetection2DArray,
+        scan: LaserScan,
+        now: float,
+    ) -> None:
+        self.publish_traffic_light_from_detections(detections, scan)
+        self.publish_stop_sign_from_detections(detections, scan)
+        self.publish_speed_sign_from_detections(detections, scan)
+        self.publish_cone_from_detections(detections, scan, now)
+        self.last_detection_processed_time = now
+
+    def expire_detection_state_if_needed(self, now: float) -> bool:
+        if (
+            self.detection_state_expired
+            or self.last_detection_received_time is None
+            or now - self.last_detection_received_time
+            <= self.detection_timeout_sec
+        ):
+            return False
+
+        self.detection_state_expired = True
+        self.pending_detections = None
+        self.pending_detection_time = None
+        self.cone_visible = False
+        self.clear_traffic_light_track()
+        # Preserve the last stable map objects without republishing at 20 Hz.
+        self.publish_stop_sign_tracks()
+        self.publish_speed_sign_tracks()
+        self.publish_cone_tracks()
+        return True
+
     def timer_callback(self) -> None:
         now = self.now_sec()
+        self.expire_detection_state_if_needed(now)
         state = NORMAL_NAV2
         override_active = False
         publish_override_cmd = False
         override_speed: Optional[float] = None
-
-        scan = self.fresh_scan(now)
-        detections = self.fresh_detections(now)
-
-        if detections is not None:
-            self.publish_traffic_light_from_detections(detections, scan)
-            self.publish_stop_sign_from_detections(detections, scan)
-            self.publish_speed_sign_from_detections(detections, scan)
-            self.publish_cone_from_detections(detections, scan)
-        else:
-            self.clear_traffic_light_track()
-            self.cone_visible = False
-            self.publish_stop_sign_tracks()
-            self.publish_speed_sign_tracks()
-            self.publish_cone_tracks()
 
         if self.main_state != AUTO_DRIVE:
             self.last_behavior_state = NORMAL_NAV2
@@ -783,7 +847,7 @@ class BehaviorCenterNode(Node):
                 state = TRAFFIC_LIGHT
                 override_active = True
                 publish_override_cmd = True
-            elif self.cone_speed_override_active():
+            elif self.cone_speed_override_active(now):
                 state = CONE
                 override_active = True
                 publish_override_cmd = True
@@ -815,16 +879,6 @@ class BehaviorCenterNode(Node):
                 )
             else:
                 self.override_cmd_pub.publish(self.zero_command())
-
-    def fresh_detections(self, now: float) -> Optional[YoloDetection2DArray]:
-        if (
-            self.latest_detections is None
-            or self.latest_detection_time is None
-        ):
-            return None
-        if now - self.latest_detection_time > self.detection_timeout_sec:
-            return None
-        return self.latest_detections
 
     def fresh_scan(self, now: float) -> Optional[LaserScan]:
         if self.latest_scan is None or self.latest_scan_time is None:
@@ -1248,6 +1302,7 @@ class BehaviorCenterNode(Node):
         self,
         detections: YoloDetection2DArray,
         scan: Optional[LaserScan],
+        now: Optional[float] = None,
     ) -> None:
         if scan is None:
             self.cone_visible = False
@@ -1259,6 +1314,8 @@ class BehaviorCenterNode(Node):
             self.publish_cone_tracks()
             return
         self.cone_visible = True
+        if now is not None:
+            self.last_cone_seen_time = now
         location = self.localize_cone(
             detection,
             float(detections.image_width),
@@ -1683,8 +1740,15 @@ class BehaviorCenterNode(Node):
                 return track
         return None
 
-    def cone_present(self) -> bool:
-        return self.cone_visible and self.reliable_cone_track() is not None
+    def cone_present(self, now: Optional[float] = None) -> bool:
+        if not self.cone_visible or self.reliable_cone_track() is None:
+            return False
+        if now is None:
+            return True
+        return (
+            self.last_cone_seen_time is not None
+            and now - self.last_cone_seen_time <= self.detection_timeout_sec
+        )
 
     def current_speed_mps(self) -> Optional[float]:
         if self.current_velocity_mps is not None:
@@ -1693,8 +1757,11 @@ class BehaviorCenterNode(Node):
             return abs(float(self.latest_nav2_drive.drive.speed))
         return None
 
-    def cone_speed_override_active(self) -> bool:
-        if not self.cone_present():
+    def cone_speed_override_active(
+        self,
+        now: Optional[float] = None,
+    ) -> bool:
+        if not self.cone_present(now):
             return False
         current_speed = self.current_speed_mps()
         if current_speed is None:
