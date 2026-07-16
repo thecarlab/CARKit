@@ -86,8 +86,8 @@ def generate_launch_description():
         remappings=[('joy', 'joy_device')],
     )
     joy_rate_filter_node = Node(
-        package='f1tenth_stack',
-        executable='joy_rate_filter',
+        package='carkit_joy_rate_filter',
+        executable='joy_rate_filter_node',
         name='joy_rate_filter',
         parameters=[LaunchConfiguration('joy_config')],
     )

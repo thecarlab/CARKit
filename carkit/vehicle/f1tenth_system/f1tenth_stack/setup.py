@@ -25,7 +25,6 @@ setup(
     entry_points={
         'console_scripts': [
             'throttle_interpolator = f1tenth_stack.throttle_interpolator:main',
-            'joy_rate_filter = f1tenth_stack.joy_rate_filter:main',
         ],
     },
 )

@@ -5,6 +5,13 @@ joy:
     autorepeat_rate: 20.0
     coalesce_interval_ms: 50
 
+joy_rate_filter:
+  ros__parameters:
+    input_topic: joy_device
+    output_topic: joy
+    publish_rate: 20.0
+    input_timeout_sec: 0.25
+
 joy_teleop:
   ros__parameters:
     mode_toggle_button: 10
