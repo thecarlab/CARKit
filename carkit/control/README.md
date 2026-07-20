@@ -114,10 +114,19 @@ Publications:
 - `/behavior/state`
 - `/behavior/override_active`
 - `/behavior/override_cmd`
+- `/behavior/stop_latency_trace`
 - `/behavior/stop_sign_position`
 - `/behavior/traffic_light_position`
 - `/behavior/stop_sign_markers` (`visualization_msgs/MarkerArray`)
 - `/behavior/traffic_light_markers` (`visualization_msgs/MarkerArray`)
+
+Experiment support:
+
+- `/behavior/stop_latency_trace` publishes one timing event for the first
+  stop-sign or red-light stop in a trial.
+- `/behavior/reset_stop_latency_trial` (`std_srvs/Trigger`) clears the relevant
+  tracks and timing state between trials. Switch out of `AUTO_DRIVE` before
+  calling it.
 
 The `*_markers` topics are the Foxglove/RViz visualization topics. The
 `*_position` topics remain available as machine-readable `PointStamped`

@@ -7,6 +7,7 @@ import rclpy
 from ackermann_msgs.msg import AckermannDriveStamped
 from builtin_interfaces.msg import Time
 from carkit_perception_msgs.msg import (
+    StopLatencyTrace,
     YoloDetection2D,
     YoloDetection2DArray,
     YoloTrafficLightDetection2D,
@@ -28,6 +29,7 @@ from rclpy.qos import (
 from rclpy.time import Time as RclpyTime
 from sensor_msgs.msg import CameraInfo, LaserScan
 from std_msgs.msg import Bool, String
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformException, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -125,6 +127,9 @@ class ObjectLocation:
         self.y = y
 
 
+_FRAME_LOCATION_CACHE_MISS = object()
+
+
 class MapPoint:
     __slots__ = ("x", "y")
 
@@ -143,6 +148,8 @@ class StopSignTrack:
         "rearm_for_new_plan",
         "last_distance_m",
         "min_distance_m",
+        "latency_source_image_stamp",
+        "latency_track_ready_stamp",
     )
 
     def __init__(self, x: float, y: float, confidence: float) -> None:
@@ -154,6 +161,8 @@ class StopSignTrack:
         self.rearm_for_new_plan = False
         self.last_distance_m: Optional[float] = None
         self.min_distance_m: Optional[float] = None
+        self.latency_source_image_stamp: Optional[Time] = None
+        self.latency_track_ready_stamp: Optional[Time] = None
 
     def update(self, x: float, y: float, confidence: float) -> None:
         weight = max(0.01, confidence)
@@ -547,11 +556,16 @@ class BehaviorCenterNode(Node):
         )
         self.traffic_light_stop_color_frames = 0
         self.traffic_light_green_frames = 0
+        self.latency_trial_id = 0
+        self.latency_trace_sent = False
+        self.latency_incomplete_warned = False
+        self.red_light_latency_frames = 0
+        self.red_light_source_image_stamp: Optional[Time] = None
+        self.red_light_ready_stamp: Optional[Time] = None
         self.current_velocity_mps: Optional[float] = None
         self.current_pose_frame: Optional[str] = None
         self.current_robot_x: Optional[float] = None
         self.current_robot_y: Optional[float] = None
-        self.current_robot_yaw: Optional[float] = None
         self.latest_global_plan: Optional[Path] = None
         self.active_plan_goal: Optional[MapPoint] = None
         self.stop_sign_tracks: list[StopSignTrack] = []
@@ -566,6 +580,12 @@ class BehaviorCenterNode(Node):
         self.last_cone_debug_sec = 0.0
         self.last_speed_sign_localize_debug_sec = 0.0
         self.last_behavior_state = NORMAL_NAV2
+        self._scan_geometry_key = None
+        self._scan_angles: tuple[float, ...] = ()
+        self._scan_cosines: tuple[float, ...] = ()
+        self._scan_sines: tuple[float, ...] = ()
+        self._frame_localization_cache = None
+        self._frame_transform_cache = None
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
@@ -575,6 +595,11 @@ class BehaviorCenterNode(Node):
             depth=1,
         )
         detection_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+        odom_qos = QoSProfile(
             reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
@@ -613,7 +638,7 @@ class BehaviorCenterNode(Node):
             Odometry,
             str(self.get_parameter("odom_topic").value),
             self.odom_callback,
-            10,
+            odom_qos,
         )
         self.create_subscription(
             Path,
@@ -685,6 +710,16 @@ class BehaviorCenterNode(Node):
             "/behavior/cone_markers",
             marker_qos,
         )
+        self.stop_latency_trace_pub = self.create_publisher(
+            StopLatencyTrace,
+            "/behavior/stop_latency_trace",
+            10,
+        )
+        self.reset_stop_latency_service = self.create_service(
+            Trigger,
+            "/behavior/reset_stop_latency_trial",
+            self.reset_stop_latency_trial_callback,
+        )
 
         self.timer = self.create_timer(0.05, self.timer_callback)
         self.get_logger().info(
@@ -726,12 +761,6 @@ class BehaviorCenterNode(Node):
         self.current_pose_frame = msg.header.frame_id
         self.current_robot_x = float(msg.pose.pose.position.x)
         self.current_robot_y = float(msg.pose.pose.position.y)
-        self.current_robot_yaw = yaw_from_quaternion(
-            msg.pose.pose.orientation.x,
-            msg.pose.pose.orientation.y,
-            msg.pose.pose.orientation.z,
-            msg.pose.pose.orientation.w,
-        )
 
     def global_plan_callback(self, msg: Path) -> None:
         self.latest_global_plan = msg
@@ -764,6 +793,49 @@ class BehaviorCenterNode(Node):
         self.camera_cx = float(msg.k[2])
         self.camera_fx = float(msg.k[0])
 
+    def reset_stop_latency_trial_callback(
+        self,
+        _request: Trigger.Request,
+        response: Trigger.Response,
+    ) -> Trigger.Response:
+        if self.main_state == AUTO_DRIVE:
+            response.success = False
+            response.message = (
+                "Switch out of AUTO_DRIVE before resetting latency state"
+            )
+            return response
+
+        self.stop_sign_tracks = []
+        self.traffic_light_tracks = []
+        self.stop_until = 0.0
+        self.stop_cooldown_until = 0.0
+        self.traffic_light_stop_engaged = False
+        self.latest_traffic_light_color = (
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
+        )
+        self.traffic_light_stop_color_frames = 0
+        self.traffic_light_green_frames = 0
+        self.pending_detections = None
+        self.pending_detection_time = None
+        self.latency_trace_sent = False
+        self.latency_incomplete_warned = False
+        self.reset_red_light_latency_state()
+        self.latency_trial_id += 1
+
+        reset_trace = StopLatencyTrace()
+        reset_trace.event_type = StopLatencyTrace.RESET
+        reset_trace.trial_id = self.latency_trial_id
+        self.stop_latency_trace_pub.publish(reset_trace)
+
+        response.success = True
+        response.message = f"Latency trial {self.latency_trial_id} ready"
+        return response
+
+    def reset_red_light_latency_state(self) -> None:
+        self.red_light_latency_frames = 0
+        self.red_light_source_image_stamp = None
+        self.red_light_ready_stamp = None
+
     def process_pending_detection(self, now: float) -> bool:
         detections = self.pending_detections
         detection_time = self.pending_detection_time
@@ -791,11 +863,19 @@ class BehaviorCenterNode(Node):
         scan: LaserScan,
         now: float,
     ) -> None:
-        self.publish_traffic_light_from_detections(detections, scan)
-        self.publish_stop_sign_from_detections(detections, scan)
-        self.publish_speed_sign_from_detections(detections, scan)
-        self.publish_cone_from_detections(detections, scan, now)
-        self.last_detection_processed_time = now
+        self._frame_localization_cache = (
+            self.build_frame_localization_cache(detections, scan)
+        )
+        self._frame_transform_cache = {}
+        try:
+            self.publish_traffic_light_from_detections(detections, scan)
+            self.publish_stop_sign_from_detections(detections, scan)
+            self.publish_speed_sign_from_detections(detections, scan)
+            self.publish_cone_from_detections(detections, scan, now)
+            self.last_detection_processed_time = now
+        finally:
+            self._frame_localization_cache = None
+            self._frame_transform_cache = None
 
     def expire_detection_state_if_needed(self, now: float) -> bool:
         if (
@@ -878,7 +958,12 @@ class BehaviorCenterNode(Node):
                     self.speed_override_command(override_speed)
                 )
             else:
-                self.override_cmd_pub.publish(self.zero_command())
+                command = self.zero_command()
+                self.override_cmd_pub.publish(command)
+                self.publish_stop_latency_trace_for_override(
+                    state,
+                    command.header.stamp,
+                )
 
     def fresh_scan(self, now: float) -> Optional[LaserScan]:
         if self.latest_scan is None or self.latest_scan_time is None:
@@ -943,6 +1028,122 @@ class BehaviorCenterNode(Node):
             and detection.confidence >= self.cone_min_confidence
         ]
         return max(candidates, key=lambda item: item.confidence, default=None)
+
+    def build_frame_localization_cache(
+        self,
+        detections: YoloDetection2DArray,
+        scan: LaserScan,
+    ) -> dict[str, tuple[int, Optional[ObjectLocation]]]:
+        candidates: dict[
+            str,
+            tuple[YoloDetection2D, float, float, float, Optional[float]],
+        ] = {}
+
+        traffic_light = self.best_traffic_light_detection(detections)
+        if traffic_light is not None:
+            candidates["traffic_light"] = (
+                traffic_light[0],
+                self.traffic_light_lidar_angle_window_rad,
+                self.traffic_light_lidar_min_range_m,
+                self.traffic_light_lidar_max_range_m,
+                None,
+            )
+
+        stop_sign = self.best_stop_sign_detection(detections)
+        if stop_sign is not None:
+            candidates["stop_sign"] = (
+                stop_sign,
+                self.stop_sign_lidar_angle_window_rad,
+                self.stop_sign_lidar_min_range_m,
+                self.stop_sign_lidar_max_range_m,
+                None,
+            )
+
+        speed_sign = self.best_speed_sign_detection(detections)
+        if speed_sign is not None:
+            candidates["speed_sign"] = (
+                speed_sign,
+                self.speed_sign_lidar_angle_window_rad,
+                self.speed_sign_lidar_min_range_m,
+                self.speed_sign_lidar_max_range_m,
+                self.speed_sign_fallback_range_m,
+            )
+
+        cone = self.best_cone_detection(detections)
+        if cone is not None:
+            candidates["cone"] = (
+                cone,
+                self.cone_lidar_angle_window_rad,
+                self.cone_lidar_min_range_m,
+                self.cone_lidar_max_range_m,
+                self.cone_fallback_range_m,
+            )
+
+        image_width = float(detections.image_width)
+        requests: dict[str, tuple[float, float, float, float]] = {}
+        target_angles: dict[str, float] = {}
+        cache: dict[str, tuple[int, Optional[ObjectLocation]]] = {}
+
+        for key, candidate in candidates.items():
+            detection, angle_window, min_range, max_range, _ = candidate
+            camera_bearing = self.detection_horizontal_bearing_rad(
+                detection,
+                image_width,
+            )
+            if camera_bearing is None:
+                cache[key] = (id(detection), None)
+                continue
+            target_angle = self.camera_bearing_to_scan_angle(camera_bearing)
+            target_angles[key] = target_angle
+            requests[key] = (
+                target_angle,
+                angle_window,
+                min_range,
+                max_range,
+            )
+
+        hits = self.find_lidar_hits_at_bearings(scan, requests)
+        for key, candidate in candidates.items():
+            detection, _, min_range, max_range, fallback_range = candidate
+            if key in cache:
+                continue
+
+            hit = hits.get(key)
+            if hit is not None:
+                range_m, scan_angle = hit
+                location = ObjectLocation(
+                    range_m=range_m,
+                    scan_angle_rad=scan_angle,
+                    x=range_m * math.cos(scan_angle),
+                    y=range_m * math.sin(scan_angle),
+                )
+            elif fallback_range is not None:
+                target_angle = target_angles[key]
+                range_m = clamp(fallback_range, min_range, max_range)
+                location = ObjectLocation(
+                    range_m=range_m,
+                    scan_angle_rad=target_angle,
+                    x=range_m * math.cos(target_angle),
+                    y=range_m * math.sin(target_angle),
+                )
+            else:
+                location = None
+            cache[key] = (id(detection), location)
+
+        return cache
+
+    def cached_frame_location(
+        self,
+        key: str,
+        detection: YoloDetection2D,
+    ):
+        cache = getattr(self, "_frame_localization_cache", None)
+        if cache is None or key not in cache:
+            return _FRAME_LOCATION_CACHE_MISS
+        detection_id, location = cache[key]
+        if detection_id != id(detection):
+            return _FRAME_LOCATION_CACHE_MISS
+        return location
 
     def detection_horizontal_bearing_rad(
         self,
@@ -1044,11 +1245,69 @@ class BehaviorCenterNode(Node):
         min_range_m: float,
         max_range_m: float,
     ) -> Optional[tuple[float, float]]:
-        half_window = angle_window_rad / 2.0
-        best_range = None
-        best_angle = target_angle
+        return self.find_lidar_hits_at_bearings(
+            scan,
+            {
+                "target": (
+                    target_angle,
+                    angle_window_rad,
+                    min_range_m,
+                    max_range_m,
+                )
+            },
+        )["target"]
+
+    def scan_geometry(
+        self,
+        scan: LaserScan,
+    ) -> tuple[tuple[float, ...], tuple[float, ...], tuple[float, ...]]:
+        geometry_key = (
+            len(scan.ranges),
+            float(scan.angle_min),
+            float(scan.angle_increment),
+        )
+        if geometry_key != getattr(self, "_scan_geometry_key", None):
+            angles = tuple(
+                scan.angle_min + index * scan.angle_increment
+                for index in range(len(scan.ranges))
+            )
+            self._scan_geometry_key = geometry_key
+            self._scan_angles = angles
+            self._scan_cosines = tuple(math.cos(angle) for angle in angles)
+            self._scan_sines = tuple(math.sin(angle) for angle in angles)
+        return self._scan_angles, self._scan_cosines, self._scan_sines
+
+    def find_lidar_hits_at_bearings(
+        self,
+        scan: LaserScan,
+        requests: dict[str, tuple[float, float, float, float]],
+    ) -> dict[str, Optional[tuple[float, float]]]:
+        if not requests:
+            return {}
+
+        prepared_requests = []
+        for key, request in requests.items():
+            target_angle, angle_window, min_range, max_range = request
+            half_window = angle_window / 2.0
+            prepared_requests.append(
+                (
+                    key,
+                    target_angle,
+                    half_window,
+                    min_range,
+                    max_range,
+                    math.cos(target_angle),
+                    math.sin(target_angle),
+                    math.tan(half_window),
+                )
+            )
+
+        best_ranges = {key: math.inf for key in requests}
+        hits: dict[str, Optional[tuple[float, float]]] = {
+            key: None for key in requests
+        }
+        angles, cosines, sines = self.scan_geometry(scan)
         front_angle = math.pi + self.camera_to_scan_yaw_offset_rad
-        target_camera_bearing = normalize_angle(front_angle - target_angle)
         camera_x = (
             self.camera_forward_offset_m * math.cos(front_angle)
             + self.camera_lateral_offset_m
@@ -1060,39 +1319,57 @@ class BehaviorCenterNode(Node):
             * math.sin(front_angle + math.pi / 2.0)
         )
         for index, raw_range in enumerate(scan.ranges):
-            angle = scan.angle_min + index * scan.angle_increment
-            if not lidar_range_valid(
-                raw_range,
-                scan,
-                min_range_m,
-                max_range_m,
-            ):
-                continue
-            point_x = raw_range * math.cos(angle)
-            point_y = raw_range * math.sin(angle)
-            angle_from_camera = math.atan2(
-                point_y - camera_y,
-                point_x - camera_x,
-            )
-            candidate_camera_bearing = normalize_angle(
-                front_angle - angle_from_camera
-            )
             if (
-                abs(
-                    angle_diff(
-                        candidate_camera_bearing,
-                        target_camera_bearing,
-                    )
-                )
-                > half_window
+                not math.isfinite(raw_range)
+                or raw_range <= scan.range_min
+                or raw_range >= scan.range_max
             ):
                 continue
-            if best_range is None or raw_range < best_range:
-                best_range = float(raw_range)
-                best_angle = angle
-        if best_range is None:
-            return None
-        return best_range, best_angle
+            point_x = raw_range * cosines[index]
+            point_y = raw_range * sines[index]
+            vector_x = point_x - camera_x
+            vector_y = point_y - camera_y
+
+            for request in prepared_requests:
+                (
+                    key,
+                    target_angle,
+                    half_window,
+                    min_range,
+                    max_range,
+                    target_x,
+                    target_y,
+                    tan_half_window,
+                ) = request
+                if raw_range < min_range or raw_range > max_range:
+                    continue
+
+                dot = target_x * vector_x + target_y * vector_y
+                cross = target_x * vector_y - target_y * vector_x
+                if 0.0 <= half_window < math.pi / 2.0:
+                    if dot <= 0.0:
+                        if vector_x != 0.0 or vector_y != 0.0:
+                            continue
+                        angle_matches = (
+                            abs(angle_diff(0.0, target_angle))
+                            <= half_window
+                        )
+                    else:
+                        angle_matches = (
+                            abs(cross) <= dot * tan_half_window
+                        )
+                else:
+                    angle_from_camera = math.atan2(vector_y, vector_x)
+                    angle_matches = (
+                        abs(angle_diff(angle_from_camera, target_angle))
+                        <= half_window
+                    )
+
+                if angle_matches and raw_range < best_ranges[key]:
+                    best_ranges[key] = float(raw_range)
+                    hits[key] = (float(raw_range), angles[index])
+
+        return hits
 
     def localize_stop_sign(
         self,
@@ -1100,6 +1377,9 @@ class BehaviorCenterNode(Node):
         image_width: float,
         scan: LaserScan,
     ) -> Optional[ObjectLocation]:
+        cached = self.cached_frame_location("stop_sign", detection)
+        if cached is not _FRAME_LOCATION_CACHE_MISS:
+            return cached
         return self.localize_detection(
             detection,
             image_width,
@@ -1115,6 +1395,9 @@ class BehaviorCenterNode(Node):
         image_width: float,
         scan: LaserScan,
     ) -> Optional[ObjectLocation]:
+        cached = self.cached_frame_location("traffic_light", detection)
+        if cached is not _FRAME_LOCATION_CACHE_MISS:
+            return cached
         return self.localize_detection(
             detection,
             image_width,
@@ -1130,6 +1413,9 @@ class BehaviorCenterNode(Node):
         image_width: float,
         scan: LaserScan,
     ) -> Optional[ObjectLocation]:
+        cached = self.cached_frame_location("speed_sign", detection)
+        if cached is not _FRAME_LOCATION_CACHE_MISS:
+            return cached
         return self.localize_detection_with_fallback(
             detection,
             image_width,
@@ -1146,6 +1432,9 @@ class BehaviorCenterNode(Node):
         image_width: float,
         scan: LaserScan,
     ) -> Optional[ObjectLocation]:
+        cached = self.cached_frame_location("cone", detection)
+        if cached is not _FRAME_LOCATION_CACHE_MISS:
+            return cached
         return self.localize_detection_with_fallback(
             detection,
             image_width,
@@ -1184,11 +1473,20 @@ class BehaviorCenterNode(Node):
         if point is None:
             self.publish_stop_sign_tracks()
             return
-        self.record_stop_sign_observation(
+        track = self.record_stop_sign_observation(
             point.x,
             point.y,
             float(detection.confidence),
         )
+        if track.latency_source_image_stamp is None:
+            track.latency_source_image_stamp = copy_stamp(
+                detections.header.stamp
+            )
+        if (
+            track.latency_track_ready_stamp is None
+            and self.stop_sign_track_reliable(track)
+        ):
+            track.latency_track_ready_stamp = self.get_clock().now().to_msg()
         self.publish_stop_sign_tracks()
 
     def publish_traffic_light_from_detections(
@@ -1204,7 +1502,10 @@ class BehaviorCenterNode(Node):
             self.clear_traffic_light_track()
             return
         detection, color = candidate
-        self.update_traffic_light_color_state(color)
+        self.update_traffic_light_color_state(
+            color,
+            detections.header.stamp,
+        )
         location = self.localize_traffic_light(
             detection,
             float(detections.image_width),
@@ -1222,12 +1523,14 @@ class BehaviorCenterNode(Node):
             self.clear_traffic_light_track()
             return
 
-        self.record_traffic_light_observation(
+        track = self.record_traffic_light_observation(
             point.x,
             point.y,
             float(detection.confidence),
             color,
+            detections.header.stamp,
         )
+        self.maybe_mark_red_light_ready(track)
         self.publish_traffic_light_tracks()
 
     def publish_speed_sign_from_detections(
@@ -1341,6 +1644,7 @@ class BehaviorCenterNode(Node):
 
     def clear_traffic_light_track(self) -> None:
         if self.traffic_light_stop_engaged:
+            self.reset_red_light_latency_state()
             return
         had_track = bool(self.traffic_light_tracks)
         self.traffic_light_tracks = []
@@ -1350,6 +1654,7 @@ class BehaviorCenterNode(Node):
         )
         self.traffic_light_stop_color_frames = 0
         self.traffic_light_green_frames = 0
+        self.reset_red_light_latency_state()
         if had_track and hasattr(self, "traffic_light_markers_pub"):
             self.traffic_light_markers_pub.publish(
                 delete_object_marker_array(
@@ -1359,7 +1664,11 @@ class BehaviorCenterNode(Node):
                 )
             )
 
-    def update_traffic_light_color_state(self, color: int) -> None:
+    def update_traffic_light_color_state(
+        self,
+        color: int,
+        source_image_stamp: Optional[Time] = None,
+    ) -> None:
         self.latest_traffic_light_color = color
         if color in (
             YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
@@ -1374,18 +1683,51 @@ class BehaviorCenterNode(Node):
             self.traffic_light_stop_color_frames = 0
             self.traffic_light_green_frames = 0
 
+        if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED:
+            if self.red_light_latency_frames == 0:
+                self.red_light_source_image_stamp = (
+                    copy_stamp(source_image_stamp)
+                    if source_image_stamp is not None
+                    else None
+                )
+                self.red_light_ready_stamp = None
+            self.red_light_latency_frames += 1
+        else:
+            self.reset_red_light_latency_state()
+
+    def maybe_mark_red_light_ready(self, track: TrafficLightTrack) -> None:
+        if (
+            self.red_light_ready_stamp is not None
+            or self.latest_traffic_light_color
+            != YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
+            or self.red_light_latency_frames
+            < max(1, self.traffic_light_stop_required_frames)
+            or not self.traffic_light_track_reliable(track)
+        ):
+            return
+        self.red_light_ready_stamp = self.get_clock().now().to_msg()
+
     def record_traffic_light_observation(
         self,
         x: float,
         y: float,
         confidence: float,
         color: int,
+        source_image_stamp: Optional[Time] = None,
     ) -> TrafficLightTrack:
         reliable_track = self.primary_traffic_light_track()
         if reliable_track is not None:
             distance = math.hypot(reliable_track.x - x, reliable_track.y - y)
             if distance > self.traffic_light_clear_distance_m:
                 self.traffic_light_tracks = []
+                self.reset_red_light_latency_state()
+                if color == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED:
+                    self.red_light_latency_frames = 1
+                    self.red_light_source_image_stamp = (
+                        copy_stamp(source_image_stamp)
+                        if source_image_stamp is not None
+                        else None
+                    )
             else:
                 if distance <= self.traffic_light_track_match_distance_m:
                     reliable_track.update(x, y, confidence, color)
@@ -1484,11 +1826,27 @@ class BehaviorCenterNode(Node):
         if source_frame == self.stop_sign_map_frame:
             return MapPoint(location.x, location.y)
 
-        transform = self.lookup_transform(
+        transform_key = (
             self.stop_sign_map_frame,
             source_frame,
-            stamp,
+            int(stamp.sec),
+            int(stamp.nanosec),
         )
+        frame_cache = getattr(self, "_frame_transform_cache", None)
+        if frame_cache is not None:
+            if transform_key not in frame_cache:
+                frame_cache[transform_key] = self.lookup_transform(
+                    self.stop_sign_map_frame,
+                    source_frame,
+                    stamp,
+                )
+            transform = frame_cache[transform_key]
+        else:
+            transform = self.lookup_transform(
+                self.stop_sign_map_frame,
+                source_frame,
+                stamp,
+            )
         if transform is None:
             return None
         return transform_xy(location.x, location.y, transform)
@@ -2077,6 +2435,49 @@ class BehaviorCenterNode(Node):
             return "green"
         return "unknown"
 
+    def publish_stop_latency_trace_for_override(
+        self,
+        state: str,
+        override_stamp: Time,
+    ) -> None:
+        event_type = None
+        source_image_stamp = None
+        track_ready_stamp = None
+
+        if state == STOP_SIGN:
+            event_type = StopLatencyTrace.STOP_SIGN
+            track = self.reliable_stop_sign_track()
+            if track is not None:
+                source_image_stamp = track.latency_source_image_stamp
+                track_ready_stamp = track.latency_track_ready_stamp
+        elif (
+            state == TRAFFIC_LIGHT
+            and self.latest_traffic_light_color
+            == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
+        ):
+            event_type = StopLatencyTrace.RED_LIGHT
+            source_image_stamp = self.red_light_source_image_stamp
+            track_ready_stamp = self.red_light_ready_stamp
+
+        if event_type is None or self.latency_trace_sent:
+            return
+        if source_image_stamp is None or track_ready_stamp is None:
+            if not self.latency_incomplete_warned:
+                self.get_logger().warning(
+                    "Latency trace is waiting for complete target provenance"
+                )
+                self.latency_incomplete_warned = True
+            return
+
+        trace = StopLatencyTrace()
+        trace.event_type = event_type
+        trace.trial_id = self.latency_trial_id
+        trace.source_image_stamp = copy_stamp(source_image_stamp)
+        trace.track_ready_stamp = copy_stamp(track_ready_stamp)
+        trace.override_stamp = copy_stamp(override_stamp)
+        self.stop_latency_trace_pub.publish(trace)
+        self.latency_trace_sent = True
+
     def publish_state(self, state: str, override_active: bool) -> None:
         state_msg = String()
         state_msg.data = state
@@ -2119,6 +2520,10 @@ def lidar_range_valid(
     if raw_range <= scan.range_min or raw_range >= scan.range_max:
         return False
     return min_range_m <= raw_range <= max_range_m
+
+
+def copy_stamp(stamp: Time) -> Time:
+    return Time(sec=int(stamp.sec), nanosec=int(stamp.nanosec))
 
 
 def normalize_angle(angle: float) -> float:

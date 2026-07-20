@@ -26,6 +26,7 @@ from carkit_perception.perception_math import (
     TrafficLightClassifier,
 )
 from carkit_perception_msgs.msg import (
+    PerceptionLatencyTrace,
     YoloDetection2D,
     YoloDetection2DArray,
     YoloTrafficLightDetection2D,
@@ -112,6 +113,12 @@ class Perception2DNode(Node):
             str(self.get_parameter("detection_2d_topic").value),
             10,
         )
+        self.latency_trace_pub = self.create_publisher(
+            PerceptionLatencyTrace,
+            "/perception/latency_trace",
+            10,
+        )
+        self.detection_sequence = 0
         self.image_pub = self.create_publisher(
             Image,
             str(self.get_parameter("inference_image_topic").value),
@@ -246,13 +253,27 @@ class Perception2DNode(Node):
             for detection in detections
             if detection.class_name == "traffic light"
         ]
-        self.detection_pub.publish(output)
+        self.publish_detection_with_trace(output)
 
         self.publish_inference_image(
             results,
             traffic_sign_detections,
             image_msg,
         )
+
+    def publish_detection_with_trace(
+        self,
+        output: YoloDetection2DArray,
+    ) -> None:
+        """Publish one detection result and its one-to-one timing trace."""
+        trace = PerceptionLatencyTrace()
+        trace.header = output.header
+        trace.detection_sequence = self.detection_sequence
+        trace.detection_publish_stamp = self.get_clock().now().to_msg()
+
+        self.detection_pub.publish(output)
+        self.latency_trace_pub.publish(trace)
+        self.detection_sequence += 1
 
     def publish_inference_image(
         self,

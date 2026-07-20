@@ -1,0 +1,3 @@
+std_msgs/Header header
+uint64 detection_sequence
+builtin_interfaces/Time detection_publish_stamp

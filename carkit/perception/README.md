@@ -68,6 +68,13 @@ Outputs:
 - `/yolo/detections_2d`
   (`carkit_perception_msgs/msg/YoloDetection2DArray`)
 - `/yolo/inference_image` (`sensor_msgs/Image`)
+- `/perception/latency_trace`
+  (`carkit_perception_msgs/msg/PerceptionLatencyTrace`)
+
+Exactly one latency trace is published immediately after each completed
+`/yolo/detections_2d` publication. It is driven by the image callback rather
+than a timer, so its sequence and frequency follow the real processed YOLO
+frames even when perception runs below the configured camera rate.
 
 Ordinary detections contain their class, confidence, and color-image bounding
 box. This includes detections from both the general YOLO model and the
