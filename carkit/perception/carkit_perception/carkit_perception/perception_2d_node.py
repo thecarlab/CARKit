@@ -7,17 +7,18 @@ import hashlib
 import json
 from pathlib import Path
 
-from ament_index_python.packages import (
-    PackageNotFoundError,
-    get_package_share_directory,
-)
-import cv2
 import rclpy
 from cv_bridge import CvBridge
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+)
 from sensor_msgs.msg import Image
+from std_msgs.msg import String
 from ultralytics import YOLO
 import ultralytics
 
@@ -33,22 +34,18 @@ from carkit_perception_msgs.msg import (
 )
 
 
+# Retained for legacy extract_detections callers; the standard node does not
+# load or run a traffic-sign model.
 TRAFFIC_SIGN_CLASS_NAMES = {
     0: "speed_sign",
     1: "traffic_cone",
 }
-TRAFFIC_SIGN_WEIGHT = Path("models/traffic_sign_fp16.engine")
 
-
-def default_traffic_sign_model_path() -> str:
-    try:
-        share_path = Path(get_package_share_directory("carkit_perception"))
-        return str(share_path / TRAFFIC_SIGN_WEIGHT)
-    except PackageNotFoundError:
-        pass
-
-    source_path = Path(__file__).resolve().parents[1] / TRAFFIC_SIGN_WEIGHT
-    return str(source_path)
+# COCO class IDs used by the single general-purpose YOLO model.
+TRAFFIC_LIGHT_CLASS_ID = 9
+STOP_SIGN_CLASS_ID = 11
+TARGET_CLASS_IDS = (TRAFFIC_LIGHT_CLASS_ID, STOP_SIGN_CLASS_ID)
+AUTO_DRIVE = "AUTO_DRIVE"
 
 
 class Perception2DNode(Node):
@@ -62,10 +59,6 @@ class Perception2DNode(Node):
                 "carkit_perception/models/yolo11n_fp16.engine"
             ),
         )
-        self.declare_parameter(
-            "traffic_sign_model_path",
-            default_traffic_sign_model_path(),
-        )
         self.declare_parameter("image_size", 640)
         self.declare_parameter("image_topic", "/camera/camera/color/image_raw")
         self.declare_parameter(
@@ -74,33 +67,35 @@ class Perception2DNode(Node):
         )
         self.declare_parameter("detection_2d_topic", "/yolo/detections_2d")
         self.declare_parameter("min_confidence", 0.2)
-        self.declare_parameter("traffic_sign_min_confidence", 0.2)
         self.declare_parameter("require_engine_metadata", True)
 
         self.model_path = str(self.get_parameter("model_path").value)
-        self.traffic_sign_model_path = str(
-            self.get_parameter("traffic_sign_model_path").value
-        )
         self.image_size = int(self.get_parameter("image_size").value)
         self.min_confidence = float(self.get_parameter("min_confidence").value)
-        self.traffic_sign_min_confidence = float(
-            self.get_parameter("traffic_sign_min_confidence").value
-        )
 
         self._validate_fp16_engine()
-        self._validate_traffic_sign_model_path()
         self.bridge = CvBridge()
         self.model = YOLO(self.model_path, task="detect")
-        self.traffic_sign_model = YOLO(
-            self.traffic_sign_model_path,
-            task="detect",
-        )
+        self._validate_target_classes()
         self.light_classifier = TrafficLightClassifier()
+        self.main_state = ""
 
         sensor_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
+        )
+        control_state_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+        self.control_state_sub = self.create_subscription(
+            String,
+            "/control_center/main_state",
+            self.main_state_callback,
+            control_state_qos,
         )
         self.image_sub = self.create_subscription(
             Image,
@@ -127,15 +122,27 @@ class Perception2DNode(Node):
 
         self.get_logger().info(
             f"Loaded FP16 TensorRT model {self.model_path}; "
-            f"loaded traffic-sign model {self.traffic_sign_model_path}; "
-            "using color images only and publishing "
+            "detecting stop signs and traffic lights in AUTO_DRIVE only; "
+            "publishing "
             f"{self.get_parameter('detection_2d_topic').value}"
         )
 
-    def _validate_traffic_sign_model_path(self) -> None:
-        model_path = Path(self.traffic_sign_model_path)
-        if not model_path.is_file():
-            raise RuntimeError(f"Traffic-sign model not found: {model_path}")
+    def main_state_callback(self, msg: String) -> None:
+        self.main_state = msg.data
+
+    def _validate_target_classes(self) -> None:
+        expected_names = {
+            TRAFFIC_LIGHT_CLASS_ID: "traffic light",
+            STOP_SIGN_CLASS_ID: "stop sign",
+        }
+        for class_id, expected_name in expected_names.items():
+            actual_name = self.class_name(self.model, class_id, {})
+            if actual_name != expected_name:
+                raise RuntimeError(
+                    "YOLO model does not provide the expected COCO class: "
+                    f"id {class_id} must be '{expected_name}', got "
+                    f"'{actual_name}'"
+                )
 
     def _validate_fp16_engine(self) -> None:
         engine_path = Path(self.model_path)
@@ -210,6 +217,9 @@ class Perception2DNode(Node):
                 )
 
     def image_callback(self, image_msg: Image) -> None:
+        if self.main_state != AUTO_DRIVE:
+            return
+
         try:
             color_image = self.bridge.imgmsg_to_cv2(
                 image_msg,
@@ -223,41 +233,30 @@ class Perception2DNode(Node):
             color_image,
             imgsz=self.image_size,
             conf=self.min_confidence,
-            batch=1,
-            verbose=False,
-        )
-        traffic_sign_results = self.traffic_sign_model.predict(
-            color_image,
-            imgsz=self.image_size,
-            conf=self.traffic_sign_min_confidence,
+            classes=list(TARGET_CLASS_IDS),
             batch=1,
             verbose=False,
         )
         detections = self.extract_detections(results)
-        traffic_sign_detections = self.extract_detections(
-            traffic_sign_results,
-            self.traffic_sign_model,
-            TRAFFIC_SIGN_CLASS_NAMES,
-        )
 
         output = YoloDetection2DArray()
         output.header = image_msg.header
         output.image_height, output.image_width = color_image.shape[:2]
         output.detections = [
             self.to_detection_message(detection)
-            for detection in detections + traffic_sign_detections
-            if detection.class_name != "traffic light"
+            for detection in detections
+            if detection.class_id == STOP_SIGN_CLASS_ID
         ]
         output.traffic_lights = [
             self.to_traffic_light_message(detection, color_image)
             for detection in detections
-            if detection.class_name == "traffic light"
+            if detection.class_id == TRAFFIC_LIGHT_CLASS_ID
         ]
         self.publish_detection_with_trace(output)
 
         self.publish_inference_image(
             results,
-            traffic_sign_detections,
+            [],
             image_msg,
         )
 
@@ -278,45 +277,19 @@ class Perception2DNode(Node):
     def publish_inference_image(
         self,
         results,
-        traffic_sign_detections: list[Detection2D],
+        _additional_detections: list[Detection2D],
         image_msg: Image,
     ) -> None:
         if not results or self.image_pub.get_subscription_count() == 0:
             return
 
         annotated = results[0].plot()
-        self.draw_detections(
-            annotated,
-            traffic_sign_detections,
-            color=(36, 255, 12),
-        )
         annotated_msg = self.bridge.cv2_to_imgmsg(
             annotated,
             encoding="bgr8",
         )
         annotated_msg.header = image_msg.header
         self.image_pub.publish(annotated_msg)
-
-    def draw_detections(
-        self,
-        image,
-        detections: list[Detection2D],
-        color: tuple[int, int, int],
-    ) -> None:
-        for detection in detections:
-            x1, y1, x2, y2 = (int(value) for value in detection.bbox)
-            label = f"{detection.class_name} {detection.confidence:.2f}"
-            cv2.rectangle(image, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(
-                image,
-                label,
-                (x1, max(12, y1 - 6)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                color,
-                2,
-                cv2.LINE_AA,
-            )
 
     def extract_detections(
         self,

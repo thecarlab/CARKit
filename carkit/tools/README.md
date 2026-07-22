@@ -164,8 +164,13 @@ ros2 run carkit_latency_monitor stop_latency_monitor --ros-args \
   -p output_path:=log/latency/cpu_frequency_run.csv
 ```
 
-Before each repeated trial, leave `AUTO_DRIVE` and reset the stop tracking and
-latency provenance:
+Start the monitor before entering `AUTO_DRIVE`. Each transition from a
+non-autonomous state into `AUTO_DRIVE` automatically resets the stop tracking,
+starts a new latency trial, and increments `trial_id`. Repeated `AUTO_DRIVE`
+state messages do not reset an active trial.
+
+The manual reset service remains available while outside `AUTO_DRIVE`, but is
+not required for the normal switch-into-auto experiment flow:
 
 ```bash
 ros2 service call /behavior/reset_stop_latency_trial std_srvs/srv/Trigger "{}"

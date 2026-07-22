@@ -30,7 +30,7 @@ def generate_launch_description():
             "enable_color": True,
             "rgb_camera.color_profile": "640x480x15",
             "rgb_camera.color_format": "RGB8",
-            "rgb_camera.global_time_enabled": False,
+            "rgb_camera.global_time_enabled": True,
             "enable_depth": False,
             "enable_infra": False,
             "enable_infra1": False,
@@ -52,9 +52,6 @@ def generate_launch_description():
         output="screen",
         parameters=[{
             "model_path": LaunchConfiguration("model_path"),
-            "traffic_sign_model_path": LaunchConfiguration(
-                "traffic_sign_model_path"
-            ),
             "image_size": LaunchConfiguration("image_size"),
             "image_topic": LaunchConfiguration("image_topic"),
             "inference_image_topic": LaunchConfiguration(
@@ -62,9 +59,6 @@ def generate_launch_description():
             ),
             "detection_2d_topic": LaunchConfiguration("detection_2d_topic"),
             "min_confidence": LaunchConfiguration("min_confidence"),
-            "traffic_sign_min_confidence": LaunchConfiguration(
-                "traffic_sign_min_confidence"
-            ),
         }],
     )
 
@@ -86,15 +80,6 @@ def generate_launch_description():
             ),
             description="FP16 TensorRT engine exported on this Jetson.",
         ),
-        DeclareLaunchArgument(
-            "traffic_sign_model_path",
-            default_value=os.path.join(
-                package_share,
-                "models",
-                "traffic_sign.pt",
-            ),
-            description="Traffic-sign YOLO model path.",
-        ),
         DeclareLaunchArgument("image_size", default_value="640"),
         DeclareLaunchArgument(
             "image_topic",
@@ -109,10 +94,6 @@ def generate_launch_description():
             default_value="/yolo/detections_2d",
         ),
         DeclareLaunchArgument("min_confidence", default_value="0.2"),
-        DeclareLaunchArgument(
-            "traffic_sign_min_confidence",
-            default_value="0.2",
-        ),
         DeclareLaunchArgument(
             "start_camera",
             default_value="true",

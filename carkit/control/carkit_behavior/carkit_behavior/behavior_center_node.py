@@ -727,7 +727,25 @@ class BehaviorCenterNode(Node):
         )
 
     def main_state_callback(self, msg: String) -> None:
+        previous_state = self.main_state
         self.main_state = msg.data
+        if self.main_state == previous_state:
+            return
+
+        self.pending_detections = None
+        self.pending_detection_time = None
+        if self.main_state == AUTO_DRIVE:
+            trial_id = self.reset_stop_latency_trial_state()
+            self.get_logger().info(
+                f"Latency trial {trial_id} automatically reset on "
+                "AUTO_DRIVE entry"
+            )
+            return
+
+        self.clear_stop_sign_track()
+        self.clear_traffic_light_track(force=True)
+        self.stop_until = 0.0
+        self.stop_cooldown_until = 0.0
 
     def detections_callback(self, msg: YoloDetection2DArray) -> None:
         now = self.now_sec()
@@ -805,16 +823,17 @@ class BehaviorCenterNode(Node):
             )
             return response
 
-        self.stop_sign_tracks = []
-        self.traffic_light_tracks = []
+        trial_id = self.reset_stop_latency_trial_state()
+
+        response.success = True
+        response.message = f"Latency trial {trial_id} ready"
+        return response
+
+    def reset_stop_latency_trial_state(self) -> int:
+        self.clear_stop_sign_track()
+        self.clear_traffic_light_track(force=True)
         self.stop_until = 0.0
         self.stop_cooldown_until = 0.0
-        self.traffic_light_stop_engaged = False
-        self.latest_traffic_light_color = (
-            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
-        )
-        self.traffic_light_stop_color_frames = 0
-        self.traffic_light_green_frames = 0
         self.pending_detections = None
         self.pending_detection_time = None
         self.latency_trace_sent = False
@@ -826,10 +845,7 @@ class BehaviorCenterNode(Node):
         reset_trace.event_type = StopLatencyTrace.RESET
         reset_trace.trial_id = self.latency_trial_id
         self.stop_latency_trace_pub.publish(reset_trace)
-
-        response.success = True
-        response.message = f"Latency trial {self.latency_trial_id} ready"
-        return response
+        return self.latency_trial_id
 
     def reset_red_light_latency_state(self) -> None:
         self.red_light_latency_frames = 0
@@ -863,13 +879,21 @@ class BehaviorCenterNode(Node):
         scan: LaserScan,
         now: float,
     ) -> None:
+        autonomous_mode = (
+            getattr(self, "main_state", AUTO_DRIVE) == AUTO_DRIVE
+        )
         self._frame_localization_cache = (
-            self.build_frame_localization_cache(detections, scan)
+            self.build_frame_localization_cache(
+                detections,
+                scan,
+                include_stop_controls=autonomous_mode,
+            )
         )
         self._frame_transform_cache = {}
         try:
-            self.publish_traffic_light_from_detections(detections, scan)
-            self.publish_stop_sign_from_detections(detections, scan)
+            if autonomous_mode:
+                self.publish_traffic_light_from_detections(detections, scan)
+                self.publish_stop_sign_from_detections(detections, scan)
             self.publish_speed_sign_from_detections(detections, scan)
             self.publish_cone_from_detections(detections, scan, now)
             self.last_detection_processed_time = now
@@ -1033,31 +1057,34 @@ class BehaviorCenterNode(Node):
         self,
         detections: YoloDetection2DArray,
         scan: LaserScan,
+        *,
+        include_stop_controls: bool = True,
     ) -> dict[str, tuple[int, Optional[ObjectLocation]]]:
         candidates: dict[
             str,
             tuple[YoloDetection2D, float, float, float, Optional[float]],
         ] = {}
 
-        traffic_light = self.best_traffic_light_detection(detections)
-        if traffic_light is not None:
-            candidates["traffic_light"] = (
-                traffic_light[0],
-                self.traffic_light_lidar_angle_window_rad,
-                self.traffic_light_lidar_min_range_m,
-                self.traffic_light_lidar_max_range_m,
-                None,
-            )
+        if include_stop_controls:
+            traffic_light = self.best_traffic_light_detection(detections)
+            if traffic_light is not None:
+                candidates["traffic_light"] = (
+                    traffic_light[0],
+                    self.traffic_light_lidar_angle_window_rad,
+                    self.traffic_light_lidar_min_range_m,
+                    self.traffic_light_lidar_max_range_m,
+                    None,
+                )
 
-        stop_sign = self.best_stop_sign_detection(detections)
-        if stop_sign is not None:
-            candidates["stop_sign"] = (
-                stop_sign,
-                self.stop_sign_lidar_angle_window_rad,
-                self.stop_sign_lidar_min_range_m,
-                self.stop_sign_lidar_max_range_m,
-                None,
-            )
+            stop_sign = self.best_stop_sign_detection(detections)
+            if stop_sign is not None:
+                candidates["stop_sign"] = (
+                    stop_sign,
+                    self.stop_sign_lidar_angle_window_rad,
+                    self.stop_sign_lidar_min_range_m,
+                    self.stop_sign_lidar_max_range_m,
+                    None,
+                )
 
         speed_sign = self.best_speed_sign_detection(detections)
         if speed_sign is not None:
@@ -1494,9 +1521,6 @@ class BehaviorCenterNode(Node):
         detections: YoloDetection2DArray,
         scan: Optional[LaserScan],
     ) -> None:
-        if scan is None:
-            self.clear_traffic_light_track()
-            return
         candidate = self.best_traffic_light_detection(detections)
         if candidate is None:
             self.clear_traffic_light_track()
@@ -1506,6 +1530,15 @@ class BehaviorCenterNode(Node):
             color,
             detections.header.stamp,
         )
+        if self.traffic_light_green_confirmed():
+            self.clear_traffic_light_track(
+                force=True,
+                preserve_color_state=True,
+            )
+            return
+        if scan is None:
+            self.clear_traffic_light_track()
+            return
         location = self.localize_traffic_light(
             detection,
             float(detections.image_width),
@@ -1642,18 +1675,24 @@ class BehaviorCenterNode(Node):
         )
         self.publish_cone_tracks()
 
-    def clear_traffic_light_track(self) -> None:
-        if self.traffic_light_stop_engaged:
+    def clear_traffic_light_track(
+        self,
+        *,
+        force: bool = False,
+        preserve_color_state: bool = False,
+    ) -> None:
+        if self.traffic_light_stop_engaged and not force:
             self.reset_red_light_latency_state()
             return
         had_track = bool(self.traffic_light_tracks)
         self.traffic_light_tracks = []
         self.traffic_light_stop_engaged = False
-        self.latest_traffic_light_color = (
-            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
-        )
-        self.traffic_light_stop_color_frames = 0
-        self.traffic_light_green_frames = 0
+        if not preserve_color_state:
+            self.latest_traffic_light_color = (
+                YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
+            )
+            self.traffic_light_stop_color_frames = 0
+            self.traffic_light_green_frames = 0
         self.reset_red_light_latency_state()
         if had_track and hasattr(self, "traffic_light_markers_pub"):
             self.traffic_light_markers_pub.publish(
@@ -1661,6 +1700,17 @@ class BehaviorCenterNode(Node):
                     self.stop_sign_map_frame,
                     self.get_clock().now().to_msg(),
                     "traffic_light",
+                )
+            )
+
+    def clear_stop_sign_track(self) -> None:
+        self.stop_sign_tracks = []
+        if hasattr(self, "stop_sign_markers_pub"):
+            self.stop_sign_markers_pub.publish(
+                delete_object_marker_array(
+                    self.stop_sign_map_frame,
+                    self.get_clock().now().to_msg(),
+                    "stop_sign",
                 )
             )
 
@@ -2222,6 +2272,13 @@ class BehaviorCenterNode(Node):
         return None
 
     def traffic_light_stop_active(self, now: float) -> bool:
+        if self.traffic_light_green_confirmed():
+            self.clear_traffic_light_track(
+                force=True,
+                preserve_color_state=True,
+            )
+            return False
+
         robot_position = self.robot_position_in_map()
         if robot_position is None:
             return self.traffic_light_stop_engaged
@@ -2249,10 +2306,6 @@ class BehaviorCenterNode(Node):
                 f"is {remaining_distance:.2f} m ahead on the path "
                 f"({track.observations} observations, {color_name})"
             )
-
-        if self.traffic_light_green_confirmed():
-            self.traffic_light_stop_engaged = False
-            return False
 
         if self.traffic_light_stop_engaged:
             return True
@@ -2283,6 +2336,12 @@ class BehaviorCenterNode(Node):
             return False
 
         if track.stopped:
+            if (
+                remaining_distance
+                < -max(0.0, self.stop_sign_stop_line_tolerance_m)
+            ):
+                self.clear_stop_sign_track()
+                return False
             rearm_distance = (
                 self.stop_sign_stop_before_distance_m
                 + self.stop_sign_rearm_distance_m
