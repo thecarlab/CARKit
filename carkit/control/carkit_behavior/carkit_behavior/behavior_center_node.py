@@ -28,7 +28,7 @@ from rclpy.qos import (
 )
 from rclpy.time import Time as RclpyTime
 from sensor_msgs.msg import CameraInfo, LaserScan
-from std_msgs.msg import Bool, String
+from std_msgs.msg import Bool, Empty, String
 from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformException, TransformListener
 from visualization_msgs.msg import Marker, MarkerArray
@@ -653,6 +653,22 @@ class BehaviorCenterNode(Node):
             sensor_qos,
         )
 
+        self.detection_rate_pulse_pub = self.create_publisher(
+            Empty,
+            "/monitor/rate/behavior_detection_rx",
+            sensor_qos,
+        )
+        self.scan_rate_pulse_pub = self.create_publisher(
+            Empty,
+            "/monitor/rate/behavior_scan_rx",
+            sensor_qos,
+        )
+        self.plan_rate_pulse_pub = self.create_publisher(
+            Empty,
+            "/monitor/rate/behavior_plan_rx",
+            sensor_qos,
+        )
+        self.rate_pulse_msg = Empty()
         self.state_pub = self.create_publisher(String, "/behavior/state", 10)
         self.override_active_pub = self.create_publisher(
             Bool,
@@ -748,6 +764,7 @@ class BehaviorCenterNode(Node):
         self.stop_cooldown_until = 0.0
 
     def detections_callback(self, msg: YoloDetection2DArray) -> None:
+        self.publish_rate_pulse("detection_rate_pulse_pub")
         now = self.now_sec()
         self.last_detection_received_time = now
         self.detection_state_expired = False
@@ -757,7 +774,6 @@ class BehaviorCenterNode(Node):
             # Keep only the newest frame while waiting for a usable scan.
             self.pending_detections = msg
             self.pending_detection_time = now
-            self.clear_traffic_light_track()
             self.cone_visible = False
             return
 
@@ -769,6 +785,7 @@ class BehaviorCenterNode(Node):
         self.latest_nav2_drive = msg
 
     def scan_callback(self, msg: LaserScan) -> None:
+        self.publish_rate_pulse("scan_rate_pulse_pub")
         self.latest_scan = msg
         now = self.now_sec()
         self.latest_scan_time = now
@@ -781,6 +798,7 @@ class BehaviorCenterNode(Node):
         self.current_robot_y = float(msg.pose.pose.position.y)
 
     def global_plan_callback(self, msg: Path) -> None:
+        self.publish_rate_pulse("plan_rate_pulse_pub")
         self.latest_global_plan = msg
         if not msg.poses:
             return
@@ -802,6 +820,13 @@ class BehaviorCenterNode(Node):
         for track in self.stop_sign_tracks:
             if track.stopped:
                 track.rearm_for_new_plan = True
+
+    def publish_rate_pulse(self, publisher_name: str) -> None:
+        """Report callback delivery without creating another large subscriber."""
+        publisher = getattr(self, publisher_name, None)
+        if publisher is None or publisher.get_subscription_count() == 0:
+            return
+        publisher.publish(self.rate_pulse_msg)
 
     def camera_info_callback(self, msg: CameraInfo) -> None:
         if msg.width <= 0 or msg.height <= 0:
@@ -914,7 +939,10 @@ class BehaviorCenterNode(Node):
         self.pending_detections = None
         self.pending_detection_time = None
         self.cone_visible = False
-        self.clear_traffic_light_track()
+        # A temporary detection gap must not discard an already localized
+        # traffic light. Require fresh color observations again, while
+        # retaining the map track and marker.
+        self.reset_traffic_light_color_state()
         # Preserve the last stable map objects without republishing at 20 Hz.
         self.publish_stop_sign_tracks()
         self.publish_speed_sign_tracks()
@@ -1523,7 +1551,7 @@ class BehaviorCenterNode(Node):
     ) -> None:
         candidate = self.best_traffic_light_detection(detections)
         if candidate is None:
-            self.clear_traffic_light_track()
+            self.reset_traffic_light_color_state()
             return
         detection, color = candidate
         self.update_traffic_light_color_state(
@@ -1537,7 +1565,6 @@ class BehaviorCenterNode(Node):
             )
             return
         if scan is None:
-            self.clear_traffic_light_track()
             return
         location = self.localize_traffic_light(
             detection,
@@ -1545,7 +1572,6 @@ class BehaviorCenterNode(Node):
             scan,
         )
         if location is None:
-            self.clear_traffic_light_track()
             return
         point = self.transform_location_to_map(
             location,
@@ -1553,7 +1579,6 @@ class BehaviorCenterNode(Node):
             scan.header.stamp,
         )
         if point is None:
-            self.clear_traffic_light_track()
             return
 
         track = self.record_traffic_light_observation(
@@ -1688,12 +1713,9 @@ class BehaviorCenterNode(Node):
         self.traffic_light_tracks = []
         self.traffic_light_stop_engaged = False
         if not preserve_color_state:
-            self.latest_traffic_light_color = (
-                YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
-            )
-            self.traffic_light_stop_color_frames = 0
-            self.traffic_light_green_frames = 0
-        self.reset_red_light_latency_state()
+            self.reset_traffic_light_color_state()
+        else:
+            self.reset_red_light_latency_state()
         if had_track and hasattr(self, "traffic_light_markers_pub"):
             self.traffic_light_markers_pub.publish(
                 delete_object_marker_array(
@@ -1702,6 +1724,14 @@ class BehaviorCenterNode(Node):
                     "traffic_light",
                 )
             )
+
+    def reset_traffic_light_color_state(self) -> None:
+        self.latest_traffic_light_color = (
+            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_UNKNOWN
+        )
+        self.traffic_light_stop_color_frames = 0
+        self.traffic_light_green_frames = 0
+        self.reset_red_light_latency_state()
 
     def clear_stop_sign_track(self) -> None:
         self.stop_sign_tracks = []

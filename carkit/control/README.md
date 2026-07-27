@@ -124,9 +124,10 @@ Experiment support:
 
 - `/behavior/stop_latency_trace` publishes one timing event for the first
   stop-sign or red-light stop in a trial.
-- `/behavior/reset_stop_latency_trial` (`std_srvs/Trigger`) clears the relevant
-  tracks and timing state between trials. Switch out of `AUTO_DRIVE` before
-  calling it.
+- Each transition from a non-autonomous state into `AUTO_DRIVE` automatically
+  clears the relevant tracks and timing provenance and starts a new trial.
+- `/behavior/reset_stop_latency_trial` (`std_srvs/Trigger`) remains available
+  for an optional manual reset while outside `AUTO_DRIVE`.
 
 The `*_markers` topics are the Foxglove/RViz visualization topics. The
 `*_position` topics remain available as machine-readable `PointStamped`

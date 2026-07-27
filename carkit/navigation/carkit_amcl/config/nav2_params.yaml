@@ -30,7 +30,7 @@ amcl:
     save_pose_rate: 0.5
     sigma_hit: 0.2
     tf_broadcast: true
-    transform_tolerance: 0.5
+    transform_tolerance: 0.7
     update_min_a: 0.15
     update_min_d: 0.15
     z_hit: 0.8
@@ -47,7 +47,7 @@ bt_navigator:
     robot_base_frame: base_link
     odom_topic: /odom
     bt_loop_duration: 50
-    default_server_timeout: 20
+    default_server_timeout: 500
     # Filled in at launch by RewrittenYaml in carkit_amcl/launch/nav2.launch.py.
     # Custom BTs omit the <Spin> recovery node (Ackermann cannot rotate in place).
     default_nav_to_pose_bt_xml: ""
@@ -95,7 +95,7 @@ controller_server:
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
     min_theta_velocity_threshold: 0.001
-    failure_tolerance: 1.0
+    failure_tolerance: 2.0
     progress_checker_plugin: progress_checker
     goal_checker_plugins: [goal_checker]
     controller_plugins: [FollowPath]
@@ -103,7 +103,7 @@ controller_server:
     progress_checker:
       plugin: nav2_controller::SimpleProgressChecker
       required_movement_radius: 0.3
-      movement_time_allowance: 10.0
+      movement_time_allowance: 30.0
 
     goal_checker:
       plugin: nav2_controller::SimpleGoalChecker

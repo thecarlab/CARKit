@@ -38,6 +38,18 @@ Before starting the container command, `run_jetson.sh` verifies that the
 selected image contains the Nav2 and Foxglove runtime packages used by CARKit.
 It also starts the container with host networking, `/dev`, `/dev/shm`, X11
 display mounts, and NVIDIA runtime support when the runtime is registered.
+Before dropping privileges, the container entrypoint increases the host-network
+DDS socket buffers for large RGB image samples:
+
+```text
+rmem_default=4194304   rmem_max=12582912
+wmem_default=1048576   wmem_max=12582912
+```
+
+The values are runtime settings and are applied on every CARKit container
+start; CARKit does not write `/etc/sysctl.d/` on the host. Disable this behavior
+only for controlled comparisons with
+`CARKIT_CONFIGURE_DDS_BUFFERS=0 ./docker/run_jetson.sh`.
 
 Foxglove Bridge binds to `0.0.0.0:8765` when started by CARKit launches. From
 another computer on the same network, connect Foxglove to:
@@ -60,6 +72,9 @@ CARKIT_REQUIRE_RUNTIME=0 ./docker/run_jetson.sh
 
 # Do not repair old generated-file ownership when running as host UID/GID.
 CARKIT_FIX_PERMISSIONS_ON_START=0 ./docker/run_jetson.sh
+
+# Skip the runtime DDS socket-buffer configuration.
+CARKIT_CONFIGURE_DDS_BUFFERS=0 ./docker/run_jetson.sh
 ```
 
 ## Workspace Build

@@ -106,6 +106,9 @@ def make_node():
     )
     node.traffic_light_stop_color_frames = 0
     node.traffic_light_green_frames = 0
+    node.red_light_latency_frames = 0
+    node.red_light_source_image_stamp = None
+    node.red_light_ready_stamp = None
     node.current_pose_frame = "map"
     node.current_robot_x = 0.0
     node.current_robot_y = 0.0
@@ -146,6 +149,71 @@ def centered_scan(distance):
     scan.ranges = [math.inf] * 361
     scan.ranges[360] = distance
     return scan
+
+
+def reference_lidar_hit(
+    node,
+    scan,
+    target_angle,
+    angle_window_rad,
+    min_range_m,
+    max_range_m,
+):
+    half_window = angle_window_rad / 2.0
+    best_range = None
+    best_angle = target_angle
+    front_angle = math.pi + node.camera_to_scan_yaw_offset_rad
+    target_camera_bearing = normalize_angle(front_angle - target_angle)
+    camera_x = (
+        node.camera_forward_offset_m * math.cos(front_angle)
+        + node.camera_lateral_offset_m
+        * math.cos(front_angle + math.pi / 2.0)
+    )
+    camera_y = (
+        node.camera_forward_offset_m * math.sin(front_angle)
+        + node.camera_lateral_offset_m
+        * math.sin(front_angle + math.pi / 2.0)
+    )
+    for index, raw_range in enumerate(scan.ranges):
+        angle = scan.angle_min + index * scan.angle_increment
+        if not math.isfinite(raw_range):
+            continue
+        if raw_range <= scan.range_min or raw_range >= scan.range_max:
+            continue
+        if raw_range < min_range_m or raw_range > max_range_m:
+            continue
+        point_x = raw_range * math.cos(angle)
+        point_y = raw_range * math.sin(angle)
+        angle_from_camera = math.atan2(
+            point_y - camera_y,
+            point_x - camera_x,
+        )
+        candidate_camera_bearing = normalize_angle(
+            front_angle - angle_from_camera
+        )
+        if (
+            abs(
+                normalize_angle(
+                    candidate_camera_bearing - target_camera_bearing
+                )
+            )
+            > half_window
+        ):
+            continue
+        if best_range is None or raw_range < best_range:
+            best_range = float(raw_range)
+            best_angle = angle
+    if best_range is None:
+        return None
+    return best_range, best_angle
+
+
+def normalize_angle(angle):
+    while angle > math.pi:
+        angle -= 2.0 * math.pi
+    while angle < -math.pi:
+        angle += 2.0 * math.pi
+    return angle
 
 
 def detection_array(item):
@@ -231,7 +299,9 @@ def test_detection_state_expires_only_once():
     node.pending_detection_time = 10.0
     node.cone_visible = True
     calls = []
-    node.clear_traffic_light_track = lambda: calls.append("traffic_light")
+    node.reset_traffic_light_color_state = (
+        lambda: calls.append("traffic_light_color")
+    )
     node.publish_stop_sign_tracks = lambda: calls.append("stop_sign")
     node.publish_speed_sign_tracks = lambda: calls.append("speed_sign")
     node.publish_cone_tracks = lambda: calls.append("cone")
@@ -241,10 +311,10 @@ def test_detection_state_expires_only_once():
     assert node.expire_detection_state_if_needed(10.51)
     assert not node.cone_visible
     assert node.pending_detections is None
-    assert calls == ["traffic_light", "stop_sign", "speed_sign", "cone"]
+    assert calls == ["traffic_light_color", "stop_sign", "speed_sign", "cone"]
 
     assert not node.expire_detection_state_if_needed(11.0)
-    assert calls == ["traffic_light", "stop_sign", "speed_sign", "cone"]
+    assert calls == ["traffic_light_color", "stop_sign", "speed_sign", "cone"]
 
 
 def test_detection_frame_dispatches_each_behavior_once():
@@ -488,6 +558,110 @@ def test_lidar_matching_accounts_for_forward_camera_offset():
     assert hit[0] == 1.0
 
 
+def test_vector_lidar_matching_matches_previous_angle_math():
+    node = make_node()
+    node.camera_to_scan_yaw_offset_rad = math.radians(3.0)
+    node.camera_lateral_offset_m = 0.03
+    scan = centered_scan(math.inf)
+    scan.ranges[2] = 1.5
+    scan.ranges[345] = 2.0
+    scan.ranges[350] = 1.0
+    scan.ranges[358] = 0.8
+    scan.ranges[360] = 1.2
+
+    requests = {
+        "front_narrow": (math.pi, math.radians(4.0), 0.15, 10.0),
+        "front_wide": (math.pi, math.radians(24.0), 0.15, 10.0),
+        "wrapped": (-math.pi + 0.03, math.radians(12.0), 0.15, 10.0),
+        "range_limited": (math.radians(170.0), math.radians(8.0), 1.1, 10.0),
+    }
+
+    results = node.find_lidar_hits_at_bearings(scan, requests)
+
+    for key, request in requests.items():
+        assert results[key] == reference_lidar_hit(node, scan, *request)
+
+
+def test_scan_geometry_cache_reuses_angles_until_geometry_changes():
+    node = make_node()
+    scan = centered_scan(2.0)
+
+    first = node.scan_geometry(scan)
+    second = node.scan_geometry(scan)
+    assert first[0] is second[0]
+    assert first[1] is second[1]
+    assert first[2] is second[2]
+
+    scan.angle_increment = math.radians(0.5)
+    changed = node.scan_geometry(scan)
+    assert changed[0] is not first[0]
+
+
+def test_detection_frame_batches_all_lidar_targets_in_one_scan():
+    node = make_node()
+    light_detection = detection("traffic light", confidence=0.9)
+    msg = SimpleNamespace(
+        image_width=640,
+        image_height=480,
+        detections=[
+            detection("stop sign", confidence=0.9),
+            detection("speed_sign", confidence=0.9),
+            detection("traffic_cone", confidence=0.9),
+        ],
+        traffic_lights=[
+            SimpleNamespace(
+                detection=light_detection,
+                traffic_light_color=(
+                    YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
+                ),
+            )
+        ],
+    )
+    calls = []
+
+    def fake_batch(scan, requests):
+        calls.append((scan, set(requests)))
+        return {key: None for key in requests}
+
+    node.find_lidar_hits_at_bearings = fake_batch
+    node.publish_traffic_light_from_detections = lambda *args: None
+    node.publish_stop_sign_from_detections = lambda *args: None
+    node.publish_speed_sign_from_detections = lambda *args: None
+    node.publish_cone_from_detections = lambda *args: None
+    scan = centered_scan(2.0)
+
+    node.process_detection_frame(msg, scan, 12.0)
+
+    assert calls == [
+        (
+            scan,
+            {"traffic_light", "stop_sign", "speed_sign", "cone"},
+        )
+    ]
+
+
+def test_map_transform_is_reused_within_one_detection_frame():
+    node = make_node()
+    transform = SimpleNamespace(
+        transform=SimpleNamespace(
+            translation=SimpleNamespace(x=1.0, y=2.0),
+            rotation=SimpleNamespace(x=0.0, y=0.0, z=0.0, w=1.0),
+        )
+    )
+    calls = []
+    node.lookup_transform = lambda *args: calls.append(args) or transform
+    node._frame_transform_cache = {}
+    location = SimpleNamespace(x=2.0, y=3.0)
+    stamp = Time(sec=4, nanosec=5)
+
+    first = node.transform_location_to_map(location, "laser", stamp)
+    second = node.transform_location_to_map(location, "laser", stamp)
+
+    assert len(calls) == 1
+    assert first.x == second.x == 3.0
+    assert first.y == second.y == 5.0
+
+
 def test_traffic_light_detection_ignores_non_light_detections():
     node = make_node()
     msg = SimpleNamespace(
@@ -522,15 +696,14 @@ def test_traffic_light_detection_uses_classified_perception_output():
     assert best[1] == YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED
 
 
-def test_empty_traffic_light_output_clears_stale_track():
+def test_empty_traffic_light_output_retains_stable_track():
     node = make_node()
-    node.traffic_light_tracks = [
-        traffic_light_track(
-            5.0,
-            0.0,
-            YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
-        )
-    ]
+    track = traffic_light_track(
+        5.0,
+        0.0,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    node.traffic_light_tracks = [track]
     msg = SimpleNamespace(
         image_width=640,
         image_height=480,
@@ -540,8 +713,58 @@ def test_empty_traffic_light_output_clears_stale_track():
 
     node.publish_traffic_light_from_detections(msg, centered_scan(2.0))
 
-    assert node.traffic_light_tracks == []
+    assert node.traffic_light_tracks == [track]
     assert not node.traffic_light_stop_engaged
+
+
+def test_low_confidence_traffic_light_retains_stable_track():
+    node = make_node()
+    track = traffic_light_track(
+        5.0,
+        0.0,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    node.traffic_light_tracks = [track]
+    light = SimpleNamespace(
+        detection=detection("traffic light", confidence=0.39),
+        traffic_light_color=YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    msg = SimpleNamespace(
+        header=SimpleNamespace(stamp=Time()),
+        image_width=640,
+        image_height=480,
+        detections=[],
+        traffic_lights=[light],
+    )
+
+    node.publish_traffic_light_from_detections(msg, centered_scan(2.0))
+
+    assert node.traffic_light_tracks == [track]
+
+
+def test_medium_confidence_traffic_light_retains_track_without_relocalizing():
+    node = make_node()
+    track = traffic_light_track(
+        5.0,
+        0.0,
+        YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    node.traffic_light_tracks = [track]
+    light = SimpleNamespace(
+        detection=detection("traffic light", confidence=0.5),
+        traffic_light_color=YoloTrafficLightDetection2D.TRAFFIC_LIGHT_RED,
+    )
+    msg = SimpleNamespace(
+        header=SimpleNamespace(stamp=Time()),
+        image_width=640,
+        image_height=480,
+        detections=[],
+        traffic_lights=[light],
+    )
+
+    node.publish_traffic_light_from_detections(msg, None)
+
+    assert node.traffic_light_tracks == [track]
 
 
 def test_empty_traffic_light_output_does_not_release_active_stop():

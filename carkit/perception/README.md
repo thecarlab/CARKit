@@ -133,3 +133,29 @@ ros2 topic list | grep depth
 ```
 
 The final command should produce no RealSense depth image topics.
+
+### Camera DDS transport
+
+The perception launch forces only the RealSense camera participant to use
+Fast DDS UDPv4. On the Jetson's Fast DDS 2.6 runtime, the default shared-memory
+path can drop fragments from large RGB images for Best Effort readers. Keeping
+the camera on UDPv4 preserves the requested 15 Hz while perception remains
+`BEST_EFFORT` with `KEEP_LAST(1)` so stale frames do not queue.
+
+Use the default launch setting for normal operation:
+
+```bash
+ros2 launch carkit_perception perception.launch.py
+```
+
+Restore the Fast DDS UDPv4+SHM default only for an A/B comparison:
+
+```bash
+ros2 launch carkit_perception perception.launch.py \
+  camera_dds_transport:=DEFAULT
+```
+
+The camera's UDPv4 transport depends on the DDS socket buffers configured by
+the CARKit Docker entrypoint. The setting applies only to the camera
+participant; perception and the rest of the ROS graph retain their normal
+Fast DDS transports.

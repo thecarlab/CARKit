@@ -18,7 +18,7 @@ from rclpy.qos import (
     ReliabilityPolicy,
 )
 from sensor_msgs.msg import Image
-from std_msgs.msg import String
+from std_msgs.msg import Empty, String
 from ultralytics import YOLO
 import ultralytics
 
@@ -103,6 +103,12 @@ class Perception2DNode(Node):
             self.image_callback,
             sensor_qos,
         )
+        self.image_rate_pulse_pub = self.create_publisher(
+            Empty,
+            "/monitor/rate/image_raw_rx",
+            sensor_qos,
+        )
+        self.rate_pulse_msg = Empty()
         self.detection_pub = self.create_publisher(
             YoloDetection2DArray,
             str(self.get_parameter("detection_2d_topic").value),
@@ -217,6 +223,7 @@ class Perception2DNode(Node):
                 )
 
     def image_callback(self, image_msg: Image) -> None:
+        self.publish_rate_pulse()
         if self.main_state != AUTO_DRIVE:
             return
 
@@ -259,6 +266,13 @@ class Perception2DNode(Node):
             [],
             image_msg,
         )
+
+    def publish_rate_pulse(self) -> None:
+        """Report image delivery without adding another Image subscriber."""
+        publisher = getattr(self, "image_rate_pulse_pub", None)
+        if publisher is None or publisher.get_subscription_count() == 0:
+            return
+        publisher.publish(self.rate_pulse_msg)
 
     def publish_detection_with_trace(
         self,

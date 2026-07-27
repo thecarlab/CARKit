@@ -8,6 +8,23 @@ case ":${LD_LIBRARY_PATH:-}:" in
   *) export LD_LIBRARY_PATH="${cusparselt_lib}:${LD_LIBRARY_PATH:-}" ;;
 esac
 
+case "${CARKIT_CONFIGURE_DDS_BUFFERS:-1}" in
+  0)
+    ;;
+  1)
+    if [ "$(id -u)" -eq 0 ]; then
+      sysctl -q -w net.core.rmem_max=12582912
+      sysctl -q -w net.core.wmem_max=12582912
+      sysctl -q -w net.core.rmem_default=4194304
+      sysctl -q -w net.core.wmem_default=1048576
+    fi
+    ;;
+  *)
+    echo "CARKIT_CONFIGURE_DDS_BUFFERS must be 0 or 1" >&2
+    exit 1
+    ;;
+esac
+
 if [ "$(id -u)" -eq 0 ] && [ "${CARKIT_RUN_AS_ROOT:-0}" != "1" ] && [ -n "${CARKIT_HOST_UID:-}" ]; then
   host_uid="${CARKIT_HOST_UID}"
   host_gid="${CARKIT_HOST_GID:-${CARKIT_HOST_UID}}"

@@ -26,6 +26,11 @@ def generate_launch_description():
         name="camera",
         output="screen",
         condition=IfCondition(LaunchConfiguration("start_camera")),
+        additional_env={
+            "FASTDDS_BUILTIN_TRANSPORTS": LaunchConfiguration(
+                "camera_dds_transport"
+            ),
+        },
         parameters=[{
             "enable_color": True,
             "rgb_camera.color_profile": "640x480x15",
@@ -98,6 +103,16 @@ def generate_launch_description():
             "start_camera",
             default_value="true",
             description="Start a color-only RealSense driver.",
+        ),
+        DeclareLaunchArgument(
+            "camera_dds_transport",
+            default_value="UDPv4",
+            choices=["UDPv4", "DEFAULT"],
+            description=(
+                "Fast DDS builtin transport for the RealSense camera only. "
+                "UDPv4 avoids Best Effort loss on large RGB images; DEFAULT "
+                "restores the Fast DDS UDPv4+SHM transport set for A/B tests."
+            ),
         ),
         DeclareLaunchArgument(
             "rviz_config",

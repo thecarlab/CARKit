@@ -86,6 +86,121 @@ python3 carkit/tools/jetson_system_monitor.py mode1 --no-clear
 Use `Ctrl+C` to stop. Empty thermal zones are shown as `offline`; missing or
 unreadable sensors are shown as `unavailable` and left blank in CSV output.
 
+## System Metrics Plotter
+
+`system_metrics_plotter.py` turns CARKit system, node-CPU, topic-rate, and
+pipeline-event CSV files into interactive plots and publication-ready
+figures. It is a standalone Tkinter + Matplotlib program: it does not use ROS
+and does not require `colcon build`.
+
+Open one experiment in the GUI:
+
+```bash
+cd /workspaces/CARKit
+python3 carkit/tools/system_metrics_plotter.py \
+  log/system_monitor/low_battery_test.csv
+```
+
+Compare multiple experiments by elapsed time:
+
+```bash
+python3 carkit/tools/system_metrics_plotter.py \
+  run_1200.csv run_1500.csv run_1728.csv
+```
+
+The left panel controls experiment names, metric selection, time range,
+language, figure width, and PNG resolution. The range slider and Start/End
+fields select the samples used for both plotting and statistics. The
+Matplotlib toolbar and mouse wheel change only the current view, so zooming
+does not silently change the statistical range. In timestamp mode, Start and
+End accept ISO timestamps such as `2026-07-22T21:30:00-04:00`.
+
+Each metric uses a separate subplot with units on its axis. CPU frequencies
+are converted from Hz to MHz, and `cpu_mean_freq_mhz` is derived from all
+online CPU cores at each sample. Blank or `offline` values are ignored rather
+than interpolated. `VDD_CPU_GPU_CV` is labelled as the combined CPU/GPU/CV
+power rail; it is not presented as CPU-only power.
+
+When `pipeline_events.csv` is loaded with one or more metrics CSV files, its
+events are overlaid on the existing subplots as color-coded vertical dashed
+lines. Short event labels are staggered on the first subplot so nearby events
+remain readable; the event file does not create a separate subplot or
+statistics rows. The GUI selects every available event type by default. Use
+**Pipeline event markers** to select only the event types that should be drawn,
+then choose **Redraw**.
+
+Use **Export Figure** (or the toolbar Save button) for PDF, SVG, or PNG.
+PDF and SVG preserve vector graphics; PNG uses the selected 300 or 600 DPI.
+Every GUI figure export also writes a JSON recipe beside the figure. Use
+**Export Statistics** to write both a long-format CSV and a `booktabs` LaTeX
+table containing count, mean, sample standard deviation, min, median, P95,
+and max.
+
+For a reproducible headless export:
+
+```bash
+python3 carkit/tools/system_metrics_plotter.py \
+  run_1200.csv run_1728.csv pipeline_events.csv \
+  --no-gui \
+  --metrics vdd_in_voltage_v vdd_in_power_w \
+            vdd_cpu_gpu_cv_power_w cpu_mean_freq_mhz \
+  --event-types auto_drive_entered vehicle_stopped \
+  --time-mode elapsed \
+  --time-unit minutes \
+  --start 10 \
+  --end 120 \
+  --figure-width double \
+  --output figures/power_comparison.pdf \
+  --stats-output figures/power_comparison_stats.csv \
+  --latex-output figures/power_comparison_stats.tex
+```
+
+Omit `--event-types` to draw every event type, or pass `--no-events` to load
+the event CSV without drawing markers.
+
+To reproduce a GUI export, the recipe restores the absolute input paths,
+experiment names, metrics, time range, language, size, title, and DPI. With no
+explicit output option, headless recipe mode writes a PDF with the same stem
+as the JSON file:
+
+```bash
+python3 carkit/tools/system_metrics_plotter.py \
+  --no-gui \
+  --recipe figures/power_comparison.json
+```
+
+GUI mode needs a working desktop/X11 display. For SSH sessions without display
+forwarding, use `--no-gui`; Matplotlib then uses its non-interactive Agg
+canvas.
+
+## Full CPU Load Test
+
+The standalone load generator starts one process per CPU available to the
+container and pins each process to a different CPU. It does not set the CPU
+clock; Linux and the Jetson firmware continue to control DVFS and throttling.
+
+Run the system monitor and load generator in two container terminals. Start
+CSV recording in the first terminal:
+
+```bash
+docker exec -it carkit bash
+cd /workspaces/CARKit
+python3 carkit/tools/jetson_system_monitor.py mode2 \
+  --output /workspaces/CARKit/log/system_monitor/cpu_full.csv
+```
+
+Start a five-minute full-CPU run in the second terminal:
+
+```bash
+docker exec -it carkit bash
+cd /workspaces/CARKit
+python3 carkit/tools/cpu_full_test.py --duration 300
+```
+
+The default software temperature limit is 90 C. Change it with `--max-temp`,
+or deliberately disable the software limit with `--max-temp 0`. Set
+`--duration 0` to run until `Ctrl+C`.
+
 ## Interactive Waypoints
 
 ```bash

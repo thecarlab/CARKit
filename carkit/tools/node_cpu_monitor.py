@@ -15,12 +15,14 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+import csv
 from dataclasses import dataclass
+from datetime import datetime
 import os
 from pathlib import Path
 import sys
 import time
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, Optional, Sequence, TextIO
 
 import psutil
 import rclpy
@@ -74,6 +76,7 @@ if TEXT_ONLY_REQUESTED or GUI_IMPORT_ERROR is not None:
 
 MONITOR_NODE_PREFIX = "carkit_node_cpu_monitor"
 DETAIL_ROLE = Qt.UserRole + 1
+CSV_TOP_NODE_COUNT = 20
 
 
 @dataclass(frozen=True)
@@ -116,6 +119,20 @@ class NodeRow:
     process: Optional[ProcessRecord]
     metrics: Optional[ProcessMetrics]
     mapping: str
+
+
+@dataclass(frozen=True)
+class CpuCoreMetrics:
+    index: int
+    cpu_percent: float
+    frequency_hz: Optional[int]
+    online: bool
+
+
+@dataclass(frozen=True)
+class SystemCpuMetrics:
+    cpu_percent: float
+    cores: tuple[CpuCoreMetrics, ...]
 
 
 def normalized_namespace(namespace: Optional[str]) -> str:
@@ -386,6 +403,134 @@ class ProcessSampler:
             self._system_cpu_initialized = True
             return 0.0
         return value
+
+
+def read_optional_int(path: Optional[Path]) -> Optional[int]:
+    if path is None:
+        return None
+    try:
+        return int(path.read_text(encoding="utf-8").strip())
+    except (OSError, UnicodeError, ValueError):
+        return None
+
+
+def core_frequency_path(index: int) -> Optional[Path]:
+    cpufreq_path = (
+        Path("/sys/devices/system/cpu")
+        / f"cpu{index}"
+        / "cpufreq"
+    )
+    try:
+        resolved = cpufreq_path.resolve(strict=True)
+    except OSError:
+        return None
+    for filename in ("scaling_cur_freq", "cpuinfo_cur_freq"):
+        candidate = resolved / filename
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+class SystemCpuSampler:
+    """Sample per-core interval load and Linux cpufreq values."""
+
+    def __init__(self) -> None:
+        self.core_count = psutil.cpu_count(logical=True) or 1
+        cpu_root = Path("/sys/devices/system/cpu")
+        self._frequency_paths = tuple(
+            core_frequency_path(index) for index in range(self.core_count)
+        )
+        self._online_paths = tuple(
+            (
+                cpu_root / f"cpu{index}" / "online"
+                if (cpu_root / f"cpu{index}" / "online").exists()
+                else None
+            )
+            for index in range(self.core_count)
+        )
+        self._initialized = False
+
+    @property
+    def core_indices(self) -> tuple[int, ...]:
+        return tuple(range(self.core_count))
+
+    def prime(self) -> None:
+        psutil.cpu_percent(interval=None)
+        psutil.cpu_percent(interval=None, percpu=True)
+        self._initialized = True
+
+    def sample(self) -> SystemCpuMetrics:
+        total_percent = float(psutil.cpu_percent(interval=None))
+        per_core_percent = tuple(
+            float(value)
+            for value in psutil.cpu_percent(interval=None, percpu=True)
+        )
+        if not self._initialized:
+            self._initialized = True
+            total_percent = 0.0
+            per_core_percent = tuple(0.0 for _ in per_core_percent)
+
+        needs_frequency_fallback = any(
+            path is None for path in self._frequency_paths
+        )
+        fallback_frequencies = (
+            psutil.cpu_freq(percpu=True) or []
+            if needs_frequency_fallback
+            else []
+        )
+        fallback_global = (
+            psutil.cpu_freq(percpu=False)
+            if needs_frequency_fallback
+            else None
+        )
+        frequency_cache: dict[Path, Optional[int]] = {}
+        cores: list[CpuCoreMetrics] = []
+        for index in range(self.core_count):
+            online_value = read_optional_int(self._online_paths[index])
+            online = (
+                online_value != 0
+                if self._online_paths[index] is not None
+                else True
+            )
+            frequency_hz: Optional[int] = None
+            frequency_path = self._frequency_paths[index]
+            if online and frequency_path is not None:
+                if frequency_path not in frequency_cache:
+                    frequency_khz = read_optional_int(frequency_path)
+                    frequency_cache[frequency_path] = (
+                        frequency_khz * 1000
+                        if frequency_khz is not None
+                        else None
+                    )
+                frequency_hz = frequency_cache[frequency_path]
+            elif online:
+                fallback_mhz: Optional[float] = None
+                if len(fallback_frequencies) == self.core_count:
+                    fallback_mhz = float(
+                        fallback_frequencies[index].current
+                    )
+                elif fallback_global is not None:
+                    fallback_mhz = float(fallback_global.current)
+                if fallback_mhz is not None:
+                    frequency_hz = int(round(fallback_mhz * 1_000_000.0))
+
+            cpu_percent = (
+                per_core_percent[index]
+                if index < len(per_core_percent)
+                else 0.0
+            )
+            cores.append(
+                CpuCoreMetrics(
+                    index=index,
+                    cpu_percent=cpu_percent,
+                    frequency_hz=frequency_hz,
+                    online=online,
+                )
+            )
+        return SystemCpuMetrics(
+            cpu_percent=total_percent,
+            cores=tuple(cores),
+        )
 
 
 class RosGraphReader:
@@ -829,6 +974,155 @@ class NodeCpuMonitorWindow(QMainWindow):
         self.show_table_detail(table, table.currentRow())
 
 
+def default_csv_output_path() -> Path:
+    repository_root = Path(__file__).resolve().parents[2]
+    timestamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+    return (
+        repository_root
+        / "log"
+        / "node_cpu_monitor"
+        / f"node_cpu_metrics_{timestamp}.csv"
+    )
+
+
+def csv_fieldnames(
+    core_indices: Sequence[int],
+    top_count: int = CSV_TOP_NODE_COUNT,
+) -> list[str]:
+    fields = ["timestamp_iso", "elapsed_s", "sample", "cpu_total_percent"]
+    for index in core_indices:
+        fields.extend((f"cpu{index}_percent", f"cpu{index}_freq_hz"))
+    for rank in range(1, top_count + 1):
+        prefix = f"top{rank:02d}"
+        fields.extend(
+            (
+                f"{prefix}_node",
+                f"{prefix}_process",
+                f"{prefix}_pid",
+                f"{prefix}_cpu_percent",
+            )
+        )
+    return fields
+
+
+def ranked_processes(
+    matches: Sequence[ProcessNodeMatch],
+    metrics: dict[int, ProcessMetrics],
+) -> list[tuple[ProcessNodeMatch, ProcessMetrics]]:
+    populated = [
+        (match, metrics[match.process.pid])
+        for match in matches
+        if match.process.pid in metrics
+    ]
+    populated.sort(
+        key=lambda item: (
+            -item[1].cpu_percent,
+            item[0].node_name or item[0].process.executable_hint,
+            item[0].process.pid,
+        )
+    )
+    return populated
+
+
+def csv_row(
+    timestamp: datetime,
+    elapsed_seconds: float,
+    sample_number: int,
+    system_cpu: SystemCpuMetrics,
+    matches: Sequence[ProcessNodeMatch],
+    metrics: dict[int, ProcessMetrics],
+    top_count: int = CSV_TOP_NODE_COUNT,
+) -> dict[str, object]:
+    row: dict[str, object] = {
+        "timestamp_iso": timestamp.isoformat(timespec="milliseconds"),
+        "elapsed_s": f"{elapsed_seconds:.3f}",
+        "sample": sample_number,
+        "cpu_total_percent": f"{system_cpu.cpu_percent:.1f}",
+    }
+    for core in system_cpu.cores:
+        row[f"cpu{core.index}_percent"] = (
+            f"{core.cpu_percent:.1f}" if core.online else ""
+        )
+        row[f"cpu{core.index}_freq_hz"] = (
+            core.frequency_hz
+            if core.online and core.frequency_hz is not None
+            else ""
+        )
+
+    ranked = ranked_processes(matches, metrics)
+    for rank in range(1, top_count + 1):
+        prefix = f"top{rank:02d}"
+        if rank <= len(ranked):
+            match, process_metrics = ranked[rank - 1]
+            row[f"{prefix}_node"] = (
+                match.node_name or match.process.executable_hint
+            )
+            row[f"{prefix}_process"] = match.process.executable_hint
+            row[f"{prefix}_pid"] = match.process.pid
+            row[f"{prefix}_cpu_percent"] = (
+                f"{process_metrics.cpu_percent:.1f}"
+            )
+        else:
+            row[f"{prefix}_node"] = ""
+            row[f"{prefix}_process"] = ""
+            row[f"{prefix}_pid"] = ""
+            row[f"{prefix}_cpu_percent"] = ""
+    return row
+
+
+class CsvRecorder:
+    def __init__(
+        self,
+        output_path: Path,
+        core_indices: Sequence[int],
+        top_count: int = CSV_TOP_NODE_COUNT,
+    ) -> None:
+        self.output_path = output_path
+        self.top_count = top_count
+        try:
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            self._stream: TextIO = output_path.open(
+                "w",
+                encoding="utf-8",
+                newline="",
+            )
+        except OSError as error:
+            raise SystemExit(
+                f"Cannot open CSV output '{output_path}': {error}"
+            ) from error
+        self._writer = csv.DictWriter(
+            self._stream,
+            fieldnames=csv_fieldnames(core_indices, top_count),
+        )
+        self._writer.writeheader()
+        self._stream.flush()
+
+    def write(
+        self,
+        timestamp: datetime,
+        elapsed_seconds: float,
+        sample_number: int,
+        system_cpu: SystemCpuMetrics,
+        matches: Sequence[ProcessNodeMatch],
+        metrics: dict[int, ProcessMetrics],
+    ) -> None:
+        self._writer.writerow(
+            csv_row(
+                timestamp,
+                elapsed_seconds,
+                sample_number,
+                system_cpu,
+                matches,
+                metrics,
+                self.top_count,
+            )
+        )
+        self._stream.flush()
+
+    def close(self) -> None:
+        self._stream.close()
+
+
 def wait_with_graph_pump(graph: RosGraphReader, seconds: float) -> None:
     """Wait without starving ROS graph discovery."""
 
@@ -874,9 +1168,10 @@ def print_console_snapshot(
     rows: Sequence[NodeRow],
     matches: Sequence[ProcessNodeMatch],
     metrics: dict[int, ProcessMetrics],
-    system_cpu: float,
+    system_cpu: SystemCpuMetrics,
     refresh_seconds: Optional[float] = None,
     clear_screen: bool = False,
+    csv_output_path: Optional[Path] = None,
 ) -> None:
     if clear_screen and sys.stdout.isatty():
         print("\033[2J\033[H", end="")
@@ -895,7 +1190,7 @@ def print_console_snapshot(
         for pid in unique_mapped_pids
         if pid in metrics
     )
-    logical_cores = psutil.cpu_count(logical=True) or 1
+    logical_cores = len(system_cpu.cores)
     interval_text = (
         f" | refresh {refresh_seconds:.1f}s"
         if refresh_seconds is not None
@@ -906,12 +1201,31 @@ def print_console_snapshot(
         f"{interval_text}"
     )
     print(
-        f"System CPU: {system_cpu:5.1f}% across {logical_cores} logical cores | "
+        f"System CPU: {system_cpu.cpu_percent:5.1f}% across "
+        f"{logical_cores} logical cores | "
         f"mapped-process CPU: {mapped_cpu:5.1f}% | "
         f"mapped RSS: {mib(mapped_rss):.1f} MiB | "
         f"nodes: {len(rows)} ({len(mapped_rows)} mapped)"
     )
+    if csv_output_path is not None:
+        print(f"Recording CSV: {csv_output_path}")
     print("CPU% may exceed 100 for a process using multiple logical cores.")
+
+    print()
+    print(f"{'CORE':>6} {'CPU%':>7} {'FREQUENCY':>14} {'STATE':>9}")
+    print("-" * 41)
+    for core in system_cpu.cores:
+        frequency = (
+            f"{core.frequency_hz / 1_000_000.0:.1f} MHz"
+            if core.frequency_hz is not None
+            else "unavailable"
+        )
+        state = "online" if core.online else "offline"
+        cpu_percent = f"{core.cpu_percent:.1f}" if core.online else "—"
+        print(
+            f"{('CPU' + str(core.index)):>6} "
+            f"{cpu_percent:>7} {frequency:>14} {state:>9}"
+        )
 
     process_rows = [
         (match, metrics.get(match.process.pid))
@@ -956,11 +1270,12 @@ def print_console_snapshot(
 def prime_console_sampler(
     graph: RosGraphReader,
     sampler: ProcessSampler,
+    system_sampler: SystemCpuSampler,
     show_hidden: bool,
 ) -> None:
     wait_with_graph_pump(graph, 0.5)
     sample_console_rows(graph, sampler, show_hidden)
-    sampler.system_cpu_percent()
+    system_sampler.prime()
 
 
 def collect_console_snapshot(
@@ -971,7 +1286,8 @@ def collect_console_snapshot(
     """Print one interval-based sample for SSH diagnostics."""
 
     sampler = ProcessSampler()
-    prime_console_sampler(graph, sampler, show_hidden)
+    system_sampler = SystemCpuSampler()
+    prime_console_sampler(graph, sampler, system_sampler, show_hidden)
     wait_with_graph_pump(graph, max(0.2, refresh_seconds))
     rows, matches, metrics = sample_console_rows(
         graph,
@@ -982,7 +1298,7 @@ def collect_console_snapshot(
         rows,
         matches,
         metrics,
-        sampler.system_cpu_percent(),
+        system_sampler.sample(),
     )
     return 0
 
@@ -992,31 +1308,78 @@ def run_terminal_monitor(
     refresh_seconds: float,
     show_hidden: bool,
     clear_screen: bool,
+    csv_output_path: Optional[Path],
 ) -> int:
     """Continuously refresh process CPU usage in an SSH terminal."""
 
     sampler = ProcessSampler()
+    system_sampler = SystemCpuSampler()
+    recorder = (
+        CsvRecorder(csv_output_path, system_sampler.core_indices)
+        if csv_output_path is not None
+        else None
+    )
+    start_time = time.monotonic()
+    next_sample_time = start_time + refresh_seconds
+    sample_number = 0
     try:
         print(f"Collecting the first {refresh_seconds:.1f}s CPU sample…")
-        prime_console_sampler(graph, sampler, show_hidden)
+        prime_console_sampler(
+            graph,
+            sampler,
+            system_sampler,
+            show_hidden,
+        )
         while True:
-            wait_with_graph_pump(graph, refresh_seconds)
+            delay = next_sample_time - time.monotonic()
+            if delay > 0:
+                wait_with_graph_pump(graph, delay)
+            sample_number += 1
             rows, matches, metrics = sample_console_rows(
                 graph,
                 sampler,
                 show_hidden,
             )
+            system_cpu = system_sampler.sample()
+            sample_time = time.monotonic()
+            timestamp = datetime.now().astimezone()
             print_console_snapshot(
                 rows,
                 matches,
                 metrics,
-                sampler.system_cpu_percent(),
+                system_cpu,
                 refresh_seconds=refresh_seconds,
                 clear_screen=clear_screen,
+                csv_output_path=csv_output_path,
             )
+            if recorder is not None:
+                recorder.write(
+                    timestamp,
+                    sample_time - start_time,
+                    sample_number,
+                    system_cpu,
+                    matches,
+                    metrics,
+                )
+
+            next_sample_time += refresh_seconds
+            if next_sample_time <= time.monotonic():
+                next_sample_time = time.monotonic() + refresh_seconds
     except KeyboardInterrupt:
         print("\nCPU monitor stopped.")
+        if csv_output_path is not None:
+            print(f"CSV saved to: {csv_output_path}")
         return 0
+    except Exception:
+        if rclpy.ok():
+            raise
+        print("\nCPU monitor stopped after ROS shutdown.")
+        if csv_output_path is not None:
+            print(f"CSV saved to: {csv_output_path}")
+        return 0
+    finally:
+        if recorder is not None:
+            recorder.close()
 
 
 def run_self_test() -> int:
@@ -1060,6 +1423,32 @@ def run_self_test() -> int:
         row.node_name == "/unmapped_component" and not row.process
         for row in rows
     )
+    sample_metrics = {
+        123: ProcessMetrics(
+            cpu_percent=25.0,
+            memory_percent=1.0,
+            rss_bytes=1024,
+            thread_count=2,
+            status="running",
+        )
+    }
+    sample_system = SystemCpuMetrics(
+        cpu_percent=12.5,
+        cores=(CpuCoreMetrics(0, 15.0, 1_728_000_000, True),),
+    )
+    output_row = csv_row(
+        datetime.fromisoformat("2026-07-23T12:00:00-04:00"),
+        1.0,
+        1,
+        sample_system,
+        matches,
+        sample_metrics,
+    )
+    assert output_row["cpu0_percent"] == "15.0"
+    assert output_row["cpu0_freq_hz"] == 1_728_000_000
+    assert output_row["top01_node"] == "/control_center_node"
+    assert output_row["top01_cpu_percent"] == "25.0"
+    assert len(csv_fieldnames((0,))) == 4 + 2 + 4 * CSV_TOP_NODE_COUNT
     print("node_cpu_monitor self-test passed")
     return 0
 
@@ -1096,6 +1485,19 @@ def parse_arguments() -> argparse.Namespace:
         help="Append terminal samples instead of clearing the screen",
     )
     parser.add_argument(
+        "--csv",
+        action="store_true",
+        help=(
+            "Record terminal samples to CSV; defaults to "
+            "log/node_cpu_monitor/node_cpu_metrics_<timestamp>.csv"
+        ),
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="CSV output path used with --terminal --csv",
+    )
+    parser.add_argument(
         "--self-test",
         action="store_true",
         help="Run parser and mapping tests without joining the ROS graph",
@@ -1110,6 +1512,16 @@ def main() -> int:
 
     if arguments.refresh_ms < 200:
         raise SystemExit("--refresh-ms must be at least 200")
+    if arguments.csv and not arguments.terminal:
+        raise SystemExit("--csv requires --terminal")
+    if arguments.output is not None and not arguments.csv:
+        raise SystemExit("--output requires --csv")
+
+    csv_output_path = (
+        arguments.output or default_csv_output_path()
+        if arguments.csv
+        else None
+    )
 
     rclpy.init(args=[])
     graph = RosGraphReader()
@@ -1120,6 +1532,7 @@ def main() -> int:
                 arguments.refresh_ms / 1000.0,
                 arguments.show_hidden,
                 clear_screen=not arguments.no_clear,
+                csv_output_path=csv_output_path,
             )
 
         if arguments.once:
