@@ -155,6 +155,43 @@ ros2 launch carkit_behavior behavior_center.launch.py
 Behavior logic only affects commands while the control center is in
 `AUTO_DRIVE`.
 
+## 📊 Monitoring And Reusable Waypoints
+
+Start all pipeline monitors. The optional name is combined with the current
+timestamp to create a new output directory under `test/`:
+
+```bash
+./carkit/tools/start_pipeline_monitors.sh launch_all
+```
+
+After recording, open an experiment in the plotting GUI using its custom name:
+
+```bash
+python3 carkit/tools/system_metrics_plotter.py \
+  test/RECORDING_NAME_*/*.csv
+```
+
+For example, open the recorded `only_launch_navigation` experiment:
+
+```bash
+python3 carkit/tools/system_metrics_plotter.py \
+  test/only_launch_navigation_*/*.csv
+```
+
+Save the current Foxglove waypoint poses:
+
+```bash
+python3 carkit/tools/save_foxglove_waypoints.py test/my_route.json
+```
+
+Publish the saved poses and clear existing Foxglove waypoint markers first:
+
+```bash
+python3 carkit/tools/publish_foxglove_waypoints.py \
+  test/my_route.json \
+  --clear
+```
+
 ## 🗂️ Repository Layout
 
 ```text
