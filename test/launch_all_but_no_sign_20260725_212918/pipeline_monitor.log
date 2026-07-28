@@ -1,0 +1,13 @@
+[INFO] [1785029362.445563397] [pipeline_rate_monitor]: Recording 14 pipeline rates to /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/pipeline_rates.csv every 1.000 seconds; events to /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/pipeline_events.csv
+[INFO] [1785029363.631058120] [pipeline_rate_monitor]: Pipeline event: navigation_failed | status=Route aborted by Nav2
+[INFO] [1785029368.556303096] [pipeline_rate_monitor]: Pipeline event: route_start_requested | command=start mode=non_auto
+[INFO] [1785029368.569768979] [pipeline_rate_monitor]: Pipeline event: goal_accepted | status=Navigating through 7 pose(s)
+[INFO] [1785029368.749343091] [pipeline_rate_monitor]: Pipeline event: planning_completed | received nonempty plan pulse from Behavior callback
+[INFO] [1785029371.485590032] [pipeline_rate_monitor]: Pipeline event: navigation_failed | status=Route aborted by Nav2
+[INFO] [1785029371.891220951] [pipeline_rate_monitor]: Pipeline event: auto_drive_entered | previous_state=HUMAN_CONTROL
+[INFO] [1785029371.905423489] [pipeline_rate_monitor]: Pipeline event: controller_output_started | linear_x=1.500000 angular_z=-0.080337
+[INFO] [1785029371.928360739] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous= current=NORMAL_NAV2
+[INFO] [1785029371.943920233] [pipeline_rate_monitor]: Pipeline event: ackermann_output_started | speed=1.500000 steering_angle=-0.013389
+[INFO] [1785029372.272175668] [pipeline_rate_monitor]: Pipeline event: vehicle_motion_started | speed_mps=0.342530 threshold_mps=0.080000 held_s=0.200347
+[INFO] [1785029456.239986946] [pipeline_rate_monitor]: Pipeline event: auto_drive_exited | new_state=HUMAN_CONTROL
+[INFO] [1785029471.822642252] [rclcpp]: signal_handler(SIGINT/SIGTERM)

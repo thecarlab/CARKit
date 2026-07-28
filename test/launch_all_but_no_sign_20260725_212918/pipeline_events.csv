@@ -1,0 +1,7 @@
+timestamp,elapsed_s,event_id,event,source_topic,auto_session,route_session,details
+2026-07-25T21:29:23.630,1.199488,1,"navigation_failed","/foxglove/waypoints/status",0,0,"status=Route aborted by Nav2"
+2026-07-25T21:29:28.569,6.138169,3,"goal_accepted","/foxglove/waypoints/status",0,1,"status=Navigating through 7 pose(s)"
+2026-07-25T21:29:31.485,9.054103,5,"navigation_failed","/foxglove/waypoints/status",0,1,"status=Route aborted by Nav2"
+2026-07-25T21:29:31.891,9.459719,6,"auto_drive_entered","/control_center/main_state",1,1,"previous_state=HUMAN_CONTROL"
+2026-07-25T21:29:31.928,9.496873,8,"behavior_state_changed","/behavior/state",1,1,"previous= current=NORMAL_NAV2"
+2026-07-25T21:30:56.239,93.808509,11,"auto_drive_exited","/control_center/main_state",1,1,"new_state=HUMAN_CONTROL"

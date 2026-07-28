@@ -1,0 +1,3 @@
+wrapper=/workspaces/CARKit/install/realsense2_camera
+	librealsense2.so.2.58 (libc6,AArch64) => /usr/local/lib/librealsense2.so.2.58
+	librealsense2.so (libc6,AArch64) => /usr/local/lib/librealsense2.so

@@ -1,0 +1,3300 @@
+Jetson System Monitor | 2026-07-25T21:29:22-04:00 | sample 1 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 93.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 57.0 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.208 A   11.040 W   11.040 W
+VDD_CPU_GPU_CV          4.984 V    0.768 A    3.828 W    3.828 W
+VDD_SOC                 4.992 V    0.584 A    2.915 W    2.915 W
+Jetson System Monitor | 2026-07-25T21:29:23-04:00 | sample 2 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 90.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.0 C
+soc1-thermal                 58.1 C
+soc2-thermal                 55.7 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.184 A   10.920 W   10.980 W
+VDD_CPU_GPU_CV          4.984 V    0.760 A    3.788 W    3.808 W
+VDD_SOC                 4.992 V    0.584 A    2.915 W    2.915 W
+Jetson System Monitor | 2026-07-25T21:29:24-04:00 | sample 3 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 82.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.5 C
+soc0-thermal                 56.9 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.7 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.120 A   10.617 W   10.859 W
+VDD_CPU_GPU_CV          4.992 V    0.704 A    3.514 W    3.710 W
+VDD_SOC                 5.000 V    0.584 A    2.920 W    2.917 W
+Jetson System Monitor | 2026-07-25T21:29:25-04:00 | sample 4 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 96.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.208 A   11.040 W   10.904 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.759 W
+VDD_SOC                 4.992 V    0.584 A    2.915 W    2.916 W
+Jetson System Monitor | 2026-07-25T21:29:26-04:00 | sample 5 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 95.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.4 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.200 A   11.000 W   10.923 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.789 W
+VDD_SOC                 4.992 V    0.584 A    2.915 W    2.916 W
+Jetson System Monitor | 2026-07-25T21:29:27-04:00 | sample 6 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 94.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.0 C
+soc1-thermal                 57.9 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.208 A   11.040 W   10.943 W
+VDD_CPU_GPU_CV          4.984 V    0.768 A    3.828 W    3.795 W
+VDD_SOC                 4.992 V    0.592 A    2.955 W    2.923 W
+Jetson System Monitor | 2026-07-25T21:29:28-04:00 | sample 7 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 77.9 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.4 C
+soc0-thermal                 57.0 C
+soc1-thermal                 58.1 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.120 A   10.617 W   10.896 W
+VDD_CPU_GPU_CV          4.992 V    0.704 A    3.514 W    3.755 W
+VDD_SOC                 5.000 V    0.584 A    2.920 W    2.922 W
+Jetson System Monitor | 2026-07-25T21:29:29-04:00 | sample 8 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 77.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 56.9 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.112 A   10.577 W   10.856 W
+VDD_CPU_GPU_CV          4.992 V    0.696 A    3.474 W    3.720 W
+VDD_SOC                 5.000 V    0.584 A    2.920 W    2.922 W
+Jetson System Monitor | 2026-07-25T21:29:30-04:00 | sample 9 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 79.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.2 C
+soc1-thermal                 57.9 C
+soc2-thermal                 55.7 C
+tj-thermal                   58.3 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.104 A   10.537 W   10.821 W
+VDD_CPU_GPU_CV          4.992 V    0.696 A    3.474 W    3.693 W
+VDD_SOC                 5.000 V    0.584 A    2.920 W    2.922 W
+Jetson System Monitor | 2026-07-25T21:29:31-04:00 | sample 10 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 78.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.5 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.9 C
+soc2-thermal                 55.7 C
+tj-thermal                   58.2 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.080 A   10.417 W   10.780 W
+VDD_CPU_GPU_CV          4.992 V    0.680 A    3.395 W    3.663 W
+VDD_SOC                 5.000 V    0.576 A    2.880 W    2.918 W
+Jetson System Monitor | 2026-07-25T21:29:32-04:00 | sample 11 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.184 A   10.920 W   10.793 W
+VDD_CPU_GPU_CV          4.984 V    0.736 A    3.668 W    3.664 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.925 W
+Jetson System Monitor | 2026-07-25T21:29:33-04:00 | sample 12 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.0 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.2 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 57.0 C
+soc1-thermal                 58.1 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.264 A   11.320 W   10.837 W
+VDD_CPU_GPU_CV          4.976 V    0.792 A    3.941 W    3.687 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.934 W
+Jetson System Monitor | 2026-07-25T21:29:34-04:00 | sample 13 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 87.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.288 A   11.440 W   10.883 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.712 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.942 W
+Jetson System Monitor | 2026-07-25T21:29:35-04:00 | sample 14 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 57.0 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   10.912 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.729 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.946 W
+Jetson System Monitor | 2026-07-25T21:29:36-04:00 | sample 15 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 57.2 C
+soc1-thermal                 57.9 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   10.942 W
+VDD_CPU_GPU_CV          4.976 V    0.792 A    3.941 W    3.743 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.951 W
+Jetson System Monitor | 2026-07-25T21:29:37-04:00 | sample 16 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.9 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.2 C
+soc1-thermal                 57.9 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.280 A   11.400 W   10.970 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.758 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.957 W
+Jetson System Monitor | 2026-07-25T21:29:38-04:00 | sample 17 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 57.2 C
+soc1-thermal                 57.9 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.216 A   11.080 W   10.977 W
+VDD_CPU_GPU_CV          4.984 V    0.768 A    3.828 W    3.762 W
+VDD_SOC                 4.992 V    0.592 A    2.955 W    2.957 W
+Jetson System Monitor | 2026-07-25T21:29:39-04:00 | sample 18 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.2 C
+soc1-thermal                 57.9 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.224 A   11.120 W   10.985 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.768 W
+VDD_SOC                 4.992 V    0.592 A    2.955 W    2.957 W
+Jetson System Monitor | 2026-07-25T21:29:40-04:00 | sample 19 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.216 A   11.080 W   10.990 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.773 W
+VDD_SOC                 4.992 V    0.592 A    2.955 W    2.956 W
+Jetson System Monitor | 2026-07-25T21:29:41-04:00 | sample 20 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.3 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.240 A   11.200 W   11.000 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.782 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.958 W
+Jetson System Monitor | 2026-07-25T21:29:42-04:00 | sample 21 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.9 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.012 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.790 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.960 W
+Jetson System Monitor | 2026-07-25T21:29:43-04:00 | sample 22 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.9 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.027 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.800 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.962 W
+Jetson System Monitor | 2026-07-25T21:29:44-04:00 | sample 23 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 81.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.038 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.807 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.963 W
+Jetson System Monitor | 2026-07-25T21:29:45-04:00 | sample 24 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 82.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.208 A   11.040 W   11.039 W
+VDD_CPU_GPU_CV          4.984 V    0.760 A    3.788 W    3.806 W
+VDD_SOC                 4.992 V    0.592 A    2.955 W    2.963 W
+Jetson System Monitor | 2026-07-25T21:29:46-04:00 | sample 25 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.3 C
+soc1-thermal                 58.1 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.216 A   11.080 W   11.040 W
+VDD_CPU_GPU_CV          4.984 V    0.768 A    3.828 W    3.807 W
+VDD_SOC                 4.992 V    0.592 A    2.955 W    2.963 W
+Jetson System Monitor | 2026-07-25T21:29:47-04:00 | sample 26 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.048 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.812 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.964 W
+Jetson System Monitor | 2026-07-25T21:29:48-04:00 | sample 27 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 87.9 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.288 A   11.440 W   11.062 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.820 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.966 W
+Jetson System Monitor | 2026-07-25T21:29:49-04:00 | sample 28 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.1 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.264 A   11.320 W   11.072 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.826 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.968 W
+Jetson System Monitor | 2026-07-25T21:29:50-04:00 | sample 29 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.1 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.079 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.830 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.968 W
+Jetson System Monitor | 2026-07-25T21:29:51-04:00 | sample 30 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 82.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.085 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.832 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.971 W
+Jetson System Monitor | 2026-07-25T21:29:52-04:00 | sample 31 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.4 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.2 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.208 A   11.040 W   11.084 W
+VDD_CPU_GPU_CV          4.984 V    0.752 A    3.748 W    3.830 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.971 W
+Jetson System Monitor | 2026-07-25T21:29:53-04:00 | sample 32 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.089 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.831 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.973 W
+Jetson System Monitor | 2026-07-25T21:29:54-04:00 | sample 33 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.264 A   11.320 W   11.096 W
+VDD_CPU_GPU_CV          4.984 V    0.800 A    3.987 W    3.836 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.975 W
+Jetson System Monitor | 2026-07-25T21:29:55-04:00 | sample 34 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.3 C
+soc1-thermal                 58.1 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.264 A   11.320 W   11.102 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.839 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.977 W
+Jetson System Monitor | 2026-07-25T21:29:56-04:00 | sample 35 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.1 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.296 A   11.480 W   11.113 W
+VDD_CPU_GPU_CV          4.976 V    0.816 A    4.060 W    3.845 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.979 W
+Jetson System Monitor | 2026-07-25T21:29:57-04:00 | sample 36 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.2 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.2 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.288 A   11.440 W   11.122 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.850 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.980 W
+Jetson System Monitor | 2026-07-25T21:29:58-04:00 | sample 37 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.9 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.1 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.129 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.854 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.982 W
+Jetson System Monitor | 2026-07-25T21:29:59-04:00 | sample 38 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.1 C
+tj-thermal                   58.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.264 A   11.320 W   11.134 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.856 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.983 W
+Jetson System Monitor | 2026-07-25T21:30:00-04:00 | sample 39 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.0 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.137 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.857 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.985 W
+Jetson System Monitor | 2026-07-25T21:30:01-04:00 | sample 40 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 57.0 C
+soc1-thermal                 58.1 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.139 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.858 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.986 W
+Jetson System Monitor | 2026-07-25T21:30:02-04:00 | sample 41 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 87.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.144 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.861 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.987 W
+Jetson System Monitor | 2026-07-25T21:30:03-04:00 | sample 42 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 87.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.150 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.864 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.988 W
+Jetson System Monitor | 2026-07-25T21:30:04-04:00 | sample 43 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   59.1 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.288 A   11.440 W   11.156 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.866 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.989 W
+Jetson System Monitor | 2026-07-25T21:30:05-04:00 | sample 44 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.0 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.2 C
+soc2-thermal                 56.1 C
+tj-thermal                   58.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.264 A   11.320 W   11.160 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.868 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.990 W
+Jetson System Monitor | 2026-07-25T21:30:06-04:00 | sample 45 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.2 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.1 C
+soc2-thermal                 56.1 C
+tj-thermal                   58.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.162 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.869 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.990 W
+Jetson System Monitor | 2026-07-25T21:30:07-04:00 | sample 46 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.1 C
+soc2-thermal                 56.1 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.164 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.869 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.991 W
+Jetson System Monitor | 2026-07-25T21:30:08-04:00 | sample 47 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.166 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.871 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.992 W
+Jetson System Monitor | 2026-07-25T21:30:09-04:00 | sample 48 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.1 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.170 W
+VDD_CPU_GPU_CV          4.984 V    0.800 A    3.987 W    3.873 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.993 W
+Jetson System Monitor | 2026-07-25T21:30:10-04:00 | sample 49 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.9 C
+soc2-thermal                 56.1 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.280 A   11.400 W   11.175 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.875 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.994 W
+Jetson System Monitor | 2026-07-25T21:30:11-04:00 | sample 50 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.0 C
+soc1-thermal                 57.9 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.280 A   11.400 W   11.179 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.877 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.995 W
+Jetson System Monitor | 2026-07-25T21:30:12-04:00 | sample 51 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.1 C
+soc0-thermal                 57.1 C
+soc1-thermal                 58.2 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.288 A   11.440 W   11.184 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.880 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.996 W
+Jetson System Monitor | 2026-07-25T21:30:13-04:00 | sample 52 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.9 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.0 C
+soc1-thermal                 58.1 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.188 W
+VDD_CPU_GPU_CV          4.984 V    0.800 A    3.987 W    3.882 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.996 W
+Jetson System Monitor | 2026-07-25T21:30:14-04:00 | sample 53 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1651.2 MHz
+ CPU5  online       1651.2 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 56.0 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.189 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.882 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.996 W
+Jetson System Monitor | 2026-07-25T21:30:15-04:00 | sample 54 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 56.9 C
+soc1-thermal                 58.2 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.190 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.882 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.996 W
+Jetson System Monitor | 2026-07-25T21:30:16-04:00 | sample 55 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 89.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.3 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 57.0 C
+soc1-thermal                 58.1 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.193 W
+VDD_CPU_GPU_CV          4.984 V    0.800 A    3.987 W    3.884 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.997 W
+Jetson System Monitor | 2026-07-25T21:30:17-04:00 | sample 56 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.3 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.2 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.288 A   11.440 W   11.197 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.886 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.998 W
+Jetson System Monitor | 2026-07-25T21:30:18-04:00 | sample 57 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.5 C
+soc0-thermal                 57.2 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.240 A   11.200 W   11.197 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.886 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.998 W
+Jetson System Monitor | 2026-07-25T21:30:19-04:00 | sample 58 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.9 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 57.0 C
+soc1-thermal                 57.9 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.280 A   11.400 W   11.201 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.887 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.998 W
+Jetson System Monitor | 2026-07-25T21:30:20-04:00 | sample 59 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 56.9 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.201 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.888 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.999 W
+Jetson System Monitor | 2026-07-25T21:30:21-04:00 | sample 60 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.0 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.3 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 56.9 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.224 A   11.120 W   11.200 W
+VDD_CPU_GPU_CV          4.984 V    0.768 A    3.828 W    3.887 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.999 W
+Jetson System Monitor | 2026-07-25T21:30:22-04:00 | sample 61 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.2 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 57.0 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.2 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.201 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.887 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    2.999 W
+Jetson System Monitor | 2026-07-25T21:30:23-04:00 | sample 62 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 87.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.2 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.203 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.888 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    2.999 W
+Jetson System Monitor | 2026-07-25T21:30:24-04:00 | sample 63 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 88.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.1 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.9 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.296 A   11.480 W   11.208 W
+VDD_CPU_GPU_CV          4.984 V    0.808 A    4.027 W    3.890 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.000 W
+Jetson System Monitor | 2026-07-25T21:30:25-04:00 | sample 64 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 90.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 56.9 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.296 A   11.480 W   11.212 W
+VDD_CPU_GPU_CV          4.976 V    0.824 A    4.100 W    3.894 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.001 W
+Jetson System Monitor | 2026-07-25T21:30:26-04:00 | sample 65 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.9 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 56.9 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.288 A   11.440 W   11.215 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.895 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.001 W
+Jetson System Monitor | 2026-07-25T21:30:27-04:00 | sample 66 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.4 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 56.9 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.218 W
+VDD_CPU_GPU_CV          4.984 V    0.800 A    3.987 W    3.897 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.002 W
+Jetson System Monitor | 2026-07-25T21:30:28-04:00 | sample 67 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.9 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.218 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.897 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    3.002 W
+Jetson System Monitor | 2026-07-25T21:30:29-04:00 | sample 68 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.280 A   11.400 W   11.221 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.898 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.002 W
+Jetson System Monitor | 2026-07-25T21:30:30-04:00 | sample 69 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 88.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 56.9 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.223 W
+VDD_CPU_GPU_CV          4.984 V    0.800 A    3.987 W    3.900 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.002 W
+Jetson System Monitor | 2026-07-25T21:30:31-04:00 | sample 70 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 88.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1574.4 MHz
+ CPU5  online       1574.4 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 56.8 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.296 A   11.480 W   11.226 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.901 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.003 W
+Jetson System Monitor | 2026-07-25T21:30:32-04:00 | sample 71 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 56.8 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.5 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.228 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.902 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.003 W
+Jetson System Monitor | 2026-07-25T21:30:33-04:00 | sample 72 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.3 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.5 C
+soc0-thermal                 57.1 C
+soc1-thermal                 57.9 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.3 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.304 A   11.520 W   11.232 W
+VDD_CPU_GPU_CV          4.976 V    0.816 A    4.060 W    3.904 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.004 W
+Jetson System Monitor | 2026-07-25T21:30:34-04:00 | sample 73 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 87.4 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 57.0 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.304 A   11.520 W   11.236 W
+VDD_CPU_GPU_CV          4.976 V    0.824 A    4.100 W    3.907 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.004 W
+Jetson System Monitor | 2026-07-25T21:30:35-04:00 | sample 74 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.4 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.5 C
+soc0-thermal                 56.8 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.9 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.238 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.907 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.005 W
+Jetson System Monitor | 2026-07-25T21:30:36-04:00 | sample 75 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.0 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 56.8 C
+soc1-thermal                 57.7 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.240 A   11.200 W   11.237 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.907 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    3.005 W
+Jetson System Monitor | 2026-07-25T21:30:37-04:00 | sample 76 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1497.6 MHz
+ CPU5  online       1497.6 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.4 C
+soc0-thermal                 56.9 C
+soc1-thermal                 57.7 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.239 W
+VDD_CPU_GPU_CV          4.984 V    0.800 A    3.987 W    3.908 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.005 W
+Jetson System Monitor | 2026-07-25T21:30:38-04:00 | sample 77 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.2 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 56.8 C
+soc1-thermal                 58.0 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.239 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.907 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    3.005 W
+Jetson System Monitor | 2026-07-25T21:30:39-04:00 | sample 78 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 88.0 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 56.9 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.280 A   11.400 W   11.241 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.908 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.005 W
+Jetson System Monitor | 2026-07-25T21:30:40-04:00 | sample 79 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 87.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  57.0 C
+soc0-thermal                 56.8 C
+soc1-thermal                 57.7 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.296 A   11.480 W   11.244 W
+VDD_CPU_GPU_CV          4.976 V    0.816 A    4.060 W    3.910 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.006 W
+Jetson System Monitor | 2026-07-25T21:30:41-04:00 | sample 80 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.7 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.5 C
+soc0-thermal                 56.9 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.245 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.911 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    3.005 W
+Jetson System Monitor | 2026-07-25T21:30:42-04:00 | sample 81 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.3 C
+soc0-thermal                 56.8 C
+soc1-thermal                 57.6 C
+soc2-thermal                 55.7 C
+tj-thermal                   58.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.272 A   11.360 W   11.246 W
+VDD_CPU_GPU_CV          4.984 V    0.800 A    3.987 W    3.912 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.006 W
+Jetson System Monitor | 2026-07-25T21:30:43-04:00 | sample 82 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.3 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 56.7 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.3 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.280 A   11.400 W   11.248 W
+VDD_CPU_GPU_CV          4.984 V    0.800 A    3.987 W    3.913 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.006 W
+Jetson System Monitor | 2026-07-25T21:30:44-04:00 | sample 83 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.3 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 56.9 C
+soc1-thermal                 57.6 C
+soc2-thermal                 55.7 C
+tj-thermal                   58.3 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.248 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.912 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    3.006 W
+Jetson System Monitor | 2026-07-25T21:30:45-04:00 | sample 84 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.2 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.4 C
+soc0-thermal                 56.7 C
+soc1-thermal                 57.7 C
+soc2-thermal                 55.6 C
+tj-thermal                   58.2 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.249 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.912 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    3.006 W
+Jetson System Monitor | 2026-07-25T21:30:46-04:00 | sample 85 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.0 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 56.6 C
+soc1-thermal                 57.6 C
+soc2-thermal                 55.7 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.249 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.912 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.006 W
+Jetson System Monitor | 2026-07-25T21:30:47-04:00 | sample 86 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.4 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.3 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.8 C
+soc0-thermal                 56.7 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.6 C
+tj-thermal                   58.3 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.264 A   11.320 W   11.250 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.912 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.007 W
+Jetson System Monitor | 2026-07-25T21:30:48-04:00 | sample 87 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.6 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.5 C
+soc0-thermal                 56.6 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.7 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.280 A   11.400 W   11.252 W
+VDD_CPU_GPU_CV          4.976 V    0.800 A    3.981 W    3.913 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.007 W
+Jetson System Monitor | 2026-07-25T21:30:49-04:00 | sample 88 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.2 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.9 C
+soc0-thermal                 56.8 C
+soc1-thermal                 57.7 C
+soc2-thermal                 55.6 C
+tj-thermal                   58.2 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.296 A   11.480 W   11.254 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.914 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.007 W
+Jetson System Monitor | 2026-07-25T21:30:50-04:00 | sample 89 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 86.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.4 C
+soc0-thermal                 56.7 C
+soc1-thermal                 57.5 C
+soc2-thermal                 55.6 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.288 A   11.440 W   11.256 W
+VDD_CPU_GPU_CV          4.976 V    0.808 A    4.021 W    3.915 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.008 W
+Jetson System Monitor | 2026-07-25T21:30:51-04:00 | sample 90 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.3 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.2 C
+soc0-thermal                 56.8 C
+soc1-thermal                 57.6 C
+soc2-thermal                 55.8 C
+tj-thermal                   58.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.264 A   11.320 W   11.257 W
+VDD_CPU_GPU_CV          4.984 V    0.792 A    3.947 W    3.915 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.008 W
+Jetson System Monitor | 2026-07-25T21:30:52-04:00 | sample 91 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.4 C
+soc0-thermal                 56.6 C
+soc1-thermal                 57.6 C
+soc2-thermal                 55.6 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.240 A   11.200 W   11.256 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.915 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    3.008 W
+Jetson System Monitor | 2026-07-25T21:30:53-04:00 | sample 92 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.4 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.3 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 56.6 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.6 C
+tj-thermal                   58.3 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.248 A   11.240 W   11.256 W
+VDD_CPU_GPU_CV          4.984 V    0.776 A    3.868 W    3.914 W
+VDD_SOC                 4.992 V    0.600 A    2.995 W    3.008 W
+Jetson System Monitor | 2026-07-25T21:30:54-04:00 | sample 93 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.0 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.4 C
+soc0-thermal                 56.8 C
+soc1-thermal                 57.7 C
+soc2-thermal                 55.5 C
+tj-thermal                   58.0 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.256 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.914 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.008 W
+Jetson System Monitor | 2026-07-25T21:30:55-04:00 | sample 94 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 85.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1651.2 MHz
+ CPU1  online       1651.2 MHz
+ CPU2  online       1651.2 MHz
+ CPU3  online       1651.2 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.7 C
+soc0-thermal                 56.8 C
+soc1-thermal                 57.6 C
+soc2-thermal                 55.5 C
+tj-thermal                   57.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.256 A   11.280 W   11.257 W
+VDD_CPU_GPU_CV          4.984 V    0.784 A    3.907 W    3.914 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.008 W
+Jetson System Monitor | 2026-07-25T21:30:56-04:00 | sample 95 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 84.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 56.6 C
+soc1-thermal                 57.5 C
+soc2-thermal                 55.6 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.000 V    2.288 A   11.440 W   11.259 W
+VDD_CPU_GPU_CV          4.984 V    0.808 A    4.027 W    3.915 W
+VDD_SOC                 4.992 V    0.608 A    3.035 W    3.008 W
+Jetson System Monitor | 2026-07-25T21:30:57-04:00 | sample 96 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 77.4 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.4 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.2 C
+soc0-thermal                 56.6 C
+soc1-thermal                 57.4 C
+soc2-thermal                 55.5 C
+tj-thermal                   58.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.128 A   10.657 W   11.252 W
+VDD_CPU_GPU_CV          4.992 V    0.712 A    3.554 W    3.912 W
+VDD_SOC                 5.000 V    0.584 A    2.920 W    3.008 W
+Jetson System Monitor | 2026-07-25T21:30:58-04:00 | sample 97 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 78.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.2 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.6 C
+soc0-thermal                 56.6 C
+soc1-thermal                 57.8 C
+soc2-thermal                 55.5 C
+tj-thermal                   58.2 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.112 A   10.577 W   11.245 W
+VDD_CPU_GPU_CV          4.992 V    0.704 A    3.514 W    3.908 W
+VDD_SOC                 5.000 V    0.584 A    2.920 W    3.007 W
+Jetson System Monitor | 2026-07-25T21:30:59-04:00 | sample 98 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 79.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.2 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.2 C
+soc0-thermal                 56.5 C
+soc1-thermal                 57.6 C
+soc2-thermal                 55.4 C
+tj-thermal                   58.2 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.096 A   10.497 W   11.238 W
+VDD_CPU_GPU_CV          4.992 V    0.688 A    3.434 W    3.903 W
+VDD_SOC                 5.000 V    0.576 A    2.880 W    3.005 W
+Jetson System Monitor | 2026-07-25T21:31:00-04:00 | sample 99 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 77.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1420.8 MHz
+ CPU5  online       1420.8 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.1 C
+soc0-thermal                 56.7 C
+soc1-thermal                 57.5 C
+soc2-thermal                 55.4 C
+tj-thermal                   57.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.016 V    2.064 A   10.353 W   11.229 W
+VDD_CPU_GPU_CV          4.992 V    0.664 A    3.315 W    3.897 W
+VDD_SOC                 5.008 V    0.576 A    2.885 W    3.004 W
+Jetson System Monitor | 2026-07-25T21:31:01-04:00 | sample 100 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 79.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.0 C
+soc0-thermal                 56.5 C
+soc1-thermal                 57.5 C
+soc2-thermal                 55.3 C
+tj-thermal                   57.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.016 V    2.064 A   10.353 W   11.220 W
+VDD_CPU_GPU_CV          4.992 V    0.664 A    3.315 W    3.891 W
+VDD_SOC                 5.008 V    0.576 A    2.885 W    3.003 W
+Jetson System Monitor | 2026-07-25T21:31:02-04:00 | sample 101 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 79.0 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.0 C
+soc0-thermal                 56.4 C
+soc1-thermal                 57.3 C
+soc2-thermal                 55.3 C
+tj-thermal                   58.0 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.016 V    2.080 A   10.433 W   11.212 W
+VDD_CPU_GPU_CV          4.992 V    0.672 A    3.355 W    3.886 W
+VDD_SOC                 5.000 V    0.576 A    2.880 W    3.002 W
+Jetson System Monitor | 2026-07-25T21:31:03-04:00 | sample 102 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.3 C
+soc0-thermal                 56.4 C
+soc1-thermal                 57.6 C
+soc2-thermal                 55.3 C
+tj-thermal                   58.1 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.144 A   10.737 W   11.208 W
+VDD_CPU_GPU_CV          4.992 V    0.720 A    3.594 W    3.883 W
+VDD_SOC                 5.000 V    0.584 A    2.920 W    3.001 W
+Jetson System Monitor | 2026-07-25T21:31:04-04:00 | sample 103 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 83.5 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.0 C
+soc0-thermal                 56.4 C
+soc1-thermal                 57.5 C
+soc2-thermal                 55.3 C
+tj-thermal                   57.9 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.120 A   10.617 W   11.202 W
+VDD_CPU_GPU_CV          4.992 V    0.704 A    3.514 W    3.879 W
+VDD_SOC                 5.000 V    0.584 A    2.920 W    3.000 W
+Jetson System Monitor | 2026-07-25T21:31:05-04:00 | sample 104 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 74.8 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.1 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.2 C
+soc0-thermal                 56.6 C
+soc1-thermal                 57.4 C
+soc2-thermal                 55.4 C
+tj-thermal                   57.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.104 A   10.537 W   11.195 W
+VDD_CPU_GPU_CV          4.992 V    0.688 A    3.434 W    3.875 W
+VDD_SOC                 5.000 V    0.584 A    2.920 W    2.999 W
+Jetson System Monitor | 2026-07-25T21:31:06-04:00 | sample 105 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 74.9 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  58.2 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.2 C
+soc0-thermal                 56.5 C
+soc1-thermal                 57.3 C
+soc2-thermal                 55.3 C
+tj-thermal                   57.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.064 A   10.337 W   11.187 W
+VDD_CPU_GPU_CV          4.992 V    0.664 A    3.315 W    3.870 W
+VDD_SOC                 5.008 V    0.576 A    2.885 W    2.998 W
+Jetson System Monitor | 2026-07-25T21:31:07-04:00 | sample 106 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 73.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.8 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.0 C
+soc0-thermal                 56.3 C
+soc1-thermal                 57.4 C
+soc2-thermal                 55.2 C
+tj-thermal                   57.8 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.016 V    1.992 A    9.992 W   11.176 W
+VDD_CPU_GPU_CV          5.000 V    0.632 A    3.160 W    3.863 W
+VDD_SOC                 5.008 V    0.568 A    2.845 W    2.997 W
+Jetson System Monitor | 2026-07-25T21:31:08-04:00 | sample 107 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 76.7 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1651.2 MHz
+ CPU1  online       1651.2 MHz
+ CPU2  online       1651.2 MHz
+ CPU3  online       1651.2 MHz
+ CPU4  online       1344.0 MHz
+ CPU5  online       1344.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  55.8 C
+soc0-thermal                 56.3 C
+soc1-thermal                 57.3 C
+soc2-thermal                 55.2 C
+tj-thermal                   57.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.016 V    2.008 A   10.072 W   11.166 W
+VDD_CPU_GPU_CV          5.000 V    0.648 A    3.240 W    3.857 W
+VDD_SOC                 5.008 V    0.568 A    2.845 W    2.995 W
+Jetson System Monitor | 2026-07-25T21:31:09-04:00 | sample 108 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 77.2 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.6 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  55.9 C
+soc0-thermal                 56.3 C
+soc1-thermal                 57.6 C
+soc2-thermal                 55.2 C
+tj-thermal                   57.6 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.016 V    2.040 A   10.233 W   11.157 W
+VDD_CPU_GPU_CV          5.000 V    0.656 A    3.280 W    3.852 W
+VDD_SOC                 5.008 V    0.568 A    2.845 W    2.994 W
+Jetson System Monitor | 2026-07-25T21:31:10-04:00 | sample 109 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 76.1 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.5 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  56.1 C
+soc0-thermal                 56.2 C
+soc1-thermal                 57.4 C
+soc2-thermal                 55.2 C
+tj-thermal                   57.4 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.016 V    2.032 A   10.193 W   11.148 W
+VDD_CPU_GPU_CV          5.000 V    0.656 A    3.280 W    3.847 W
+VDD_SOC                 5.008 V    0.568 A    2.845 W    2.993 W
+Jetson System Monitor | 2026-07-25T21:31:11-04:00 | sample 110 | interval 1.0s
+Recording CSV: /workspaces/CARKit/test/launch_all_but_no_sign_20260725_212918/system_metrics.csv
+Total CPU usage (previous interval): 78.4 %
+
+CPU frequencies
+  CPU  STATE         FREQUENCY
+ CPU0  online       1728.0 MHz
+ CPU1  online       1728.0 MHz
+ CPU2  online       1728.0 MHz
+ CPU3  online       1728.0 MHz
+ CPU4  online       1728.0 MHz
+ CPU5  online       1728.0 MHz
+
+Temperatures
+SENSOR                  TEMPERATURE
+cpu-thermal                  57.9 C
+cv0-thermal                 offline
+cv1-thermal                 offline
+cv2-thermal                 offline
+gpu-thermal                  55.8 C
+soc0-thermal                 56.4 C
+soc1-thermal                 57.3 C
+soc2-thermal                 55.2 C
+tj-thermal                   57.7 C
+
+Power rails (VDD_IN is total module input; rails are not additive)
+RAIL                    VOLTAGE    CURRENT       INST    RUN AVG
+VDD_IN                  5.008 V    2.080 A   10.417 W   11.142 W
+VDD_CPU_GPU_CV          4.992 V    0.688 A    3.434 W    3.843 W
+VDD_SOC                 5.000 V    0.576 A    2.880 W    2.992 W

@@ -1,0 +1,27 @@
+[INFO] [1785088722.504483115] [current_camera.camera]: RealSense ROS v4.58.2
+[INFO] [1785088722.504835030] [current_camera.camera]: Built with LibRealSense v2.58.2
+[INFO] [1785088722.504944249] [current_camera.camera]: Running with LibRealSense v2.58.2
+ 26/07 13:58:42,506 WARNING [281473080092896] (context.cpp:41) No valid configuration file found at : /root/.realsense-config.json loading defaults
+[INFO] [1785088723.076908117] [current_camera.camera]: Device with serial number 337322073852 was found.
+
+[INFO] [1785088723.077088410] [current_camera.camera]: Device with physical ID 2-1.1-3 was found.
+[INFO] [1785088723.077131932] [current_camera.camera]: Device with name Intel RealSense D435I was found.
+[INFO] [1785088723.077598634] [current_camera.camera]: Device with port number 2-1.1 was found.
+[INFO] [1785088723.077820208] [current_camera.camera]: Device USB type: 3.2
+[INFO] [1785088723.078093849] [current_camera.camera]: getParameters...
+[INFO] [1785088723.078910257] [current_camera.camera]: JSON file is not provided
+[INFO] [1785088723.079147705] [current_camera.camera]: Device Name: Intel RealSense D435I
+[INFO] [1785088723.079336190] [current_camera.camera]: Device Serial No: 337322073852
+[INFO] [1785088723.079411265] [current_camera.camera]: Device physical port: 2-1.1-3
+[INFO] [1785088723.079461122] [current_camera.camera]: Device FW version: 5.15.1.55
+[INFO] [1785088723.079494979] [current_camera.camera]: Device Product ID: 0x0B3A
+[INFO] [1785088723.079522500] [current_camera.camera]: Sync Mode: Off
+[WARN] [1785088726.992366229] [current_camera.camera]: re-enable the stream for the change to take effect.
+[INFO] [1785088727.016350055] [current_camera.camera]: Stopping Sensor: RGB Camera
+[INFO] [1785088727.114914556] [current_camera.camera]: Starting Sensor: RGB Camera
+[INFO] [1785088727.133020284] [current_camera.camera]: Open profile: stream_type: Color(0), Format: RGB8, Width: 640, Height: 480, FPS: 15
+[INFO] [1785088727.155399038] [current_camera.camera]: RealSense Node Is Up!
+[INFO] [1785088878.109957309] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [1785088878.110582156] [current_camera.camera]: Stop Sensor: RGB Camera
+[INFO] [1785088878.110652910] [current_camera.camera]: Close Sensor. 
+[INFO] [1785088878.947635088] [current_camera.camera]: Close Sensor - Done. 

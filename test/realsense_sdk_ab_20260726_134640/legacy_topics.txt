@@ -1,0 +1,5 @@
+/legacy_camera/color/camera_info
+/legacy_camera/color/image_raw
+/legacy_camera/color/metadata
+/legacy_camera/extrinsics/depth_to_color
+/legacy_camera/imu

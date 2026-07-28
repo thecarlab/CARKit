@@ -1,0 +1,32 @@
+[INFO] [1785034051.011947639] [pipeline_rate_monitor]: Recording 14 pipeline rates to /workspaces/CARKit/test/launch_all_20260725_224728/pipeline_rates.csv every 1.000 seconds; events to /workspaces/CARKit/test/launch_all_20260725_224728/pipeline_events.csv
+[INFO] [1785034060.534892355] [pipeline_rate_monitor]: Pipeline event: route_start_requested | command=start mode=non_auto
+[INFO] [1785034060.550168485] [pipeline_rate_monitor]: Pipeline event: goal_accepted | status=Navigating through 7 pose(s)
+[INFO] [1785034060.758688556] [pipeline_rate_monitor]: Pipeline event: route_start_requested | command=start mode=non_auto
+[INFO] [1785034062.939800808] [pipeline_rate_monitor]: Pipeline event: auto_drive_entered | previous_state=HUMAN_CONTROL
+[INFO] [1785034062.981722958] [pipeline_rate_monitor]: Pipeline event: controller_output_started | linear_x=1.500000 angular_z=-0.210159
+[INFO] [1785034062.987390221] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous= current=NORMAL_NAV2
+[INFO] [1785034062.990515266] [pipeline_rate_monitor]: Pipeline event: ackermann_output_started | speed=1.500000 steering_angle=-0.035012
+[INFO] [1785034063.415109905] [pipeline_rate_monitor]: Pipeline event: vehicle_motion_started | speed_mps=0.304251 threshold_mps=0.080000 held_s=0.211624
+[INFO] [1785034067.588444802] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous=NORMAL_NAV2 current=STOP_SIGN
+[INFO] [1785034067.588687846] [pipeline_rate_monitor]: Pipeline event: behavior_override_started | override_active=true
+[INFO] [1785034069.316561630] [pipeline_rate_monitor]: Pipeline event: vehicle_stopped | speed_mps=0.000000 threshold_mps=0.050000 held_s=1.000024
+[INFO] [1785034072.599714671] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous=STOP_SIGN current=NORMAL_NAV2
+[INFO] [1785034072.599961972] [pipeline_rate_monitor]: Pipeline event: behavior_override_ended | override_active=false
+[INFO] [1785034073.155863990] [pipeline_rate_monitor]: Pipeline event: vehicle_motion_started | speed_mps=0.451902 threshold_mps=0.080000 held_s=0.200912
+[INFO] [1785034081.188998160] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous=NORMAL_NAV2 current=TRAFFIC_LIGHT
+[INFO] [1785034081.189270293] [pipeline_rate_monitor]: Pipeline event: behavior_override_started | override_active=true
+[INFO] [1785034082.935117306] [pipeline_rate_monitor]: Pipeline event: vehicle_stopped | speed_mps=0.000000 threshold_mps=0.050000 held_s=1.013925
+[INFO] [1785034086.388985549] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous=TRAFFIC_LIGHT current=NORMAL_NAV2
+[INFO] [1785034086.389898301] [pipeline_rate_monitor]: Pipeline event: behavior_override_ended | override_active=false
+[INFO] [1785034086.638131115] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous=NORMAL_NAV2 current=TRAFFIC_LIGHT
+[INFO] [1785034086.638882072] [pipeline_rate_monitor]: Pipeline event: behavior_override_started | override_active=true
+[INFO] [1785034090.236760163] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous=TRAFFIC_LIGHT current=NORMAL_NAV2
+[INFO] [1785034090.236923366] [pipeline_rate_monitor]: Pipeline event: behavior_override_ended | override_active=false
+[INFO] [1785034090.757516893] [pipeline_rate_monitor]: Pipeline event: vehicle_motion_started | speed_mps=0.289833 threshold_mps=0.080000 held_s=0.202322
+[INFO] [1785034090.843141320] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous=NORMAL_NAV2 current=TRAFFIC_LIGHT
+[INFO] [1785034090.843414381] [pipeline_rate_monitor]: Pipeline event: behavior_override_started | override_active=true
+[INFO] [1785034091.085790521] [pipeline_rate_monitor]: Pipeline event: behavior_state_changed | previous=TRAFFIC_LIGHT current=NORMAL_NAV2
+[INFO] [1785034091.086272097] [pipeline_rate_monitor]: Pipeline event: behavior_override_ended | override_active=false
+[INFO] [1785034162.511050871] [pipeline_rate_monitor]: Pipeline event: vehicle_stopped | speed_mps=0.000000 threshold_mps=0.050000 held_s=1.012075
+[INFO] [1785034164.390966530] [pipeline_rate_monitor]: Pipeline event: auto_drive_exited | new_state=HUMAN_CONTROL
+[INFO] [1785034175.609691239] [rclcpp]: signal_handler(SIGINT/SIGTERM)
