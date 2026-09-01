@@ -16,18 +16,19 @@ Designed around real autonomous vehicle workflows, CARKit provides a unified sof
 - 🏎️ F1TENTH/VESC chassis with URG lidar and RealSense camera
 
 ROS 2 and CARKit dependencies run inside `ariiees/carkit:latest`. The host
-only needs JetPack, Docker, Git, display access for RViz, and device access.
-The normal interface is the lightweight CARKit WebUI on port `8080`. It draws
-the map, path, lidar, camera, and vehicle telemetry in the browser through the
-native C++ CARKit WebSocket bridge; RViz is not required.
+only needs JetPack, Docker, Git, and the CARKit device rules. ROS 2 Desktop,
+RViz, and rqt remain available inside the image for debugging, but no ROS GUI
+is started automatically. The normal interface is the lightweight CARKit
+WebUI on port `8080`. It draws the map, path, lidar, camera/perception results,
+and Jetson/chassis telemetry through the native C++ CARKit WebSocket bridge.
 
 ## ⚙️ Setup
 
 On the Jetson host:
 
 ```bash
-git clone https://github.com/thecarlab/CARKit.git
-cd CARKit
+git clone --branch ada2026 https://github.com/thecarlab/CARKit.git ~/CARKit
+cd ~/CARKit
 docker pull ariiees/carkit:latest
 ./docker/setup_osracer_device.sh
 ./docker/run_jetson.sh
@@ -37,9 +38,32 @@ Open `http://<jetson-ip>:8080`, select **OSRacer** or **F1TENTH**, and click
 **Install / build selected chassis**. The installer builds only that hardware
 adapter. The dashboard then lets you choose the course profile, independently
 override each algorithm, select startup components, launch, stop, and inspect
-live results. Its **Compile** page can rebuild the entire repository or only
-perception, localization, control, or planning. The next launch automatically
-sources the updated install overlay.
+live results. The collaborative **Code editor** exposes only the selected
+course package, provides a file explorer and syntax diagnostics, and supports
+up to five users editing together. The **Compile** page can rebuild the entire
+repository or only perception, localization, control, or planning. The next
+launch automatically sources the updated install overlay.
+
+### Start automatically at boot
+
+To make the WebUI/container start whenever the Jetson boots, install the
+included systemd unit once:
+
+```bash
+sudo install -m 0644 docker/carkit.service /etc/systemd/system/carkit.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now carkit.service
+```
+
+The service starts after Docker and does not require a GNOME login. It runs
+the equivalent of `cd ~/CARKit && ./docker/run_jetson.sh`. Useful commands:
+
+```bash
+systemctl status carkit
+sudo systemctl restart carkit
+sudo systemctl stop carkit
+journalctl -u carkit -f
+```
 
 To use a shell instead of the WebUI:
 
@@ -61,6 +85,11 @@ workspace at `/workspaces/CARKit`.
 - `intro2av`: safe ROS 2 boilerplates for planning, control, and perception in
   both Python and C++; topic names, timers, and the safety boundary remain.
 
+Behavior planning remains enabled for every profile and lives in the planning
+layer. Course selection changes planning, control, and perception ownership
+together; each ownership selector can still override one component without
+modifying the reference source.
+
 Switching a component in the WebUI never copies over the reference source.
 Student work lives in the separate `carkit/education/carkit_ada_academy` and
 `carkit/education/carkit_intro2av` and `carkit_intro2av_cpp` packages;
@@ -80,6 +109,11 @@ Ownership selector can independently switch to Intro2AV C++. See
 2. Open `http://<vehicle-ip>:8080` from any browser on the same network. The
    Overview provides the map, LiDAR, perception overlay, launch controls,
    telemetry, and goal/pose tools without an RViz or Foxglove process.
+
+To localize the vehicle, click **Set initial pose**, press on its current map
+position, drag toward the vehicle's forward direction, and release. Goal poses
+use the same position-and-heading gesture. Drag the map to rotate, Shift-drag
+to pan, and use the mouse wheel to zoom.
 
 USB reminder before launching sensors:
 
@@ -152,6 +186,11 @@ Press the joystick mode toggle to enter `AUTO_DRIVE`; the current default is
 `mode_toggle_button: 10` in
 `osracer_bringup/config/joy_teleop.yaml`.
 
+The reference Nav2 controller currently targets a `2.0 m/s` cruise speed. It
+can reduce to `0.8 m/s` while approaching a goal, following tight curvature,
+or applying the cone behavior override; the command pipeline is capped at
+`3.0 m/s`.
+
 The main map is selected above. To use the 3F example map instead, pass:
 
 ```bash
@@ -187,13 +226,13 @@ Behavior logic only affects commands while the control center is in
 carkit/
   core/          one carkit_bringup entry point, profiles, stable interfaces
   education/     separate ADA Academy and Intro2AV algorithm packages
-  interface/     dependency-light CARKit WebUI
+  interface/     WebUI, collaborative editor, and native C++ ROS bridge
   control/       human teleop and autonomous command safety arbiter
   planning/      scalable road-behavior planning rules
   navigation/    SLAM Toolbox, AMCL, Nav2, Twist-to-Ackermann bridge
   perception/    color-only YOLO and typed 2D detection messages
-  sensors/       sensor driver fetch notes and transform nodes
-  vehicle/       integrated OSRacer chassis and vehicle bringup
+  sensors/       camera, scan filter, sensor transforms, and vendor adapters
+  vehicle/       OSRacer integration and pinned F1TENTH vendor selection
   tools/         classroom utilities and demos
 map/             all occupancy maps
 docker/          image, run, build, and publish scripts
@@ -222,3 +261,4 @@ isolated behind the CARKit launch and topic contract.
 - [Docker](docker/README.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Architecture and course profiles](docs/course_profiles.md)
+- [WebUI design](docs/webui_design.md)
