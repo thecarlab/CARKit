@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# CARKit learning annotation: implements the behavior described by this file's package and module.
 import math
 from dataclasses import dataclass
 from typing import Optional

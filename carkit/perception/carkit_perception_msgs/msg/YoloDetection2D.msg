@@ -1,3 +1,4 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
 int32 class_id
 string class_name
 float32 confidence

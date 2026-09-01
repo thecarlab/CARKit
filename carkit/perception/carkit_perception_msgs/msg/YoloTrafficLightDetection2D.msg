@@ -1,3 +1,4 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
 uint8 TRAFFIC_LIGHT_UNKNOWN=0
 uint8 TRAFFIC_LIGHT_RED=1
 uint8 TRAFFIC_LIGHT_YELLOW=2

@@ -20,12 +20,9 @@ docker run --rm -t \
   --network host \
   --ipc host \
   --shm-size 6g \
-  -e DISPLAY="${DISPLAY:-:0}" \
-  -e QT_X11_NO_MITSHM=1 \
-  -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v /dev:/dev \
   -v /dev/shm:/dev/shm \
   -v "$ROOT_DIR:/workspaces/CARKit" \
   -w /workspaces/CARKit \
   "$IMAGE" \
-  bash -lc './docker/build_workspace.sh && source install/setup.bash && ros2 pkg list | grep carkit && ros2 launch carkit_navigation navigation.launch.py --show-args && ros2 launch carkit_perception perception.launch.py --show-args && ros2 launch carkit_behavior behavior_center.launch.py --show-args'
+  bash -lc 'CARKIT_CHASSIS=osracer ./docker/build_workspace.sh && source install/setup.bash && ros2 pkg list | grep carkit && ros2 pkg prefix carkit_bringup && ros2 pkg prefix carkit_ada_academy && ros2 pkg prefix carkit_intro2av && ros2 pkg prefix carkit_intro2av_cpp && ros2 pkg prefix carkit_webui && ros2 pkg prefix osracer_base && ros2 pkg prefix osracer_bringup && ros2 pkg prefix lakibeam1 && ros2 pkg prefix sllidar_ros2 && ros2 launch carkit_bringup carkit.launch.py --show-args && ros2 launch osracer_bringup sensors_launch.py --show-args && ros2 launch carkit_human_control joystick.launch.py --show-args && ros2 launch carkit_navigation navigation.launch.py --show-args && ros2 launch carkit_perception perception.launch.py --show-args && ros2 launch carkit_behavior behavior_center.launch.py --show-args'

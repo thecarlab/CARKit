@@ -1,3 +1,4 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
 slam_toolbox:
   ros__parameters:
     solver_plugin: solver_plugins::CeresSolver

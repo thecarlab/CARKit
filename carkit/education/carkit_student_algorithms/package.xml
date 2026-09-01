@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!-- CARKit learning annotation: declares ROS metadata and dependencies for carkit_student_algorithms. -->
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>carkit_student_algorithms</name>
+  <version>0.1.0</version>
+  <description>Editable guided and boilerplate CARKit algorithms.</description>
+  <maintainer email="ada@udel.edu">CAR Lab</maintainer>
+  <license>Apache-2.0</license>
+  <depend>ackermann_msgs</depend>
+  <depend>carkit_perception_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <test_depend>python3-pytest</test_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

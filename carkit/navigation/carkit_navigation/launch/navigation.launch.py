@@ -1,27 +1,41 @@
 #!/usr/bin/env python3
 
+# Copyright 2026 University of Delaware
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# CARKit learning annotation: assembles ROS nodes, parameters, and remappings for startup.
 import glob
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, GroupAction, IncludeLaunchDescription, TimerAction
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    GroupAction,
+    IncludeLaunchDescription,
+    TimerAction,
+)
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
-from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
-from launch_ros.actions import Node
+from launch_ros.actions import Node, SetRemap
 from launch_ros.substitutions import FindPackageShare
 
 
 def mode_is(name):
     return IfCondition(PythonExpression([
         "'", LaunchConfiguration('mode'), "' == '", name, "'"
-    ]))
-
-
-def visualization_is(name):
-    return IfCondition(PythonExpression([
-        "'", LaunchConfiguration('visualization'), "' == '", name, "'"
     ]))
 
 
@@ -39,6 +53,7 @@ def default_lidar_serial_port():
 
 
 def generate_launch_description():
+    """Build and return the ROS 2 launch description for this package."""
     mode = LaunchConfiguration('mode')
     use_sim_time = LaunchConfiguration('use_sim_time')
     start_lidar = LaunchConfiguration('start_lidar')
@@ -46,23 +61,42 @@ def generate_launch_description():
     lidar_frame = LaunchConfiguration('lidar_frame')
     base_frame = LaunchConfiguration('base_frame')
 
-    lidar = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('sllidar_ros2'),
-                'launch',
-                'sllidar_s2_launch.py',
-            ])
-        ),
-        launch_arguments={
-            'channel_type': LaunchConfiguration('lidar_channel_type'),
-            'serial_port': LaunchConfiguration('lidar_serial_port'),
-            'serial_baudrate': LaunchConfiguration('lidar_serial_baudrate'),
-            'frame_id': lidar_frame,
-            'inverted': LaunchConfiguration('lidar_inverted'),
-            'angle_compensate': LaunchConfiguration('lidar_angle_compensate'),
-            'scan_mode': LaunchConfiguration('lidar_scan_mode'),
-        }.items(),
+    lidar = GroupAction(
+        actions=[
+            SetRemap(src='scan', dst='/scan/raw'),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    PathJoinSubstitution([
+                        FindPackageShare('sllidar_ros2'),
+                        'launch',
+                        'sllidar_s2_launch.py',
+                    ])
+                ),
+                launch_arguments={
+                    'channel_type': LaunchConfiguration('lidar_channel_type'),
+                    'serial_port': LaunchConfiguration('lidar_serial_port'),
+                    'serial_baudrate': LaunchConfiguration('lidar_serial_baudrate'),
+                    'frame_id': lidar_frame,
+                    'inverted': LaunchConfiguration('lidar_inverted'),
+                    'angle_compensate': LaunchConfiguration('lidar_angle_compensate'),
+                    'scan_mode': LaunchConfiguration('lidar_scan_mode'),
+                }.items(),
+            ),
+        ],
+        condition=IfCondition(start_lidar),
+    )
+    lidar_filter = Node(
+        package='carkit_scan_filter',
+        executable='scan_footprint_filter_node',
+        name='carkit_scan_footprint_filter',
+        output='screen',
+        parameters=[{
+            'input_topic': '/scan/raw',
+            'output_topic': '/scan',
+            'vehicle_length_m': 0.50,
+            'vehicle_width_m': 0.25,
+            'padding_m': 0.0,
+        }],
         condition=IfCondition(start_lidar),
     )
 
@@ -84,7 +118,10 @@ def generate_launch_description():
                 output='screen',
             )
         ],
-        condition=IfCondition(LaunchConfiguration('auto_start_lidar_motor')),
+        condition=IfCondition(PythonExpression([
+            "'", start_lidar, "' == 'true' and '",
+            LaunchConfiguration('auto_start_lidar_motor'), "' == 'true'",
+        ])),
     )
 
     odom_tf = Node(
@@ -137,61 +174,11 @@ def generate_launch_description():
                     'start_command_mux': LaunchConfiguration('start_command_mux'),
                     'vehicle_command_topic': LaunchConfiguration('vehicle_command_topic'),
                     'mux_config': LaunchConfiguration('mux_config'),
-                    'visualization': 'none',
                 }.items(),
             ),
         ],
         scoped=True,
         condition=mode_is('navigation'),
-    )
-
-    foxglove_bridge = IncludeLaunchDescription(
-        XMLLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare('foxglove_bridge'),
-                'launch',
-                'foxglove_bridge_launch.xml',
-            ])
-        ),
-        launch_arguments={
-            'address': LaunchConfiguration('foxglove_address'),
-            'port': LaunchConfiguration('foxglove_port'),
-            'remote_access': LaunchConfiguration('foxglove_remote_access'),
-            'device_token': LaunchConfiguration('foxglove_device_token'),
-            'sysinfo': LaunchConfiguration('foxglove_sysinfo'),
-            'topic_whitelist': LaunchConfiguration('foxglove_topic_whitelist'),
-            'client_topic_whitelist': LaunchConfiguration(
-                'foxglove_client_topic_whitelist'
-            ),
-            'param_whitelist': LaunchConfiguration('foxglove_param_whitelist'),
-            'service_whitelist': LaunchConfiguration('foxglove_service_whitelist'),
-            'capabilities': LaunchConfiguration('foxglove_capabilities'),
-        }.items(),
-        condition=visualization_is('foxglove'),
-    )
-
-    mapping_rviz = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2_mapping',
-        arguments=['-d', LaunchConfiguration('mapping_rviz_config')],
-        output='screen',
-        condition=IfCondition(PythonExpression([
-            "'", LaunchConfiguration('visualization'),
-            "' == 'rviz' and '", mode, "' == 'mapping'"
-        ])),
-    )
-
-    planning_rviz = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2_planning',
-        arguments=['-d', LaunchConfiguration('planning_rviz_config')],
-        output='screen',
-        condition=IfCondition(PythonExpression([
-            "'", LaunchConfiguration('visualization'),
-            "' == 'rviz' and '", mode, "' == 'navigation'"
-        ])),
     )
 
     return LaunchDescription([
@@ -224,85 +211,6 @@ def generate_launch_description():
             ]),
             description='SLAM Toolbox parameter file'),
         DeclareLaunchArgument(
-            'mapping_rviz_config',
-            default_value=PathJoinSubstitution([
-                FindPackageShare('carkit_slam'),
-                'rviz',
-                'mapping.rviz',
-            ]),
-            description='RViz config for mapping mode'),
-        DeclareLaunchArgument(
-            'planning_rviz_config',
-            default_value=PathJoinSubstitution([
-                FindPackageShare('carkit_navigation'),
-                'rviz',
-                'navigation.rviz',
-            ]),
-            description='RViz config for navigation mode (AMCL + planning)'),
-        DeclareLaunchArgument(
-            'visualization',
-            default_value='foxglove',
-            description='Visualization mode: foxglove, rviz, or none'),
-        DeclareLaunchArgument(
-            'foxglove_address',
-            default_value='0.0.0.0',
-            description='Foxglove Bridge bind address'),
-        DeclareLaunchArgument(
-            'foxglove_port',
-            default_value='8765',
-            description='Foxglove Bridge WebSocket port'),
-        DeclareLaunchArgument(
-            'foxglove_remote_access',
-            default_value='false',
-            description='Enable Foxglove remote access'),
-        DeclareLaunchArgument(
-            'foxglove_device_token',
-            default_value='',
-            description='Foxglove device token for remote access'),
-        DeclareLaunchArgument(
-            'foxglove_sysinfo',
-            default_value='false',
-            description='Publish system info through Foxglove Bridge'),
-        DeclareLaunchArgument(
-            'foxglove_topic_whitelist',
-            default_value=(
-                "['^/map$', '^/map_metadata$', '^/tf$', '^/tf_static$', "
-                "'^/scan$', '^/amcl_pose$', '^/particle_cloud$', "
-                "'^/plan$', '^/plan_smoothed$', '^/received_global_plan$', "
-                "'^/local_plan$', '^/goal_pose$', '^/move_base_simple/goal$', "
-                "'^/initialpose$', '^/clicked_point$', "
-                "'^/foxglove/waypoints/goal$', "
-                "'^/foxglove/waypoints/command$', "
-                "'^/foxglove/waypoints/markers$', "
-                "'^/foxglove/waypoints/status$', "
-                "'^/behavior/stop_sign_position$', "
-                "'^/behavior/traffic_light_position$', "
-                "'^/behavior/stop_sign_markers$', "
-                "'^/behavior/traffic_light_markers$']"
-            ),
-            description='Foxglove Bridge topic whitelist'),
-        DeclareLaunchArgument(
-            'foxglove_client_topic_whitelist',
-            default_value=(
-                "['^/goal_pose$', '^/move_base_simple/goal$', "
-                "'^/initialpose$', '^/clicked_point$', "
-                "'^/foxglove/waypoints/goal$', "
-                "'^/foxglove/waypoints/command$']"
-            ),
-            description='Topics Foxglove clients may publish'),
-        DeclareLaunchArgument(
-            'foxglove_param_whitelist',
-            default_value="['^$']",
-            description='Foxglove Bridge parameter whitelist'),
-        DeclareLaunchArgument(
-            'foxglove_service_whitelist',
-            default_value="['^$']",
-            description='Foxglove Bridge service whitelist'),
-        DeclareLaunchArgument(
-            'foxglove_capabilities',
-            default_value='[clientPublish,connectionGraph]',
-            description='Foxglove Bridge capabilities'),
-        DeclareLaunchArgument(
             'autostart',
             default_value='true',
             description='Automatically activate lifecycle nodes'),
@@ -333,19 +241,15 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'start_command_mux',
             default_value='false',
-            description='Start legacy Ackermann mux in navigation mode'),
+            description='Start the OSRacer command relay in navigation mode'),
         DeclareLaunchArgument(
             'vehicle_command_topic',
             default_value='/ackermann_cmd',
-            description='Legacy mux output topic when start_command_mux is true'),
+            description='OSRacer relay output topic when start_command_mux is true'),
         DeclareLaunchArgument(
             'mux_config',
-            default_value=PathJoinSubstitution([
-                FindPackageShare('f1tenth_stack'),
-                'config',
-                'mux.yaml',
-            ]),
-            description='Ackermann mux config'),
+            default_value='',
+            description='Deprecated compatibility argument; no longer used'),
         DeclareLaunchArgument(
             'base_frame',
             default_value='base_link',
@@ -361,11 +265,9 @@ def generate_launch_description():
         DeclareLaunchArgument('lidar_angle_compensate', default_value='true'),
         DeclareLaunchArgument('lidar_scan_mode', default_value='DenseBoost'),
         lidar,
+        lidar_filter,
         start_lidar_motor,
         odom_tf,
-        foxglove_bridge,
         slam,
         nav2,
-        mapping_rviz,
-        planning_rviz,
     ])

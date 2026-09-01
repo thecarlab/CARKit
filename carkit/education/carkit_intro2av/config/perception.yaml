@@ -1,0 +1,11 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+carkit_intro2av_perception:
+  ros__parameters:
+    image_topic: /camera/camera/color/image_raw/compressed
+    camera_info_topic: /camera/camera/color/camera_info
+    detection_2d_topic: /yolo/detections_2d
+    inference_compressed_topic: /yolo/inference_image/compressed
+    max_inference_rate_hz: 10.0
+    minimum_confidence: 0.20
+    image_size: 448
+    model_path: ""

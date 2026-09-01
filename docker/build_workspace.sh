@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# CARKit learning annotation: orchestrates a repeatable CARKit command-line workflow.
 set -euo pipefail
 
 WORKSPACE="${WORKSPACE:-/workspaces/CARKit}"
@@ -19,16 +20,90 @@ COLCON_CMAKE_ARGS=(-DCMAKE_BUILD_TYPE=Release)
 
 cd "$WORKSPACE"
 
+if [ ! -f "${WORKSPACE}/docker/build_workspace.sh" ] \
+  || [ ! -d "${WORKSPACE}/carkit/vehicle/osracer" ]; then
+  echo "CARKit error: WORKSPACE does not point to the CARKit checkout: ${WORKSPACE}" >&2
+  exit 1
+fi
+
+# Install exactly one hardware adapter. Algorithms and stable CARKit topics do
+# not depend on this choice, so it can be changed later without touching them.
+CARKIT_CHASSIS="${CARKIT_CHASSIS:-osracer}"
+LEGACY_VEHICLE_PACKAGES=(
+  ackermann_mux
+  f1tenth_stack
+  joy_teleop
+  mouse_teleop
+  teleop_tools
+  teleop_tools_msgs
+  vesc
+  vesc_ackermann
+  vesc_driver
+  vesc_msgs
+)
+OSRACER_PACKAGES=(lakibeam1 osracer_base osracer_bringup)
+REALSENSE_PACKAGES=(
+  realsense2_camera
+  realsense2_camera_msgs
+  realsense2_description
+)
+UNUSED_VENDOR_PACKAGES=(
+  realsense2_ros_mqtt_bridge
+  realsense2_rviz_plugin
+)
+COLCON_SKIP_PACKAGES=("${UNUSED_VENDOR_PACKAGES[@]}")
+case "${CARKIT_CHASSIS}" in
+  osracer)
+    COLCON_SKIP_PACKAGES+=(
+      "${LEGACY_VEHICLE_PACKAGES[@]}"
+      "${REALSENSE_PACKAGES[@]}"
+    )
+    INACTIVE_PACKAGES=(
+      "${LEGACY_VEHICLE_PACKAGES[@]}"
+      "${REALSENSE_PACKAGES[@]}"
+      "${UNUSED_VENDOR_PACKAGES[@]}"
+    )
+    ;;
+  f1tenth)
+    COLCON_SKIP_PACKAGES+=("${OSRACER_PACKAGES[@]}")
+    INACTIVE_PACKAGES=(
+      "${OSRACER_PACKAGES[@]}"
+      "${UNUSED_VENDOR_PACKAGES[@]}"
+    )
+    ;;
+  *)
+    echo "CARKIT_CHASSIS must be osracer or f1tenth" >&2
+    exit 2
+    ;;
+esac
+
 ./carkit/setup_vendor_repos.sh
 
 set +u
 source /opt/ros/${ROS_DISTRO:-humble}/setup.bash
 set -u
 
+# A clean checkout only contains the selected platform source. Intersect the
+# skip list with discovered packages so colcon does not print misleading
+# "unknown package" warnings for the platform that is intentionally absent.
+mapfile -t DISCOVERED_PACKAGES < <(
+  colcon list --base-paths carkit --names-only
+)
+DISCOVERED_SKIP_PACKAGES=()
+for skipped in "${COLCON_SKIP_PACKAGES[@]}"; do
+  for discovered in "${DISCOVERED_PACKAGES[@]}"; do
+    if [ "${skipped}" = "${discovered}" ]; then
+      DISCOVERED_SKIP_PACKAGES+=("${skipped}")
+      break
+    fi
+  done
+done
+
 if [ "$(id -u)" -eq 0 ]; then
   ldconfig
 fi
 
+if [ "${CARKIT_CHASSIS}" = "f1tenth" ]; then
 if ! ldconfig -p 2>/dev/null | grep -q 'librealsense2\.so' \
   && [ ! -e /usr/local/lib/librealsense2.so ] \
   && [ ! -f /usr/local/lib/cmake/realsense2/realsense2Config.cmake ]; then
@@ -109,6 +184,7 @@ EOF
     exit 1
     ;;
 esac
+fi
 
 APT_GET=()
 if [ "$(id -u)" -eq 0 ]; then
@@ -122,8 +198,18 @@ if [ "${#APT_GET[@]}" -gt 0 ]; then
 fi
 
 rosdep update
+mapfile -t ACTIVE_PACKAGE_PATHS < <(
+  colcon list \
+    --base-paths carkit \
+    --packages-skip "${DISCOVERED_SKIP_PACKAGES[@]}" \
+    --paths-only
+)
+if [ "${#ACTIVE_PACKAGE_PATHS[@]}" -eq 0 ]; then
+  echo "CARKit error: no active ROS packages were discovered." >&2
+  exit 1
+fi
 ROSDEP_INSTALL_CMD=(
-  rosdep install --from-paths carkit --ignore-src -r -y
+  rosdep install --from-paths "${ACTIVE_PACKAGE_PATHS[@]}" --ignore-src -r -y
   --dependency-types build_export --dependency-types buildtool_export
   --dependency-types buildtool --dependency-types build --dependency-types exec
 )
@@ -135,10 +221,25 @@ fi
 colcon build --symlink-install \
   --executor sequential \
   --parallel-workers "${PARALLEL_WORKERS}" \
+  --packages-skip "${DISCOVERED_SKIP_PACKAGES[@]}" \
   --cmake-args "${COLCON_CMAKE_ARGS[@]}"
+
+# These are generated artifacts and can always be recreated by selecting the
+# other adapter again. Removing them makes the install overlay unambiguous.
+for package in "${INACTIVE_PACKAGES[@]}"; do
+  rm -rf -- "${WORKSPACE}/build/${package}" "${WORKSPACE}/install/${package}"
+done
 
 set +u
 source install/setup.bash
 set -u
 
 ros2 pkg list | grep carkit
+if [ "${CARKIT_CHASSIS}" = "osracer" ]; then
+  ros2 pkg prefix osracer_base
+  ros2 pkg prefix osracer_bringup
+  ros2 pkg prefix lakibeam1
+else
+  ros2 pkg prefix f1tenth_stack
+  ros2 pkg prefix vesc_driver
+fi

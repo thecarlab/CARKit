@@ -4,6 +4,23 @@ The sensors module contains CARKit sensor transform nodes. External sensor
 drivers are fetched into this folder by `carkit/setup_vendor_repos.sh`, which
 is called by `docker/build_workspace.sh`.
 
+On the OSRacer chassis, use `ros2 launch osracer_bringup sensors_launch.py`.
+That adapter starts the bundled LakiBeam and UVC camera while preserving the
+CARKit `/scan` and `/camera/camera/color/*` topic contracts.
+
+The OSRacer camera uses the C++ `carkit_camera` node. It continuously drains
+the camera at its native 30 FPS, keeps only the newest two-buffer V4L2 frame,
+and publishes the newest MJPEG frame at 10 Hz. The normal compressed path does
+not decode and re-encode the camera image. `/image_raw` is decoded lazily only
+when a student node actually subscribes to it.
+
+The complete CARKit bringup routes the chassis driver through `/scan/raw` and
+then publishes `/scan` from the C++ `carkit_scan_filter` node. The filter removes
+returns inside the lidar-centered 0.50 m × 0.25 m vehicle footprint, so every
+localization, planning, behavior, and visualization consumer sees the same
+self-filtered scan. Its `padding_m` parameter defaults to `0.0` and can be
+increased if a chassis needs extra clearance.
+
 ## Fetch Drivers
 
 Inside Docker, from the repository root:
@@ -79,6 +96,8 @@ Executables:
 ros2 run carkit_sensor_transforms lidar_transformer_node
 ros2 run carkit_sensor_transforms lidar_transformer_norotate_node
 ros2 run carkit_sensor_transforms imu_transformer_node
+ros2 run carkit_scan_filter scan_footprint_filter_node
+ros2 run carkit_camera low_latency_camera_node
 ```
 
 `lidar_transformer_node` subscribes to `/scan` and publishes rotated

@@ -1,0 +1,232 @@
+<!-- CARKit learning annotation: implements the behavior described by this file's package and module. -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f6f9">
+  <title>CARKit Operations</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true"><span>C</span><i></i></div>
+        <div class="brand-copy"><strong>CARKit</strong><small>Vehicle operations</small></div>
+      </div>
+
+      <nav class="side-nav">
+        <a class="active" href="#overview" aria-current="page">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>
+          <span>Overview</span>
+        </a>
+        <a href="#code" id="nav-code">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 8-4 4 4 4m6-8 4 4-4 4M13 5l-2 14"/></svg>
+          <span>Code editor</span>
+        </a>
+        <a href="#compile" id="nav-compile">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 9-4 3 4 3m8-6 4 3-4 3m-2-9-4 12M4 4h16v16H4z"/></svg>
+          <span>Compile</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-session">
+        <span class="rail-label">Active setup</span>
+        <div><span>Course</span><strong id="sidebar-profile">ADA Academy</strong></div>
+        <div><span>Chassis</span><strong id="sidebar-chassis">OSRacer</strong></div>
+      </div>
+
+      <footer class="sidebar-footer">
+        <strong>CAR Lab</strong>
+        <span>Autonomous Driving Academy · 2026</span>
+      </footer>
+    </aside>
+
+    <div class="main-column">
+      <header class="topbar">
+        <div class="mobile-brand"><div class="brand-mark"><span>C</span><i></i></div><strong>CARKit</strong></div>
+        <div class="page-title">
+          <span class="breadcrumb">Operations / Overview</span>
+          <h1>Vehicle workspace</h1>
+        </div>
+        <dl class="task-telemetry" aria-label="Vehicle computer and chassis status">
+          <div id="telemetry-chassis" class="telemetry-chip"><dt>Chassis</dt><dd><i></i><span id="chassis-status">Waiting</span></dd></div>
+          <div id="telemetry-battery" class="telemetry-chip"><dt>Battery</dt><dd id="battery-voltage">—</dd><small id="battery-level">No data</small></div>
+          <div id="telemetry-cpu" class="telemetry-chip"><dt>Jetson CPU</dt><dd id="cpu-usage">—</dd><small id="cpu-load">Sampling all cores…</small></div>
+          <div id="telemetry-memory" class="telemetry-chip"><dt>Jetson RAM</dt><dd id="memory-usage">—</dd><small id="memory-detail">— / —</small></div>
+          <div id="telemetry-temperature" class="telemetry-chip"><dt>CPU temp</dt><dd id="cpu-temperature">—</dd><small id="system-uptime">Up —</small></div>
+        </dl>
+        <div class="topbar-actions">
+          <div class="connection" aria-live="polite"><i id="connection-dot"></i><span id="connection-text">ROS disconnected</span></div>
+          <button id="open-config" class="button secondary icon-button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10m4 0h2M4 17h2m4 0h10M14 4v6M6 14v6"/></svg>
+            Configure
+          </button>
+          <button id="stop" class="button stop-button">Stop stack</button>
+        </div>
+      </header>
+
+      <main id="overview" class="page-view">
+        <section class="session-banner" aria-label="Session status">
+          <div class="session-state">
+            <span class="state-icon"><i></i></span>
+            <div><span class="overline">System state</span><strong id="runtime-state">Checking CARKit…</strong></div>
+          </div>
+          <dl class="metric-strip">
+            <div class="control-mode-metric">
+              <dt>Control authority</dt>
+              <dd class="control-mode-switch" role="group" aria-label="Vehicle control authority" aria-describedby="mode-source">
+                <button id="mode-human" type="button" aria-pressed="false" disabled title="Use remote-controller commands from /teleop">Human</button>
+                <button id="mode-autonomous" type="button" aria-pressed="false" disabled title="Use autonomous Ackermann commands from /drive"><span class="full-label">Autonomous</span><span class="compact-label">Auto</span></button>
+              </dd>
+              <small id="mode-source">Waiting for control center</small>
+            </div>
+            <div><dt>Speed</dt><dd id="speed">—</dd></div>
+            <div><dt>Steering</dt><dd id="steering">—</dd></div>
+            <div><dt>Lidar returns</dt><dd id="scan-count">—</dd></div>
+            <div><dt>Profile</dt><dd id="metric-profile">ADA</dd></div>
+          </dl>
+        </section>
+
+        <section class="workspace-grid">
+          <article class="surface map-panel">
+            <header class="panel-header"><div><span class="overline">Localization · Planning + control</span><h2>Environment map</h2></div><span id="map-status" class="status-pill neutral">Waiting for map</span></header>
+            <div class="map-stage">
+              <canvas id="map-canvas" width="1400" height="820"></canvas>
+              <div class="map-legend" aria-label="Map legend"><span class="vehicle">Vehicle 0.50 × 0.25 m</span><span class="path">Planned path</span><span class="scan">Lidar · motion corrected</span><span class="grid" id="grid-size">Grid 0.5 m</span></div>
+              <div class="map-coordinate" id="map-coordinate">Map x — · y —</div>
+            </div>
+            <footer class="map-toolbar"><div class="tool-group"><button id="set-initial" class="tool-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-14v5l3 2"/></svg>Set initial pose</button><button id="send-goal" class="tool-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-5 7-12a7 7 0 1 0-14 0c0 7 7 12 7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>Send goal</button><button id="reset-view" class="tool-button">Reset view</button><button id="republish-map" class="tool-button">Republish map</button><span id="active-map-file" class="map-file-label" title="No map selected">Map · —</span></div><span id="map-tool-help">Drag to rotate · Shift-drag to pan · Scroll to zoom.</span></footer>
+          </article>
+
+          <aside class="right-stack">
+            <article class="surface camera-panel">
+              <header class="panel-header"><div><span class="overline">Perception</span><h2>Front camera</h2></div><span id="camera-status" class="status-pill neutral">Waiting</span></header>
+              <div class="camera-frame"><img id="camera" alt="Live perception result stream"><canvas id="perception-overlay" aria-hidden="true"></canvas><div id="camera-empty" class="empty-state"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-2h4l2 2h4v12H4V7Zm8 9a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/></svg><strong>No perception frames</strong><span>Waiting for the selected perception implementation</span></div><span id="camera-live-tag" class="live-tag">AI OVERLAY</span></div>
+            </article>
+
+            <article class="surface health-panel">
+              <header class="panel-header"><div><span class="overline">Runtime</span><h2>Subsystem health</h2></div><span class="quiet-copy">Live topics</span></header>
+              <ul class="health-list">
+                <li id="health-chassis"><i></i><span><strong>Chassis</strong><small>/odom · /ackermann_cmd</small></span><b>Waiting</b></li>
+                <li id="health-sensors"><i></i><span><strong>Sensors</strong><small>/scan · /camera</small></span><b>Waiting</b></li>
+                <li id="health-planning"><i></i><span><strong>Planning</strong><small>/map · /plan</small></span><b>Waiting</b></li>
+                <li id="health-perception"><i></i><span><strong>Perception</strong><small>/yolo/detections_2d</small></span><b>Waiting</b></li>
+              </ul>
+            </article>
+          </aside>
+        </section>
+
+        <details class="surface console-panel" id="system-console">
+          <summary>
+            <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 8 4 4-4 4m6 0h4M4 4h16v16H4z"/></svg><strong>System console</strong><small>Build and launch output</small></span>
+            <span class="console-summary"><i></i><b id="console-state">No active errors</b><svg class="chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg></span>
+          </summary>
+          <div class="console-body"><div class="console-toolbar"><span>carkit / runtime</span><button id="clear-log" class="text-button">Clear view</button></div><pre id="logs">CARKit console ready.</pre></div>
+        </details>
+      </main>
+
+      <main id="code-page" class="page-view" hidden>
+        <section class="editor-toolbar surface">
+          <div class="editor-heading"><span class="overline">Student workspace</span><h2>Edit course algorithms</h2><p>Protected reference packages are never exposed here.</p></div>
+          <label>Implementation<select id="editor-profile"><option value="ada_high_school">ADA Academy · Python</option><option value="intro2av_python">Intro2AV · Python</option><option value="intro2av_cpp">Intro2AV · C++</option></select></label>
+          <label>Component<select id="editor-component"><option value="perception">Perception</option><option value="planning">Planning</option><option value="control">Control</option></select></label>
+          <label>Your name<input id="editor-user-name" maxlength="32" autocomplete="nickname"></label>
+          <div class="editor-actions"><button id="editor-reload" class="button secondary">Reload</button><button id="editor-save" class="button primary" disabled>Sync now</button></div>
+        </section>
+
+        <section class="surface editor-panel">
+          <header class="editor-filebar">
+            <div><span id="editor-path">Select a student source file</span><small id="editor-revision">Shared version —</small></div>
+            <div id="editor-presence" class="editor-presence" aria-label="People editing this document"></div>
+            <span id="editor-status" class="status-pill neutral">Loading</span>
+          </header>
+          <div class="editor-workspace">
+            <aside class="file-explorer" aria-label="Student package files">
+              <header><span>Explorer</span><small id="editor-root">Course package</small></header>
+              <nav id="editor-file-tree" aria-label="Editable files"></nav>
+            </aside>
+            <div class="code-editor-shell">
+              <pre id="editor-lines" aria-hidden="true">1</pre>
+              <div class="editor-code-stage">
+                <pre id="editor-highlight" aria-hidden="true"></pre>
+                <div id="remote-cursors" aria-hidden="true"></div>
+                <textarea id="code-editor" aria-label="Collaborative student source editor" autocomplete="off" autocapitalize="off" spellcheck="false" wrap="off"></textarea>
+              </div>
+            </div>
+          </div>
+          <footer class="editor-footer"><span id="editor-diagnostics">No syntax errors</span><span>Live shared editing · remote cursors · up to 5 users</span></footer>
+        </section>
+      </main>
+
+      <main id="compile-page" class="page-view" hidden>
+        <section class="compile-hero">
+          <div><span class="overline">Workspace build</span><h2>Compile CARKit</h2><p>Build the complete workspace or only the subsystem you are editing. The running session is stopped before compilation, and the next launch automatically sources the updated install overlay.</p></div>
+          <span id="compile-state" class="status-pill neutral">Ready</span>
+        </section>
+
+        <section class="compile-grid">
+          <article class="surface compile-target-panel">
+            <header class="panel-header"><div><span class="overline">Build scope</span><h2>Select packages</h2></div></header>
+            <div class="build-targets">
+              <label><input type="radio" name="compile-target" value="all" checked><span><strong>Entire repository</strong><small>Build CARKit and the installed chassis adapter.</small></span></label>
+              <label><input type="radio" name="compile-target" value="perception"><span><strong>Perception only</strong><small>Messages and the perception implementation selected in Setup.</small></span></label>
+              <label><input type="radio" name="compile-target" value="localization"><span><strong>Localization only</strong><small>AMCL and SLAM packages.</small></span></label>
+              <label><input type="radio" name="compile-target" value="control"><span><strong>Control only</strong><small>Safety infrastructure and the control implementation selected in Setup.</small></span></label>
+              <label><input type="radio" name="compile-target" value="planning"><span><strong>Planning only</strong><small>The planning implementation selected in Setup.</small></span></label>
+            </div>
+            <div class="compile-action-row">
+              <div><strong id="compile-selection">Entire repository</strong><small>Session will stop before building.</small></div>
+              <button id="compile-start" class="button primary">Compile selected</button>
+            </div>
+          </article>
+
+          <article class="surface compile-log-panel">
+            <header class="panel-header"><div><span class="overline">Build output</span><h2>Compiler log</h2></div><button id="clear-compile-log" class="text-button">Clear view</button></header>
+            <pre id="compile-logs">No compilation started.</pre>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="drawer-scrim" class="drawer-scrim" hidden></div>
+  <aside id="config-drawer" class="config-drawer" aria-hidden="true" aria-labelledby="config-title">
+    <header class="drawer-header">
+      <div><span class="overline">Session setup</span><h2 id="config-title">Configure CARKit</h2><p>Choose the hardware, course depth and modules for this run.</p></div>
+      <button id="close-config" class="close-button" aria-label="Close configuration">×</button>
+    </header>
+    <div class="drawer-content">
+      <section class="form-section">
+        <div class="form-section-title"><span>01</span><div><strong>Course and hardware</strong><small>Sets the default implementation depth.</small></div></div>
+        <label class="field">Course profile<select id="profile"></select><small id="profile-help"></small></label>
+        <label class="field">Chassis<select id="chassis"></select><small>Install before switching to a different platform.</small></label>
+      </section>
+
+      <section class="form-section">
+        <div class="form-section-title"><span>02</span><div><strong>Algorithm ownership</strong><small>Override individual parts without touching reference code.</small></div></div>
+        <div class="field-grid"><label class="field">Planning<select id="planning"></select></label><label class="field">Control<select id="control"></select></label><label class="field">Perception<select id="perception"></select></label></div>
+        <label class="field">Perception model<select id="perception-model"></select><small id="perception-model-help">Choose the detector used by the reference perception node.</small></label>
+        <label class="field" id="custom-model-field" hidden>Custom engine path<input id="custom-model-path" value="" placeholder="/workspaces/CARKit/models/my_model.engine" spellcheck="false"><small>FP16 TensorRT engine exported on this Jetson, with matching JSON metadata.</small></label>
+      </section>
+
+      <section class="form-section">
+        <div class="form-section-title"><span>03</span><div><strong>Startup modules</strong><small>Only selected modules are launched.</small></div></div>
+        <div class="component-grid" id="components"></div>
+      </section>
+
+      <section class="form-section">
+        <div class="form-section-title"><span>04</span><div><strong>Navigation map</strong><small>Select an available occupancy map from the CARKit map folder.</small></div></div>
+        <label class="field">Map file<select id="map"></select><small id="map-file-path">Loading map files…</small></label>
+      </section>
+    </div>
+    <footer class="drawer-footer">
+      <div id="activity" class="activity"><i></i><span>Ready to configure</span></div>
+      <div class="drawer-actions"><button id="install" class="button secondary">Install chassis</button><button id="start" class="button primary">Launch session</button></div>
+    </footer>
+  </aside>
+
+  <script src="/app.js"></script>
+</body>
+</html>

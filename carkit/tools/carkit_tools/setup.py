@@ -1,3 +1,4 @@
+# CARKit learning annotation: implements the behavior described by this file's package and module.
 from glob import glob
 import os
 
@@ -20,7 +21,6 @@ setup(
     maintainer_email='ada@todo.todo',
     description='CARKit educational utility and demo nodes',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'interactive_waypoints = carkit_tools.interactive_waypoints:main',

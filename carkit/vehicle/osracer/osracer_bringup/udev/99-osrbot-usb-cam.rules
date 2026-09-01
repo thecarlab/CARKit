@@ -1,0 +1,2 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+KERNEL=="video[0-9]*", SUBSYSTEM=="video4linux", ATTR{index}=="0", ATTRS{idVendor}=="2993", ATTRS{idProduct}=="0858", MODE:="0660", GROUP:="video", SYMLINK+="osrbot_usb_cam"

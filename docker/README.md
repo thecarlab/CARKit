@@ -1,8 +1,8 @@
 # Docker
 
 CARKit uses `ariiees/carkit:latest` as the single Jetson runtime image. The
-image contains ROS 2 Humble, Nav2, RViz, Foxglove Bridge, build tools,
-RealSense SDK, TensorRT/CUDA Python ML dependencies, and the system
+image contains ROS 2 Humble Desktop, Nav2, RViz/rqt, build tools, RealSense
+SDK, TensorRT/CUDA Python ML dependencies, and the system
 dependencies needed to build the mounted CARKit workspace.
 
 The image does not contain a baked copy of this repository. `run_jetson.sh`
@@ -16,34 +16,64 @@ On the Jetson host:
 git clone https://github.com/thecarlab/CARKit.git
 cd CARKit
 docker pull ariiees/carkit:latest
+./docker/setup_osracer_device.sh
 ./docker/run_jetson.sh
 ```
 
-Inside Docker:
+`run_jetson.sh` starts the CARKit WebUI by default. Open:
+
+```text
+http://<jetson-ip>:8080
+```
+
+## Start Automatically at Boot
+
+Install and enable the included systemd service once:
 
 ```bash
-./docker/build_workspace.sh
-source install/setup.bash
+sudo install -m 0644 docker/carkit.service /etc/systemd/system/carkit.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now carkit.service
 ```
+
+The service starts after Docker without requiring a GNOME login. It runs the
+equivalent of `cd /home/nvidia/CARKit && ./docker/run_jetson.sh`, using the
+local runtime image so boot does not wait for Docker Hub. Manage it with:
+
+```bash
+sudo systemctl status carkit.service
+sudo systemctl restart carkit.service
+sudo systemctl stop carkit.service
+journalctl -u carkit.service -f
+```
+
+Choose `osracer` or `f1tenth`, install/build it, then start the desired course
+profile and components. Use `./docker/run_jetson.sh bash` when a terminal is
+preferred.
 
 `run_jetson.sh` pulls `ariiees/carkit:latest` only when it is missing locally.
 Use `PULL_IMAGE=always ./docker/run_jetson.sh` to force a Docker Hub refresh,
 or `PULL_IMAGE=never ./docker/run_jetson.sh` when testing a local image that
 should not be refreshed from Docker Hub.
 
-`./docker/run_jetson.sh` opens a shell in the mounted workspace. Build the
-workspace, source it, then start the launches you need.
+`./docker/run_jetson.sh` runs `docker/start_webui.sh` in the mounted workspace.
+The dashboard owns the one unified `carkit_bringup` child launch. Supplying a
+command after `run_jetson.sh` replaces the dashboard command.
 
 Before starting the container command, `run_jetson.sh` verifies that the
-selected image contains the Nav2 and Foxglove runtime packages used by CARKit.
-It also starts the container with host networking, `/dev`, `/dev/shm`, X11
-display mounts, and NVIDIA runtime support when the runtime is registered.
+selected image contains the navigation, sensor, chassis, and Python runtime
+packages used by CARKit. It starts the container with host networking,
+`/dev`, `/dev/shm`, and NVIDIA runtime support when the runtime is registered.
 
-Foxglove Bridge binds to `0.0.0.0:8765` when started by CARKit launches. From
-another computer on the same network, connect Foxglove to:
+`setup_osracer_device.sh` installs host udev rules for the `303a:1001`
+controller and `2993:0858` UVC camera. It verifies `/dev/osrbot_base` and
+creates `/dev/osrbot_usb_cam`. Run it again after changing a rule or if a
+stale regular file exists at either path, then restart the container.
 
-```text
-ws://<jetson-ip>:8765
+Start the OSRacer sensors inside the container with:
+
+```bash
+ros2 launch osracer_bringup sensors_launch.py
 ```
 
 The container runs as root by default so hardware access and repeated ROS
@@ -55,7 +85,7 @@ Overrides:
 # Run as your host UID/GID instead of root.
 CARKIT_RUN_AS_ROOT=0 ./docker/run_jetson.sh
 
-# Temporarily skip the Nav2/Foxglove image preflight check.
+# Temporarily skip the CARKit runtime image preflight check.
 CARKIT_REQUIRE_RUNTIME=0 ./docker/run_jetson.sh
 
 # Do not repair old generated-file ownership when running as host UID/GID.
@@ -67,7 +97,9 @@ CARKIT_FIX_PERMISSIONS_ON_START=0 ./docker/run_jetson.sh
 Inside Docker:
 
 ```bash
-./docker/build_workspace.sh
+./docker/install_carkit.sh osracer
+# or
+./docker/install_carkit.sh f1tenth
 source install/setup.bash
 ```
 
@@ -85,6 +117,9 @@ failures on an 8 GB Jetson Orin Nano.
 ## Scripts
 
 - `run_jetson.sh`: pulls/runs the runtime image and mounts this checkout.
+- `start_webui.sh`: serves the browser dashboard on port `8080`.
+- `install_carkit.sh`: selects/fetches one chassis adapter and builds CARKit.
+- `setup_osracer_device.sh`: installs and validates the host OSRacer udev rule.
 - `build_workspace.sh`: fetches vendor repos, installs ROS dependencies, and
   builds the workspace.
 - `publish_image.sh`: maintainer helper to build, check, and push

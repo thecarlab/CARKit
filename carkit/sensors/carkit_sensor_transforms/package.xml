@@ -1,4 +1,5 @@
 <?xml version="1.0"?>
+<!-- CARKit learning annotation: declares ROS metadata and dependencies for carkit_sensor_transforms. -->
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>carkit_sensor_transforms</name>

@@ -1,8 +1,29 @@
 # Topic Graph Overview
 
-This graph reflects the current CARKit workflow. Mapping and manual driving use
-direct human control through the legacy mux. Autonomous driving uses
-`carkit_control_center` as the final `/ackermann_cmd` publisher.
+This graph reflects the stable hardware-neutral CARKit workflow. The selected
+OSRacer or F1TENTH adapter owns device details. `carkit_control_center` is the
+final `/ackermann_cmd` publisher whenever unified control is enabled.
+
+## Unified course flow
+
+```text
+selected chassis -> /odom + /camera/*
+selected lidar -> /scan/raw -> carkit_scan_filter -> /scan
+
+/camera/* -> reference|ADA Academy|Intro2AV perception -> /yolo/*
+/odom + /goal_pose -> reference|ADA Academy|Intro2AV planning -> /plan
+/odom + /plan -> reference|ADA Academy|Intro2AV control -> /drive
+
+/teleop + /drive + /behavior/*
+  -> carkit_control_center
+  -> /ackermann_cmd
+  -> selected chassis
+
+C++ CARKit WebSocket bridge :9090 -> CARKit WebUI :8080
+```
+
+Launch all selected components with `carkit_bringup/carkit.launch.py`; course
+profiles change implementations without changing topic names.
 
 ## Manual Driving And Mapping Control
 
@@ -10,17 +31,17 @@ direct human control through the legacy mux. Autonomous driving uses
 joystick
   -> joy_node
   -> /joy
-  -> joy_teleop
+  -> osracer joystick teleop
   -> /teleop
-  -> ackermann_mux
+  -> osracer command relay
   -> /ackermann_cmd
-  -> ackermann_to_vesc_node
-  -> vesc_driver_node
+  -> osracer_base
   -> vehicle
 
-vesc_driver_node
-  -> vesc_to_odom_node
+osracer_base
   -> /odom
+  -> /imu/data
+  -> /battery_state
 ```
 
 Launch:
@@ -55,21 +76,20 @@ ros2 launch carkit_navigation navigation.launch.py mode:=mapping
 
 ## Autonomous Navigation
 
-In AV mode, remap the legacy mux away from `/ackermann_cmd` so the control
+In AV mode, remap the manual relay away from `/ackermann_cmd` so the control
 center is the only final command publisher.
 
 ```text
 joystick
   -> joy_node
   -> /joy
-  -> joy_teleop
+  -> osracer joystick teleop
   -> /teleop
 
 sllidar_ros2
   -> /scan
 
-vesc_driver_node
-  -> vesc_to_odom_node
+osracer_base
   -> /odom
 
 /scan + /odom + /initialpose + /workspaces/CARKit/map/<map>.yaml
@@ -85,8 +105,7 @@ Nav2 planner/controller
 /joy + /teleop + /drive + /behavior/*
   -> carkit_control_center
   -> /ackermann_cmd
-  -> ackermann_to_vesc_node
-  -> vesc_driver_node
+  -> osracer_base
   -> vehicle
 ```
 
@@ -94,20 +113,19 @@ Launch:
 
 ```bash
 ros2 launch carkit_human_control joystick.launch.py \
-  vehicle_command_topic:=/ackermann_mux_unused
+  vehicle_command_topic:=/manual_command_unused
 ros2 launch carkit_control_center control_center.launch.py
 ros2 launch carkit_navigation navigation.launch.py \
-  map:=/workspaces/CARKit/map/map.yaml \
-  visualization:=foxglove
+  map:=/workspaces/CARKit/map/map.yaml
 ```
 
 ## Perception And Behavior
 
 ```text
-RealSense color image
+OSRacer UVC color image
   -> /camera/camera/color/image_raw
 
-RealSense color camera info
+OSRacer UVC camera info
   -> /camera/camera/color/camera_info
 
 color image
@@ -163,7 +181,7 @@ Nav2 cone obstacle integration:
 
 ```text
 Manual/mapping:
-  ackermann_mux -> /ackermann_cmd
+  osracer command relay -> /ackermann_cmd
 
 Autonomous driving:
   carkit_control_center -> /ackermann_cmd
@@ -171,4 +189,4 @@ Autonomous driving:
 
 Do not run both final publishers on `/ackermann_cmd` at the same time. For AV
 driving, start `carkit_human_control` with
-`vehicle_command_topic:=/ackermann_mux_unused`.
+`vehicle_command_topic:=/manual_command_unused`.

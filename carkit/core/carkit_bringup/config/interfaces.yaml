@@ -1,0 +1,22 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+# Stable contracts shared by both chassis and every course profile.
+topics:
+  camera_image: /camera/camera/color/image_raw
+  camera_compressed: /camera/camera/color/image_raw/compressed
+  lidar_scan: /scan
+  odometry: /odom
+  goal: /goal_pose
+  global_path: /plan
+  autonomous_drive: /drive
+  teleoperation: /teleop
+  vehicle_command: /ackermann_cmd
+  detections: /yolo/detections_2d
+  annotated_image: /yolo/inference_image
+  state: /control_center/main_state
+
+frames:
+  map: map
+  odom: odom
+  base: base_link
+  lidar: laser
+  camera: camera_link

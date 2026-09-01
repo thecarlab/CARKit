@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!-- CARKit learning annotation: declares ROS metadata and dependencies for carkit_scan_filter. -->
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>carkit_scan_filter</name>
+  <version>0.1.0</version>
+  <description>Low-overhead vehicle-footprint filter for CARKit LaserScan data.</description>
+  <maintainer email="ada@udel.edu">CAR Lab</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

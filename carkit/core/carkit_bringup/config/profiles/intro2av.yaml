@@ -1,0 +1,15 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+name: intro2av
+label: Intro2AV (graduate)
+description: ROS 2 interfaces and safe boilerplates; students implement the algorithms.
+implementations:
+  planning: intro2av_python
+  control: intro2av_python
+  perception: intro2av_python
+components:
+  chassis: true
+  sensors: true
+  planning: true
+  control: true
+  perception: true
+  behavior: true

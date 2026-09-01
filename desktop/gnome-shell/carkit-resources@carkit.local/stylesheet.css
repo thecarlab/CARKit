@@ -1,0 +1,14 @@
+/* CARKit learning annotation: implements the behavior described by this file's package and module. */
+.carkit-resource-label {
+  padding: 0 6px;
+  font-feature-settings: "tnum";
+}
+
+.carkit-resource-warning {
+  color: #ffbe6f;
+  font-weight: 700;
+}
+
+.carkit-resource-offline {
+  color: #f66151;
+}

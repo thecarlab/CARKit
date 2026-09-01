@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+# CARKit learning annotation: assembles ROS nodes, parameters, and remappings for startup.
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -8,54 +9,47 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    """Build and return the ROS 2 launch description for this package."""
     vehicle_command_topic_arg = DeclareLaunchArgument(
         'vehicle_command_topic',
         default_value='/ackermann_cmd',
         description=(
             'Ackermann topic consumed by the low-level vehicle controller. '
-            'Use /ackermann_mux_unused when carkit_control_center owns '
+            'Use /manual_command_unused when carkit_control_center owns '
             'the final /ackermann_cmd in autonomous driving.'
         )
     )
     joy_config_arg = DeclareLaunchArgument(
         'joy_config',
         default_value=PathJoinSubstitution([
-            FindPackageShare('f1tenth_stack'),
+            FindPackageShare('osracer_bringup'),
             'config',
             'joy_teleop.yaml',
         ]),
-        description='F1TENTH joystick and joy_teleop config'
+        description='OSRacer joystick config'
     )
-    vesc_config_arg = DeclareLaunchArgument(
-        'vesc_config',
-        default_value=PathJoinSubstitution([
-            FindPackageShare('f1tenth_stack'),
-            'config',
-            'vesc.yaml',
-        ]),
-        description='F1TENTH VESC config'
+    chassis_port_arg = DeclareLaunchArgument(
+        'chassis_port',
+        default_value='/dev/osrbot_base',
+        description='OSRacer chassis serial device inside Docker'
     )
-    mux_config_arg = DeclareLaunchArgument(
-        'mux_config',
-        default_value=PathJoinSubstitution([
-            FindPackageShare('f1tenth_stack'),
-            'config',
-            'mux.yaml',
-        ]),
-        description='F1TENTH Ackermann mux config for legacy/manual compatibility'
+    protocol_mode_arg = DeclareLaunchArgument(
+        'protocol_mode',
+        default_value='legacy',
+        description='OSRacer controller protocol: legacy or modern'
     )
-    f1tenth_bringup = IncludeLaunchDescription(
+    osracer_bringup = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             PathJoinSubstitution([
-                FindPackageShare('f1tenth_stack'),
+                FindPackageShare('osracer_bringup'),
                 'launch',
                 'bringup_launch.py',
             ])
         ),
         launch_arguments={
             'joy_config': LaunchConfiguration('joy_config'),
-            'vesc_config': LaunchConfiguration('vesc_config'),
-            'mux_config': LaunchConfiguration('mux_config'),
+            'chassis_port': LaunchConfiguration('chassis_port'),
+            'protocol_mode': LaunchConfiguration('protocol_mode'),
             'vehicle_command_topic': LaunchConfiguration('vehicle_command_topic'),
         }.items(),
     )
@@ -63,7 +57,7 @@ def generate_launch_description():
     return LaunchDescription([
         vehicle_command_topic_arg,
         joy_config_arg,
-        vesc_config_arg,
-        mux_config_arg,
-        f1tenth_bringup,
+        chassis_port_arg,
+        protocol_mode_arg,
+        osracer_bringup,
     ])

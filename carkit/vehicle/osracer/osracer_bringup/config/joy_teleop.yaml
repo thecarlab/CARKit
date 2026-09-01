@@ -1,0 +1,20 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+joy:
+  ros__parameters:
+    device_id: 0
+    deadzone: 0.01
+    autorepeat_rate: 20.0
+    coalesce_interval_ms: 50
+
+joy_teleop:
+  ros__parameters:
+    speed_axis: 1
+    steering_axis: 2
+    speed_scale: 2.0
+    steering_scale: 0.2
+    mode_toggle_button: 10
+    manual_mode_initial: true
+    joy_topic: /joy
+    teleop_topic: /teleop
+    autonomy_enable_topic: enable_autonomous_control
+    frame_id: base_link

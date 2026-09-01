@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!-- CARKit learning annotation: declares ROS metadata and dependencies for carkit_webui. -->
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>carkit_webui</name>
+  <version>0.1.0</version>
+  <description>Browser-based setup, launch control, and visualization for CARKit.</description>
+  <maintainer email="ada@udel.edu">CAR Lab</maintainer>
+  <license>Apache-2.0</license>
+  <exec_depend>python3</exec_depend>
+  <test_depend>python3-pytest</test_depend>
+  <export><build_type>ament_python</build_type></export>
+</package>

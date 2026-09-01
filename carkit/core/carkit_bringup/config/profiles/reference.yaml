@@ -1,0 +1,15 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+name: reference
+label: Full reference stack
+description: Instructor/reference implementations for every algorithm.
+implementations:
+  planning: reference
+  control: reference
+  perception: reference
+components:
+  chassis: true
+  sensors: true
+  planning: true
+  control: true
+  perception: true
+  behavior: true

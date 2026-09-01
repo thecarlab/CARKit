@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# CARKit learning annotation: orchestrates a repeatable CARKit command-line workflow.
 set -e
 
 cusparselt_lib="/usr/local/lib/python3.10/dist-packages/nvidia/cusparselt/lib"

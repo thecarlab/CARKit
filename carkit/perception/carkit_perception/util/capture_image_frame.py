@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+# CARKit learning annotation: implements the behavior described by this file's package and module.
 import argparse
 from pathlib import Path
 

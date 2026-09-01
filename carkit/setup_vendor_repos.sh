@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# CARKit learning annotation: orchestrates a repeatable CARKit command-line workflow.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

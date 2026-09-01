@@ -1,3 +1,4 @@
+# CARKit learning annotation: implements the behavior described by this file's package and module.
 from glob import glob
 import os
 
@@ -29,7 +30,6 @@ setup(
     maintainer_email='yuxw@udel.edu',
     description='ROS2 YOLO Interface',
     license='Apache 2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'perception_2d_node = carkit_perception.perception_2d_node:main',

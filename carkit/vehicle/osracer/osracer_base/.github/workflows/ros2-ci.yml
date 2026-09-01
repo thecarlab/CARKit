@@ -1,0 +1,97 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+name: ROS 2 CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ros2-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.ros_distro }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            ros_distro: humble
+          - os: ubuntu-24.04
+            ros_distro: jazzy
+    env:
+      ROS_DISTRO: ${{ matrix.ros_distro }}
+
+    steps:
+      - name: Check out ROS 2 source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: ros2_ws/src/osracer_base
+          persist-credentials: false
+
+      - name: Install ROS 2
+        uses: ros-tooling/setup-ros@649ef6bcd696da05bc27ceb3fab69d810c0daeab # v0.7
+        with:
+          required-ros-distributions: ${{ matrix.ros_distro }}
+
+      - name: Install package dependencies
+        working-directory: ros2_ws
+        run: |
+          set -euo pipefail
+          rosdep update --rosdistro "$ROS_DISTRO"
+          rosdep install --from-paths src --ignore-src --rosdistro "$ROS_DISTRO" -y
+
+      - name: Run static contract checks
+        working-directory: ros2_ws/src/osracer_base
+        run: |
+          set -euo pipefail
+          export PYTHONPYCACHEPREFIX="${RUNNER_TEMP}/osracer_base-pycache"
+          python3 -m compileall -q setup.py osracer_base launch test
+          python3 - <<'PY'
+          import json
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          ET.parse('package.xml')
+          fixture_paths = sorted(Path('test/fixtures').rglob('*.json'))
+          if not fixture_paths:
+              raise SystemExit('No JSON fixtures found')
+          for fixture_path in fixture_paths:
+              json.loads(fixture_path.read_text(encoding='utf-8'))
+          PY
+
+      - name: Run Ruff
+        uses: astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89 # v4.1.0
+        with:
+          version: '0.15.13'
+          args: check
+          src: .
+
+      - name: Run host-side contract tests
+        working-directory: ros2_ws/src/osracer_base
+        run: python3 -m unittest discover -s test -v
+
+      - name: Build workspace
+        working-directory: ros2_ws
+        run: |
+          set -eo pipefail
+          source "/opt/ros/$ROS_DISTRO/setup.bash"
+          colcon build --event-handlers console_direct+
+
+      - name: Run ROS package tests
+        working-directory: ros2_ws
+        run: |
+          set -eo pipefail
+          source "/opt/ros/$ROS_DISTRO/setup.bash"
+          source install/setup.bash
+          colcon test --event-handlers console_direct+
+          colcon test-result --verbose

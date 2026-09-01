@@ -1,3 +1,4 @@
+# CARKit learning annotation: implements the behavior described by this file's package and module.
 from setuptools import find_packages, setup
 
 package_name = 'carkit_sensor_transforms'

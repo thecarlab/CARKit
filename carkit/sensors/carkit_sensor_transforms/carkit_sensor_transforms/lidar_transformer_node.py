@@ -1,3 +1,4 @@
+# CARKit learning annotation: implements the behavior described by this file's package and module.
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import LaserScan, PointCloud2, PointField

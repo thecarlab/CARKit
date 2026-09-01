@@ -3,6 +3,7 @@
 # Copyright 2026 CARKit maintainers
 # Licensed under the Apache License, Version 2.0 (the "License");
 
+# CARKit learning annotation: implements the behavior described by this file's package and module.
 from pathlib import Path
 
 from ament_index_python.packages import (

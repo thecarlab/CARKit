@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<!-- CARKit learning annotation: declares ROS metadata and dependencies for carkit_intro2av_cpp. -->
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.ros.org/schema/package_format3.xsd"?>
+<package format="3">
+  <name>carkit_intro2av_cpp</name>
+  <version>0.1.0</version>
+  <description>Safe C++ planning, control, and perception boilerplates for Intro2AV.</description>
+  <maintainer email="ada@udel.edu">CAR Lab</maintainer>
+  <license>Apache-2.0</license>
+  <depend>ackermann_msgs</depend>
+  <depend>carkit_perception_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <exec_depend>launch_ros</exec_depend>
+  <depend>nav_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <test_depend>ament_cmake_cppcheck</test_depend>
+  <test_depend>ament_cmake_cpplint</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

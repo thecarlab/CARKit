@@ -27,6 +27,10 @@ dockerhub*
 # External sources fetched by carkit/setup_vendor_repos.sh.
 carkit/sensors/realsense-ros/
 carkit/sensors/sllidar_ros2/
+carkit/vendor/
+
+# Local WebUI installation choice.
+.carkit/
 
 # Nav2 maps belong only in map/. Keep the included examples and folder marker.
 map/*

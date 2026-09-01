@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "protocol": "1.1",
+  "evidence_scope": "sanitized verified host-visible behavior",
+  "sanitization": {
+    "private_source_copied": false,
+    "identifiers_removed": true,
+    "telemetry_values_synthetic": true,
+    "vehicle_profile_values_included": false
+  },
+  "startup": {
+    "firmware_version_response": "FW_VERSION: ProjectVer=PUBLIC_TEST_FIXTURE, Proto=1.1",
+    "firmware_profile_response": "PROFILE: ID=fixture_alpha, Schema=7, State=READY, Motion=Yes, Writes=Yes",
+    "vehicle_capability_response": "VEHICLE: Contract=1, Profile=fixture_alpha, Schema=7, WheelbaseMm=1375, ForwardMaxMmps=4321, ReverseMaxMmps=1234, SteeringMaxMdeg=27123, BatteryMinMv=11111, BatteryMaxMv=14999",
+    "expected_host_commands": [
+      "stream off\n",
+      "fw version\n",
+      "profile get\n",
+      "vehicle get\n",
+      "stream sync\n",
+      "s\n",
+      "link up ros\n"
+    ],
+    "periodic_host_command": "link ping ros\n",
+    "shutdown_host_command": "link down ros\n",
+    "firmware_version_timeout_seconds": 0.3
+  },
+  "telemetry": {
+    "sync": "s 1.0000 -0.2500 0.0000 0.4000 0.0000 0.0000 0.1250 0.0000 0.0000 0.0625 0.9980 0.1000 -0.2000 9.8000 0.0100 -0.0200 0.0300",
+    "battery": "b 12.10",
+    "remote": "r 1500 1500 1000 1500 1500 1500 2000 1000 1500 1500",
+    "magnetometer": "m 0.2500 -0.5000 1.0000",
+    "ignored_responses": [
+      "OK: synthetic response",
+      "DIAG: Level=0, Code=0",
+      "LINK: synthetic state",
+      "link synthetic response",
+      "UNKNOWN_RESPONSE: synthetic value"
+    ]
+  },
+  "malformed": [
+    "s 1.0 2.0",
+    "s 1.0000 -0.2500 0.0000 0.4000 0.0000 0.0000 0.1250 0.0000 0.0000 0.0625 0.9980 0.1000 -0.2000 9.8000 0.0100 -0.0200 0.0300 extra",
+    "b not-a-number",
+    "m 0.2500 -0.5000"
+  ],
+  "control": {
+    "serial_command_format": "v <vx_m_per_s> <steer_deg>",
+    "watchdog_seconds": 0.5,
+    "watchdog_command": "v 0.00 0.00\n",
+    "cmd_vel_near_zero_mps": 0.01
+  },
+  "publishers": {
+    "rc_topic": "rc_data",
+    "mag_topic": "magnetometer_data",
+    "mag_frame_id": "imu_link",
+    "battery_topic": "battery_state",
+    "gauss_to_tesla": 0.0001
+  },
+  "covariance_diagonals": {
+    "imu_orientation": [0.02, 0.02, 0.05],
+    "imu_angular_velocity": [0.01, 0.01, 0.01],
+    "imu_linear_acceleration": [0.10, 0.10, 0.10],
+    "odom_twist": [0.02, 0.20, 1.0, 1.0, 1.0, 0.30]
+  }
+}

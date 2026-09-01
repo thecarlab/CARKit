@@ -1,0 +1,7 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+default_profile: ada_high_school
+default_chassis: osracer
+map: /workspaces/CARKit/map/map_3f.yaml
+web:
+  http_port: 8080
+  web_bridge_port: 9090

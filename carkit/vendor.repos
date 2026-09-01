@@ -1,3 +1,4 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
 repositories:
   carkit/sensors/realsense-ros:
     type: git

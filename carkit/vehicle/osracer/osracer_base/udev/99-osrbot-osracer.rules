@@ -1,0 +1,2 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+KERNEL=="ttyACM[0-9]*", SUBSYSTEM=="tty", SUBSYSTEMS=="usb", ATTRS{idVendor}=="303a", ATTRS{idProduct}=="1001", MODE:="0660", GROUP:="dialout", SYMLINK+="osrbot_base"

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# CARKit learning annotation: orchestrates a repeatable CARKit command-line workflow.
 set -euo pipefail
 
 IMAGE="${IMAGE:-ariiees/carkit:latest}"
@@ -16,12 +17,13 @@ fi
 
 docker build -f "$DOCKERFILE" -t "$IMAGE" .
 
-echo "Checking ${IMAGE} for CARKit Nav2 and Foxglove runtime packages..."
+echo "Checking ${IMAGE} for CARKit navigation, sensor, and chassis runtime packages..."
 docker run --rm --entrypoint bash "$IMAGE" -lc '
   source /opt/ros/${ROS_DISTRO:-humble}/setup.bash
-  for pkg in foxglove_bridge nav2_bringup nav2_regulated_pure_pursuit_controller nav2_smac_planner slam_toolbox; do
+  for pkg in camera_info_manager cv_bridge joy nav2_bringup nav2_regulated_pure_pursuit_controller nav2_smac_planner slam_toolbox urg_node; do
     ros2 pkg prefix "${pkg}" >/dev/null
   done
+  python3 -c "import serial"
 '
 
 echo "Checking ${IMAGE} for RealSense CUDA/GLSL SDK packages..."

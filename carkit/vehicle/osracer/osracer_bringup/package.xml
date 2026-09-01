@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!-- CARKit learning annotation: declares ROS metadata and dependencies for osracer_bringup. -->
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>osracer_bringup</name>
+  <version>1.0.0</version>
+  <description>CARKit-compatible OSRacer chassis, sensor, and joystick bringup.</description>
+  <maintainer email="ada@todo.todo">CARKit maintainers</maintainer>
+  <license>MIT</license>
+
+  <depend>ackermann_msgs</depend>
+  <depend>joy</depend>
+  <depend>launch</depend>
+  <depend>launch_ros</depend>
+  <depend>lakibeam1</depend>
+  <depend>osracer_base</depend>
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>carkit_camera</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

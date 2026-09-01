@@ -1,56 +1,16 @@
+# CARKit learning annotation: assembles ROS nodes, parameters, and remappings for startup.
 import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch.substitutions import PythonExpression
-from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
-
-
-def visualization_is(name, legacy_argument):
-    return IfCondition(PythonExpression([
-        "'", LaunchConfiguration("visualization"), "' == '", name, "' or ('",
-        LaunchConfiguration("visualization"), "' == 'none' and '",
-        LaunchConfiguration(legacy_argument), "' == 'true')",
-    ]))
 
 
 def generate_launch_description():
+    """Build and return the ROS 2 launch description for this package."""
     package_share = get_package_share_directory("carkit_perception")
-
-    camera = Node(
-        package="realsense2_camera",
-        executable="realsense2_camera_node",
-        namespace="camera",
-        name="camera",
-        output="screen",
-        condition=IfCondition(LaunchConfiguration("start_camera")),
-        parameters=[{
-            "enable_color": True,
-            "rgb_camera.color_profile": LaunchConfiguration(
-                "camera_color_profile"
-            ),
-            "rgb_camera.color_format": LaunchConfiguration(
-                "camera_color_format"
-            ),
-            "rgb_camera.global_time_enabled": False,
-            "enable_depth": False,
-            "enable_infra": False,
-            "enable_infra1": False,
-            "enable_infra2": False,
-            "enable_gyro": False,
-            "enable_accel": False,
-            "enable_motion": False,
-            "enable_rgbd": False,
-            "enable_sync": False,
-            "align_depth.enable": False,
-            "pointcloud.enable": False,
-        }],
-    )
 
     perception_2d_node = Node(
         package="carkit_perception",
@@ -62,53 +22,32 @@ def generate_launch_description():
             "traffic_sign_model_path": LaunchConfiguration(
                 "traffic_sign_model_path"
             ),
+            "model_profile": LaunchConfiguration("model_profile"),
+            "custom_model_path": LaunchConfiguration("custom_model_path"),
             "image_size": LaunchConfiguration("image_size"),
             "image_topic": LaunchConfiguration("image_topic"),
+            "input_transport": LaunchConfiguration("input_transport"),
             "inference_image_topic": LaunchConfiguration(
                 "inference_image_topic"
+            ),
+            "inference_compressed_topic": LaunchConfiguration(
+                "inference_compressed_topic"
             ),
             "detection_2d_topic": LaunchConfiguration("detection_2d_topic"),
             "min_confidence": LaunchConfiguration("min_confidence"),
             "traffic_sign_min_confidence": LaunchConfiguration(
                 "traffic_sign_min_confidence"
             ),
+            "max_inference_rate_hz": LaunchConfiguration(
+                "max_inference_rate_hz"
+            ),
+            "secondary_inference_interval": LaunchConfiguration(
+                "secondary_inference_interval"
+            ),
+            "inference_jpeg_quality": LaunchConfiguration(
+                "inference_jpeg_quality"
+            ),
         }],
-    )
-
-    rviz_node = Node(
-        package="rviz2",
-        executable="rviz2",
-        name="perception_rviz",
-        arguments=["-d", LaunchConfiguration("rviz_config")],
-        output="screen",
-        condition=visualization_is("rviz", "start_rviz"),
-    )
-
-    foxglove_bridge = IncludeLaunchDescription(
-        XMLLaunchDescriptionSource(
-            PathJoinSubstitution([
-                FindPackageShare("foxglove_bridge"),
-                "launch",
-                "foxglove_bridge_launch.xml",
-            ])
-        ),
-        launch_arguments={
-            "address": LaunchConfiguration("foxglove_address"),
-            "port": LaunchConfiguration("foxglove_port"),
-            "remote_access": LaunchConfiguration("foxglove_remote_access"),
-            "device_token": LaunchConfiguration("foxglove_device_token"),
-            "sysinfo": LaunchConfiguration("foxglove_sysinfo"),
-            "topic_whitelist": LaunchConfiguration("foxglove_topic_whitelist"),
-            "client_topic_whitelist": LaunchConfiguration(
-                "foxglove_client_topic_whitelist"
-            ),
-            "param_whitelist": LaunchConfiguration("foxglove_param_whitelist"),
-            "service_whitelist": LaunchConfiguration(
-                "foxglove_service_whitelist"
-            ),
-            "capabilities": LaunchConfiguration("foxglove_capabilities"),
-        }.items(),
-        condition=visualization_is("foxglove", "start_foxglove_bridge"),
     )
 
     return LaunchDescription([
@@ -129,14 +68,28 @@ def generate_launch_description():
             ),
             description="Traffic-sign FP16 TensorRT engine path.",
         ),
+        DeclareLaunchArgument(
+            "model_profile",
+            default_value="combined",
+            description=(
+                "Model selection: generic_coco, traffic_signs, combined, "
+                "or custom."
+            ),
+        ),
+        DeclareLaunchArgument("custom_model_path", default_value=""),
         DeclareLaunchArgument("image_size", default_value="448"),
         DeclareLaunchArgument(
             "image_topic",
-            default_value="/camera/camera/color/image_raw",
+            default_value="/camera/camera/color/image_raw/compressed",
         ),
+        DeclareLaunchArgument("input_transport", default_value="compressed"),
         DeclareLaunchArgument(
             "inference_image_topic",
             default_value="/yolo/inference_image",
+        ),
+        DeclareLaunchArgument(
+            "inference_compressed_topic",
+            default_value="/yolo/inference_image/compressed",
         ),
         DeclareLaunchArgument(
             "detection_2d_topic",
@@ -148,106 +101,15 @@ def generate_launch_description():
             default_value="0.2",
         ),
         DeclareLaunchArgument(
-            "start_camera",
-            default_value="true",
-            description="Start a color-only RealSense driver.",
+            "max_inference_rate_hz",
+            default_value="10.0",
+            description="Target perception output rate.",
         ),
         DeclareLaunchArgument(
-            "camera_color_profile",
-            default_value="424x240x6",
-            description=(
-                "RealSense color profile in WIDTHxHEIGHTxFPS format."
-            ),
+            "secondary_inference_interval",
+            default_value="2",
+            description="Run the optional secondary model every N frames.",
         ),
-        DeclareLaunchArgument(
-            "camera_color_format",
-            default_value="RGB8",
-            description="RealSense color stream format.",
-        ),
-        DeclareLaunchArgument(
-            "rviz_config",
-            default_value=os.path.join(
-                package_share,
-                "rviz",
-                "perception.rviz",
-            ),
-            description="RViz config for perception visualization.",
-        ),
-        DeclareLaunchArgument(
-            "visualization",
-            default_value="none",
-            description=(
-                "Perception visualization mode: foxglove, rviz, or none."
-            ),
-        ),
-        DeclareLaunchArgument(
-            "start_rviz",
-            default_value="false",
-            description=(
-                "Deprecated compatibility flag. Use visualization:=rviz."
-            ),
-        ),
-        DeclareLaunchArgument(
-            "start_foxglove_bridge",
-            default_value="false",
-            description=(
-                "Deprecated compatibility flag. Use visualization:=foxglove."
-            ),
-        ),
-        DeclareLaunchArgument(
-            "foxglove_address",
-            default_value="0.0.0.0",
-            description="Foxglove Bridge bind address.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_port",
-            default_value="8765",
-            description="Foxglove Bridge WebSocket port.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_remote_access",
-            default_value="false",
-            description="Enable Foxglove remote access.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_device_token",
-            default_value="",
-            description="Foxglove device token for remote access.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_sysinfo",
-            default_value="false",
-            description="Publish system info through Foxglove Bridge.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_topic_whitelist",
-            default_value=(
-                "['^/camera(/.*)?$', '^/yolo/.*$', '^/tf$', '^/tf_static$']"
-            ),
-            description="Foxglove Bridge topic whitelist.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_client_topic_whitelist",
-            default_value="['^$']",
-            description="Topics Foxglove clients may publish.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_param_whitelist",
-            default_value="['^$']",
-            description="Foxglove Bridge parameter whitelist.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_service_whitelist",
-            default_value="['^$']",
-            description="Foxglove Bridge service whitelist.",
-        ),
-        DeclareLaunchArgument(
-            "foxglove_capabilities",
-            default_value="[connectionGraph]",
-            description="Foxglove Bridge capabilities.",
-        ),
-        camera,
+        DeclareLaunchArgument("inference_jpeg_quality", default_value="70"),
         perception_2d_node,
-        rviz_node,
-        foxglove_bridge,
     ])

@@ -1,3 +1,4 @@
+# CARKit learning annotation: assembles ROS nodes, parameters, and remappings for startup.
 from launch import LaunchDescription
 from launch_ros.actions import Node
 from launch.actions import DeclareLaunchArgument
@@ -5,6 +6,7 @@ from launch.substitutions import LaunchConfiguration
 
 def generate_launch_description():
     # Declare launch arguments
+    """Build and return the ROS 2 launch description for this package."""
     target_object_type_arg = DeclareLaunchArgument(
         'target_object_type',
         default_value='book',

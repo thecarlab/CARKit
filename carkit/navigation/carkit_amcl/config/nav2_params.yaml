@@ -1,3 +1,4 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
 amcl:
   ros__parameters:
     use_sim_time: false
@@ -113,7 +114,7 @@ controller_server:
 
     FollowPath:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
-      desired_linear_vel: 1.2 # for forward motion velocity
+      desired_linear_vel: 2.0 # for forward motion velocity
       lookahead_dist: 0.75
       min_lookahead_dist: 0.9
       max_lookahead_dist: 1.2

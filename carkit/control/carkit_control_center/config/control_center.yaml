@@ -1,6 +1,8 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
 control_center_node:
   ros__parameters:
-    publish_rate_hz: 50.0
+    publish_rate_hz: 30.0
+    status_publish_rate_hz: 2.0
     auto_button: 0
     human_button: 1
     estop_button: 2

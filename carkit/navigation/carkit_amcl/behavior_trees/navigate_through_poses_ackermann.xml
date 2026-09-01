@@ -1,3 +1,4 @@
+<!-- CARKit learning annotation: defines the Nav2 behavior-tree control flow used at runtime. -->
 <!--
   Ackermann-adapted version of Nav2's default navigate_through_poses BT.
   Identical to navigate_through_poses_w_replanning_and_recovery.xml from

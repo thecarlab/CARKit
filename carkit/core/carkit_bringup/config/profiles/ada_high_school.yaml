@@ -1,0 +1,15 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+name: ada_high_school
+label: ADA Academy (high school)
+description: Working guided algorithms in the ADA Academy course package.
+implementations:
+  planning: ada_academy
+  control: ada_academy
+  perception: ada_academy
+components:
+  chassis: true
+  sensors: true
+  planning: true
+  control: true
+  perception: true
+  behavior: true

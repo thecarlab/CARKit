@@ -1,0 +1,14 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+carkit_intro2av_cpp_planning:
+  ros__parameters:
+    map_topic: /map
+    odom_topic: /odom
+    goal_topic: /goal_pose
+    plan_topic: /plan
+    global_frame: map
+    planning_rate_hz: 2.0
+    occupancy_threshold: 65
+    allow_unknown: false
+    inflation_radius_m: 0.25
+    waypoint_spacing_m: 0.10
+    goal_tolerance_m: 0.15

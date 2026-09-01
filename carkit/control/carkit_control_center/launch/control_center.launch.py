@@ -1,3 +1,4 @@
+# CARKit learning annotation: assembles ROS nodes, parameters, and remappings for startup.
 from launch import LaunchDescription
 from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
@@ -5,6 +6,7 @@ from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
+    """Build and return the ROS 2 launch description for this package."""
     config = PathJoinSubstitution(
         [
             FindPackageShare("carkit_control_center"),

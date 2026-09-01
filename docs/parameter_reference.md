@@ -1,53 +1,35 @@
 # CARKit Vehicle and Nav2 Tuning Reference
 
-## 1. VESC and Chassis Calibration
+## 1. OSRacer Chassis Limits
 
-Configuration file:
+The connected controller uses the legacy OSRacer protocol, so it cannot report
+its own capability contract. CARKit supplies conservative limits through
+`carkit/vehicle/osracer/osracer_bringup/launch/bringup_launch.py`.
 
-- `carkit/vehicle/f1tenth_system/f1tenth_stack/config/vesc.yaml`
-- Related code:
-  - `carkit/vehicle/f1tenth_system/vesc/vesc_ackermann/src/ackermann_to_vesc.cpp`
-  - `carkit/vehicle/f1tenth_system/vesc/vesc_ackermann/src/vesc_to_odom.cpp`
+| Launch argument | Default | Purpose |
+|---|---:|---|
+| `protocol_mode` | `legacy` | Selects this controller's separate `i/o/m/r` telemetry protocol |
+| `wheelbase` | `0.325 m` | Converts `/cmd_vel` yaw rate to an Ackermann steering angle |
+| `forward_max_speed` | `0.8 m/s` | Maximum positive command accepted from ROS |
+| `reverse_max_speed` | `0.8 m/s` | Maximum reverse command magnitude |
+| `max_steering_angle` | `0.5236 rad` | Maximum steering command (30 degrees) |
+| `cmd_timeout` | `0.5 s` | Sends zero speed after command traffic stops |
 
-### 1.1 Steering Servo Center `steering_angle_to_servo_offset` (Important)
+The live controller was verified at 460800 baud using the serial command
+`v <speed_mps> <steering_degrees>`. Keep the limits conservative until speed,
+steering, and stopping have been measured in a clear test area.
 
-| Parameter | Location | Suggested Range | If Increased | If Decreased |
-|---|---|---:|---|---|
-| `steering_angle_to_servo_offset` | `vesc.yaml:10` | `0.4 ~ 0.55` | Servo neutral shifts to the right | Servo neutral shifts to the left |
-
-Center calibration procedure:
-
-1. Test at low speed in an open area.
-2. Publish an Ackermann command with `steering_angle = 0`.
-3. Check whether the front wheels point straight.
-4. If not, adjust `steering_angle_to_servo_offset`; use `0.005 ~ 0.02` per adjustment.
-5. Run a low-speed straight-line test and confirm that the vehicle no longer keeps drifting left or right.
-
-### 1.2 Speed Gain `speed_to_erpm_gain` (Important)
-
-Effect:
-
-```text
-ERPM = speed_to_erpm_gain * speed_mps + speed_to_erpm_offset
-odom_speed_mps = (vesc_erpm - speed_to_erpm_offset) / speed_to_erpm_gain
-```
-
-| Parameter | Location | Suggested Range | If Increased | If Decreased |
-|---|---|---:|---|---|
-| `speed_to_erpm_gain` | `vesc.yaml:5` | `3800 ~ 4300` | The same m/s command sends higher ERPM; odom back-calculated speed becomes smaller | The same m/s command sends lower ERPM; odom back-calculated speed becomes larger |
-
-Calibration procedure:
-
-1. Mark a known straight-line distance on the floor, for example `2.5m`.
-2. Record the initial `/odom` value of `pose.pose.position.x`.
-3. Drive the vehicle straight for the true distance `d_true`.
-4. Record the `/odom` displacement `d_odom`.
-
-Real-car check command:
+Useful checks:
 
 ```bash
-ros2 topic echo /odom --field pose.pose.position.x
+ros2 topic info /ackermann_cmd -v
+ros2 topic hz /odom
+ros2 topic echo /battery_state --field voltage
 ```
+
+The command topic must use `ackermann_msgs/msg/AckermannDriveStamped`. Modern
+Proto 1.1 firmware should be launched with `protocol_mode:=modern`; in that
+mode the controller-reported capability contract replaces the legacy limits.
 
 ## 2. Navigation Speed and Path Tracking
 

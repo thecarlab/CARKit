@@ -1,0 +1,8 @@
+{
+  "uuid": "carkit-resources@carkit.local",
+  "name": "CARKit Resources",
+  "description": "Shows Jetson CPU, RAM, temperature, chassis battery, and CARKit session status in the GNOME top bar.",
+  "shell-version": ["46"],
+  "version": 2,
+  "url": "http://127.0.0.1:8080/"
+}

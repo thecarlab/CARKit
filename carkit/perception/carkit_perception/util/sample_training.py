@@ -1,3 +1,4 @@
+# CARKit learning annotation: implements the behavior described by this file's package and module.
 from ultralytics import YOLO
 
 # Load a COCO-pretrained YOLO11n model

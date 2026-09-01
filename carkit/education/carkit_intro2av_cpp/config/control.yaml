@@ -1,0 +1,15 @@
+# CARKit learning annotation: documents runtime settings consumed by the surrounding package.
+carkit_intro2av_cpp_control:
+  ros__parameters:
+    plan_topic: /plan
+    odom_topic: /odom
+    drive_topic: /drive
+    base_frame: base_link
+    control_rate_hz: 10.0
+    input_timeout_sec: 0.5
+    wheelbase_m: 0.325
+    lookahead_m: 0.55
+    target_speed_mps: 0.45
+    maximum_speed_mps: 1.0
+    maximum_steering_rad: 0.34
+    goal_tolerance_m: 0.15
