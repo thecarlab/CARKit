@@ -4,33 +4,54 @@
   <a href="https://www.thecarlab.org/">The CAR Lab</a>
 </div>
 
-**CARKit** is a modular ROS 2 middleware platform for autonomous driving education, developed by the Connected and Autonomous Research (CAR) Lab at the University of Delaware for the Autonomous Driving Academy (ADA).
+**CARKit** is a modular ROS 2 middleware platform for autonomous driving education, developed by the Connected and Autonomous Research (CAR) Lab at the University of Delaware for ADA Academy and Intro2AV.
 
 Designed around real autonomous vehicle workflows, CARKit provides a unified software stack for perception, navigation, planning, and control on small-scale Ackermann vehicles. The platform combines industry-standard ROS 2 tools with hands-on deployment on physical vehicles and simulation environments, enabling students to learn autonomous systems through practical experimentation.
 
 ## 🧩 Supported Platforms
 
-- 🚀 [NVIDIA Jetson Orin Nano](https://www.nvidia.com/en-us/autonomous-machines/embedded-systems/jetson-orin/nano-super-developer-kit/) with JetPack 6.x / L4T 36.x
-- 🐳 Docker with [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-- 🏎️ OSRacer chassis, LakiBeam lidar, and UVC camera
-- 🏎️ F1TENTH/VESC chassis with URG lidar and RealSense camera
+- 🚀 NVIDIA Jetson Orin Nano (`aarch64`). The current vehicle deployment is
+  validated on Jetson Linux R39.2.1.
+- 📦 The published container uses NVIDIA L4T JetPack `r36.4.0` (JetPack
+  6.1 userspace), Ubuntu 22.04, ROS 2 Humble, CUDA, and TensorRT.
+- 🐳 Docker Engine with the
+  [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+  on the Jetson host.
+- 🏎️ OSRacer chassis, LakiBeam lidar, and UVC camera.
+- 🏎️ F1TENTH/VESC chassis, Hokuyo URG lidar, and Intel RealSense camera.
+- 🛰️ The generic navigation package also retains serial SLLidar/RPLIDAR
+  support for other course vehicles.
+- 🌐 A current Chromium, Chrome, Firefox, or Safari browser. The native bridge
+  accepts up to five simultaneous WebUI clients by default.
 
 ROS 2 and CARKit dependencies run inside `ariiees/carkit:latest`. The host
-only needs JetPack, Docker, Git, and the CARKit device rules. ROS 2 Desktop,
-RViz, and rqt remain available inside the image for debugging, but no ROS GUI
-is started automatically. The normal interface is the lightweight CARKit
-WebUI on port `8080`. It draws the map, path, lidar, camera/perception results,
-and Jetson/chassis telemetry through the native C++ CARKit WebSocket bridge.
+only needs compatible Jetson Linux, Docker, Git, and hardware access for the
+selected chassis. ROS 2 Desktop, RViz, and rqt remain available inside the
+image for debugging, but no ROS GUI is started automatically. The normal
+interface is the lightweight CARKit WebUI on port `8080`. It draws the map,
+path, lidar, camera/perception results, and Jetson/chassis telemetry through
+the native C++ CARKit WebSocket bridge.
 
 ## ⚙️ Setup
 
-On the Jetson host:
+On the Jetson host, clone the `ada2026` release and pull its matching image:
 
 ```bash
 git clone --branch ada2026 https://github.com/thecarlab/CARKit.git ~/CARKit
 cd ~/CARKit
 docker pull ariiees/carkit:latest
+```
+
+For an OSRacer, install its persistent chassis and camera device rules once:
+
+```bash
 ./docker/setup_osracer_device.sh
+```
+
+This host setup step is not needed for F1TENTH. To run CARKit in the
+foreground for development, use:
+
+```bash
 ./docker/run_jetson.sh
 ```
 
@@ -46,8 +67,10 @@ launch automatically sources the updated install overlay.
 
 ### Start automatically at boot
 
-To make the WebUI/container start whenever the Jetson boots, install the
-included systemd unit once:
+As an alternative to the foreground command, install the included systemd
+unit once to start the WebUI/container whenever the Jetson boots. Stop a
+foreground CARKit process with Control-C before enabling the service; both
+startup paths use the same `carkit` container name.
 
 ```bash
 sudo install -m 0644 docker/carkit.service /etc/systemd/system/carkit.service
@@ -65,10 +88,22 @@ sudo systemctl stop carkit
 journalctl -u carkit -f
 ```
 
-To use a shell instead of the WebUI:
+To use a shell while the boot service or foreground WebUI is running:
 
 ```bash
+docker exec -it carkit bash
+```
+
+To run only a shell with no WebUI, stop the service first:
+
+```bash
+sudo systemctl stop carkit
 ./docker/run_jetson.sh bash
+```
+
+Then, inside that container shell, install the selected chassis if needed:
+
+```bash
 ./docker/install_carkit.sh osracer   # or: f1tenth
 ```
 
@@ -91,8 +126,8 @@ together; each ownership selector can still override one component without
 modifying the reference source.
 
 Switching a component in the WebUI never copies over the reference source.
-Student work lives in the separate `carkit/education/carkit_ada_academy` and
-`carkit/education/carkit_intro2av` and `carkit_intro2av_cpp` packages;
+Student work lives in the separate `carkit/education/carkit_ada_academy`,
+`carkit/education/carkit_intro2av`, and `carkit_intro2av_cpp` packages;
 reference implementations stay in their production packages. Changing the
 course selector chooses Intro2AV Python initially, while each Algorithm
 Ownership selector can independently switch to Intro2AV C++. See
@@ -127,6 +162,10 @@ ls -l /dev/osrbot_base /dev/osrbot_usb_cam
 ping -c 1 192.168.8.2
 ```
 
+The direct `ros2` examples below are advanced alternatives to the WebUI. Run
+them from a shell inside the active container (`docker exec -it carkit bash`)
+and stop any WebUI launch session that already owns the same hardware.
+
 ## 🕹️ Manual Driving And Mapping Control
 
 For manual driving, mapping, and vehicle checks, launch human control directly:
@@ -143,7 +182,6 @@ ros2 launch osracer_bringup sensors_launch.py
 
 This launches joystick teleop, the OSRacer chassis driver, odometry, and the
 manual command relay from `/teleop` to `/ackermann_cmd`.
-
 
 Start human control as shown above, then launch mapping:
 
@@ -164,12 +202,20 @@ Maps belong in the repository's top-level `map/` folder.
 ## 🤖 Autonomous Driving
 
 Start human control with the manual OSRacer relay remapped away from
-`/ackermann_cmd`, start the control center, then launch Nav2:
+`/ackermann_cmd`:
 
 ```bash
 ros2 launch carkit_human_control joystick.launch.py \
   vehicle_command_topic:=/manual_command_unused
 ```
+
+In another container terminal, start the OSRacer camera and lidar:
+
+```bash
+ros2 launch osracer_bringup sensors_launch.py
+```
+
+Then start the control center and Nav2 in their own container terminals:
 
 ```bash
 ros2 launch carkit_control_center control_center.launch.py
@@ -177,7 +223,7 @@ ros2 launch carkit_control_center control_center.launch.py
 
 ```bash
 ros2 launch carkit_navigation navigation.launch.py \
-  map:=/workspaces/CARKit/map/map_5fs.yaml \
+  map:=/workspaces/CARKit/map/map_3f.yaml \
   start_lidar:=false
 ```
 
@@ -191,10 +237,11 @@ can reduce to `0.8 m/s` while approaching a goal, following tight curvature,
 or applying the cone behavior override; the command pipeline is capped at
 `3.0 m/s`.
 
-The main map is selected above. To use the 3F example map instead, pass:
+The WebUI map dropdown discovers every `.yaml` map in the top-level `map/`
+folder. For example, to use the bundled `map.yaml` instead, pass:
 
 ```bash
-map:=/workspaces/CARKit/map/map_3f.yaml
+map:=/workspaces/CARKit/map/map.yaml
 ```
 
 ### 👁️ Perception And Behavior
@@ -208,7 +255,9 @@ ros2 launch carkit_perception perception.launch.py
 
 The WebUI shows the annotated perception stream directly. Its
 configuration drawer can select generic COCO, traffic-sign-only, combined, or
-a custom Jetson TensorRT model. In the map/lidar panel, drag to rotate,
+a custom Jetson TensorRT model. Camera publication and perception inference
+both target 10 Hz while discarding stale frames to keep the live view current.
+In the map/lidar panel, drag to rotate,
 Shift-drag to pan, use the mouse wheel to zoom, and double-click to reset.
 
 Start behavior overrides separately:
@@ -230,7 +279,7 @@ carkit/
   control/       human teleop and autonomous command safety arbiter
   planning/      scalable road-behavior planning rules
   navigation/    SLAM Toolbox, AMCL, Nav2, Twist-to-Ackermann bridge
-  perception/    color-only YOLO and typed 2D detection messages
+  perception/    Python YOLO/TensorRT inference and typed 2D detections
   sensors/       camera, scan filter, sensor transforms, and vendor adapters
   vehicle/       OSRacer integration and pinned F1TENTH vendor selection
   tools/         classroom utilities and demos
@@ -249,7 +298,8 @@ ros2 launch carkit_bringup carkit.launch.py \
 
 Vendor package names such as `osracer_base`, `f1tenth_stack`, and `vesc_driver`
 remain unchanged so upstream updates and licenses stay traceable. They are
-isolated behind the CARKit launch and topic contract.
+isolated behind the CARKit launch and topic contract; optional F1TENTH sources
+are fetched at their pinned revisions only when that chassis is installed.
 
 ## 📚 More Docs
 
