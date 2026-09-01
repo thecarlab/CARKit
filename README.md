@@ -17,8 +17,10 @@ Designed around real autonomous vehicle workflows, CARKit provides a unified sof
 - 🐳 Docker Engine with the
   [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
   on the Jetson host.
-- 🏎️ OSRacer chassis, LakiBeam lidar, and UVC camera.
-- 🏎️ F1TENTH/VESC chassis, Hokuyo URG lidar, and Intel RealSense camera.
+- 🏎️ OSRacer chassis, LakiBeam lidar, UVC camera, and a CUDY router
+  providing the vehicle's private `192.*` network.
+- 🏎️ F1TENTH/VESC chassis, Hokuyo URG lidar, Intel RealSense camera,
+  and a Jetson connected directly to eduroam with a `128.*` address.
 - 🛰️ The generic navigation package also retains serial SLLidar/RPLIDAR
   support for other course vehicles.
 - 🌐 A current Chromium, Chrome, Firefox, or Safari browser. The native bridge
@@ -34,6 +36,8 @@ the native C++ CARKit WebSocket bridge.
 
 ## ⚙️ Setup
 
+### Common preparation
+
 On the Jetson host, clone the `ada2026` release and pull its matching image:
 
 ```bash
@@ -42,28 +46,68 @@ cd ~/CARKit
 docker pull ariiees/carkit:latest
 ```
 
-For an OSRacer, install its persistent chassis and camera device rules once:
+Continue with only the section for the vehicle being installed.
+
+### OSRacer installation
+
+Install the OSRacer's persistent chassis and camera device rules once, then
+start CARKit in the foreground:
 
 ```bash
 ./docker/setup_osracer_device.sh
+./docker/run_jetson.sh
 ```
 
-This host setup step is not needed for F1TENTH. To run CARKit in the
-foreground for development, use:
+On the computer or tablet used to view the dashboard:
+
+1. Connect to the vehicle's **OSR Wi-Fi** network. The OSRacer Jetson reaches
+   that network through its CUDY router and receives a private `192.*` address.
+2. List the Jetson's IPv4 interfaces:
+
+   ```bash
+   ip -4 -brief address
+   ```
+
+3. Use the `192.*` address assigned by the CUDY LAN/Wi-Fi interface. Do not use
+   the LakiBeam interface's `192.168.8.*` address. Open
+   `http://<cudy-192-address>:8080`, select **OSRacer**, and click
+   **Install / build selected chassis**.
+
+The viewing device must remain on the OSR Wi-Fi network while using the
+OSRacer WebUI.
+
+### F1TENTH installation
+
+The F1TENTH Jetson does not use the OSRacer device-rule script. Start CARKit
+directly:
 
 ```bash
 ./docker/run_jetson.sh
 ```
 
-Open `http://<jetson-ip>:8080`, select **OSRacer** or **F1TENTH**, and click
-**Install / build selected chassis**. The installer builds only that hardware
-adapter. The dashboard then lets you choose the course profile, independently
-override each algorithm, select startup components, launch, stop, and inspect
-live results. The collaborative **Code editor** exposes only the selected
-course package, provides a file explorer and syntax diagnostics, and supports
-up to five users editing together. The **Compile** page can rebuild the entire
-repository or only perception, localization, control, or planning. The next
-launch automatically sources the updated install overlay.
+On the computer or tablet used to view the dashboard:
+
+1. Connect to **eduroam**. The F1TENTH Jetson is connected directly to
+   eduroam and receives a `128.*` address.
+2. Find that address on the Jetson:
+
+   ```bash
+   hostname -I | tr ' ' '\n' | grep '^128\.'
+   ```
+
+3. Open `http://<128-address>:8080`, select **F1TENTH**, and click
+   **Install / build selected chassis**. This fetches the pinned F1TENTH/VESC
+   sources when they are absent and builds the F1TENTH adapter.
+
+The viewing device must remain on eduroam while using the F1TENTH WebUI.
+
+For either chassis, the dashboard lets you choose the course profile,
+independently override each algorithm, select startup components, launch,
+stop, and inspect live results. The collaborative **Code editor** exposes only
+the selected course package, provides a file explorer and syntax diagnostics,
+and supports up to five users editing together. The **Compile** page can
+rebuild the entire repository or only perception, localization, control, or
+planning. The next launch automatically sources the updated install overlay.
 
 ### Start automatically at boot
 
@@ -101,10 +145,17 @@ sudo systemctl stop carkit
 ./docker/run_jetson.sh bash
 ```
 
-Then, inside that container shell, install the selected chassis if needed:
+Then, inside that container shell, use the command for the selected chassis.
+For OSRacer:
 
 ```bash
-./docker/install_carkit.sh osracer   # or: f1tenth
+./docker/install_carkit.sh osracer
+```
+
+For F1TENTH:
+
+```bash
+./docker/install_carkit.sh f1tenth
 ```
 
 `install_carkit.sh` records the selected chassis in `.carkit/config.json`,
@@ -133,17 +184,13 @@ course selector chooses Intro2AV Python initially, while each Algorithm
 Ownership selector can independently switch to Intro2AV C++. See
 [`docs/course_profiles.md`](docs/course_profiles.md).
 
-### WebUI connection
+### Using the WebUI
 
-1. On the vehicle terminal, find the vehicle's IP address:
-
-   ```bash
-   hostname -I
-   ```
-
-2. Open `http://<vehicle-ip>:8080` from any browser on the same network. The
-   Overview provides the map, LiDAR, perception overlay, launch controls,
-   telemetry, and goal/pose tools without an RViz or Foxglove process.
+Use the chassis-specific network described during installation: connect the
+viewing device to **OSR Wi-Fi** and open the OSRacer's `192.*` address, or
+connect it to **eduroam** and open the F1TENTH vehicle's `128.*` address. The
+Overview provides the map, LiDAR, perception overlay, launch controls,
+telemetry, and goal/pose tools without an RViz or Foxglove process.
 
 To localize the vehicle, click **Set initial pose**, press on its current map
 position, drag toward the vehicle's forward direction, and release. Goal poses
