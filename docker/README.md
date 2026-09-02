@@ -67,8 +67,11 @@ packages used by CARKit. It starts the container with host networking,
 
 `setup_osracer_device.sh` installs host udev rules for the `303a:1001`
 controller and `2993:0858` UVC camera. It verifies `/dev/osrbot_base` and
-creates `/dev/osrbot_usb_cam`. Run it again after changing a rule or if a
-stale regular file exists at either path, then restart the container.
+creates `/dev/osrbot_usb_cam`. It also identifies the Richbeam RNDIS adapter,
+creates the persistent `carkit-lakibeam` NetworkManager connection at
+`192.168.8.1/24`, and prevents LiDAR traffic from using `l4tbr0` or the CUDY
+default route. Run it again after changing a rule or if a stale regular file
+exists at either device path, then restart the container.
 
 Start the OSRacer sensors inside the container with:
 
@@ -119,7 +122,8 @@ failures on an 8 GB Jetson Orin Nano.
 - `run_jetson.sh`: pulls/runs the runtime image and mounts this checkout.
 - `start_webui.sh`: serves the browser dashboard on port `8080`.
 - `install_carkit.sh`: selects/fetches one chassis adapter and builds CARKit.
-- `setup_osracer_device.sh`: installs and validates the host OSRacer udev rule.
+- `setup_osracer_device.sh`: configures OSRacer device aliases and its dedicated
+  LakiBeam USB network on the Jetson host.
 - `build_workspace.sh`: fetches vendor repos, installs ROS dependencies, and
   builds the workspace.
 - `publish_image.sh`: maintainer helper to build, check, and push

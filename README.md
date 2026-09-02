@@ -50,8 +50,8 @@ Continue with only the section for the vehicle being installed.
 
 ### OSRacer installation
 
-Install the OSRacer's persistent chassis and camera device rules once, then
-start CARKit in the foreground:
+Install the OSRacer's persistent chassis and camera device rules and configure
+the dedicated LakiBeam network once, then start CARKit in the foreground:
 
 ```bash
 ./docker/setup_osracer_device.sh
@@ -200,12 +200,15 @@ to pan, and use the mouse wheel to zoom.
 USB reminder before launching sensors:
 
 - Connect the OSRacer USB hub and verify the UVC camera alias. The LakiBeam is
-  exposed over USB Ethernet at `192.168.8.2`.
-- Inside Docker, confirm devices are visible before launch:
+  exposed over USB Ethernet at `192.168.8.2`; the setup script assigns its
+  Richbeam adapter `192.168.8.1/24` with no default route.
+- On the Jetson host, confirm the devices and direct LiDAR route before launch:
 
 ```bash
 lsusb -t
 ls -l /dev/osrbot_base /dev/osrbot_usb_cam
+ip -4 -brief address
+ip route get 192.168.8.2
 ping -c 1 192.168.8.2
 ```
 

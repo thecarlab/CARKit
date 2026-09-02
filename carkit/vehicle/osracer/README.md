@@ -25,6 +25,10 @@ Prepare the host device before starting Docker:
 ./docker/run_jetson.sh
 ```
 
+The setup script creates the controller and camera aliases and configures the
+Richbeam RNDIS interface as `192.168.8.1/24` with no gateway. This keeps the
+LakiBeam route separate from the CUDY network and NVIDIA's `l4tbr0` bridge.
+
 Inside Docker, build and launch:
 
 ```bash
@@ -35,9 +39,10 @@ ros2 launch carkit_human_control joystick.launch.py
 ros2 launch osracer_bringup sensors_launch.py
 ```
 
-The OSRacer sensor launch uses the chassis' LakiBeam at `192.168.8.2` and the
-stable `/dev/osrbot_usb_cam` camera alias. Its topics match CARKit's existing
-sensor contracts, so CARKit perception and navigation do not need renaming.
+The OSRacer sensor launch uses the chassis' LakiBeam at `192.168.8.2` through
+that dedicated link and the stable `/dev/osrbot_usb_cam` camera alias. Its
+topics match CARKit's existing sensor contracts, so CARKit perception and
+navigation do not need renaming.
 The camera is drained at 30 FPS to prevent kernel/driver backlog, while its
 public image and camera-info topics remain fixed at the course requirement of
 10 Hz. Raw BGR images remain available on `/camera/camera/color/image_raw` and
