@@ -6,11 +6,11 @@ After=docker.service network-online.target
 
 [Service]
 Type=simple
-User=nvidia
-Group=nvidia
-WorkingDirectory=/home/nvidia/CARKit
+User=@CARKIT_USER@
+Group=@CARKIT_GROUP@
+WorkingDirectory=@CARKIT_ROOT@
 Environment=PULL_IMAGE=never
-ExecStart=/home/nvidia/CARKit/docker/run_jetson.sh
+ExecStart=@CARKIT_ROOT@/docker/run_jetson.sh
 ExecStop=-/usr/bin/docker stop --time 15 carkit
 Restart=always
 RestartSec=5

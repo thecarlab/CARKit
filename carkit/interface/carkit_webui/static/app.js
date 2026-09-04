@@ -54,12 +54,15 @@ const state = {
   cameraDecodeBusy: false,
   cameraObjectUrl: null,
   editorRevision: null,
+  editorConfig: null,
   editorProfile: null,
+  editorApiProfile: null,
   editorComponent: null,
   editorFile: null,
   editorTree: null,
   editorDirty: false,
   editorLoaded: false,
+  editorReadOnly: false,
   editorVersion: null,
   editorBaseContent: "",
   editorLanguage: "python",
@@ -71,6 +74,13 @@ const state = {
   editorLoadGeneration: 0,
   editorClientId: localEditorIdentity.clientId,
   editorName: localEditorIdentity.name,
+  terminals: [],
+  terminalId: null,
+  terminalCursor: 0,
+  terminalEmulator: null,
+  terminalPollToken: 0,
+  terminalInputQueue: "",
+  terminalInputSending: false,
   lastChassisMessage: 0,
   lastBatteryMessage: 0,
   view: {zoom: 1, rotation: 0, panX: 0, panY: 0},
@@ -93,7 +103,17 @@ async function api(path, body) {
     body: JSON.stringify(body),
   };
   const response = await fetch(path, options);
-  const data = await response.json();
+  const raw = await response.text();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      raw.trimStart().startsWith("<")
+        ? "The WebUI backend is out of date. Restart the CARKit service and reload this page."
+        : `The WebUI returned an invalid response (HTTP ${response.status}).`
+    );
+  }
   if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
@@ -121,8 +141,24 @@ function updateSetupLabels(profile, chassis) {
 }
 
 async function configure() {
-  state.config = await api("/api/config");
+  const [config, editorConfig] = await Promise.all([
+    api("/api/config"),
+    api("/api/editor"),
+  ]);
+  state.config = config;
+  state.editorConfig = editorConfig;
   $("editor-user-name").value = state.editorName;
+  const editorImplementations = editorConfig.implementations || editorConfig.profiles || [];
+  if (editorImplementations.length) {
+    $("editor-profile").replaceChildren(...editorImplementations.map(item => (
+      option(item.id, item.label)
+    )));
+  }
+  if (editorConfig.components && editorConfig.components.length) {
+    $("editor-component").replaceChildren(...editorConfig.components.map(component => (
+      option(component, `${component[0].toUpperCase()}${component.slice(1)}`)
+    )));
+  }
   state.config.profiles.forEach(profile => $("profile").append(option(profile.id, profile.label)));
   state.config.chassis.forEach(chassis => {
     $("chassis").append(option(chassis, chassis === "f1tenth" ? "F1TENTH / VESC" : "OSRacer"));
@@ -476,9 +512,11 @@ function formatUptime(seconds) {
 
 function renderSystemTelemetry(system) {
   const cpu = finiteNumber(system && system.cpu_percent);
+  const carkitCpu = finiteNumber(system && system.workload_cpu_percent);
   const cpuCount = finiteNumber(system && system.cpu_count);
   const cpuCapacity = finiteNumber(system && system.cpu_capacity_percent) || 100;
   const memory = system && system.memory;
+  const carkitMemory = system && system.workload_memory;
   const temperature = finiteNumber(system && system.cpu_temperature_c);
   $("cpu-usage").textContent = cpu === null
     ? "Sampling…"
@@ -490,21 +528,33 @@ function renderSystemTelemetry(system) {
   const coreLabel = cpuCount === null
     ? "cores —"
     : `${busyCores === null ? "—" : busyCores.toFixed(1)} of ${cpuCount.toFixed(0)} cores busy`;
-  $("cpu-load").textContent = load === null
+  const cpuDetail = load === null
     ? `${coreLabel} · ${cpuCapacity.toFixed(0)}% max`
     : `${coreLabel} · ${cpuCapacity.toFixed(0)}% max · Load ${load.toFixed(1)}`;
+  $("carkit-cpu-usage").textContent = carkitCpu === null
+    ? "Sampling…"
+    : `${carkitCpu.toFixed(1)}%`;
+  $("telemetry-cpu").title = `Jetson: ${cpuDetail}. CARKit is the complete container cgroup.`;
   $("memory-usage").textContent = memory ? `${Number(memory.percent).toFixed(1)}%` : "—";
-  $("memory-detail").textContent = memory
-    ? `${formatBytes(memory.used_bytes)} / ${formatBytes(memory.total_bytes)}`
-    : "— / —";
+  $("carkit-memory-usage").textContent = carkitMemory
+    ? `${formatBytes(carkitMemory.used_bytes)}${carkitMemory.percent === null ? "" : ` · ${Number(carkitMemory.percent).toFixed(1)}%`}`
+    : "—";
+  $("telemetry-memory").title = memory
+    ? `Jetson: ${formatBytes(memory.used_bytes)} / ${formatBytes(memory.total_bytes)}. CARKit: ${carkitMemory ? formatBytes(carkitMemory.used_bytes) : "unavailable"}.`
+    : "Memory metrics unavailable";
   $("cpu-temperature").textContent = temperature === null ? "—" : `${temperature.toFixed(1)}°C`;
   $("system-uptime").textContent = formatUptime(system && system.uptime_seconds);
   $("telemetry-cpu").classList.toggle(
     "warning",
-    cpu !== null && cpu >= cpuCapacity * 0.85,
+    (cpu !== null && cpu >= cpuCapacity * 0.85)
+      || (carkitCpu !== null && carkitCpu >= cpuCapacity * 0.85),
   );
   $("telemetry-memory").classList.toggle(
-    "warning", Boolean(memory && Number(memory.percent) >= 85),
+    "warning",
+    Boolean(
+      (memory && Number(memory.percent) >= 85)
+      || (carkitMemory && Number(carkitMemory.percent) >= 85)
+    ),
   );
   $("telemetry-temperature").classList.toggle(
     "warning", temperature !== null && temperature >= 75,
@@ -850,10 +900,24 @@ function setEditorStatus(text, type = "neutral") {
   $("editor-status").className = `status-pill ${type}`;
 }
 
+function setEditorReadOnly(readOnly) {
+  state.editorReadOnly = Boolean(readOnly);
+  $("code-editor").readOnly = state.editorReadOnly;
+  $("editor-save").textContent = state.editorReadOnly ? "Read only" : "Sync now";
+  $("editor-save").disabled = state.editorReadOnly || !state.editorDirty;
+  $("editor-mode").textContent = state.editorReadOnly
+    ? "Reference implementation · read-only"
+    : "Live shared editing · remote cursors · up to 5 users";
+}
+
 function renderFileExplorer(tree) {
   const container = $("editor-file-tree");
   container.replaceChildren();
-  $("editor-root").textContent = tree.root;
+  const component = tree.component
+    ? `${tree.component[0].toUpperCase()}${tree.component.slice(1)}`
+    : "All components";
+  $("editor-root").textContent = component;
+  $("editor-root").title = tree.root;
   const root = {directories: new Map(), files: []};
   tree.files.forEach(file => {
     const parts = file.path.split("/");
@@ -912,29 +976,110 @@ function updateExplorerActive() {
   });
 }
 
-function preferredAlgorithmFile(profile, component, tree) {
-  const candidates = {
-    intro2av_python: `carkit_intro2av/${component}_algorithm.py`,
-    intro2av_cpp: `src/${component}_algorithm.cpp`,
-  };
-  const preferred = candidates[profile];
-  if (preferred && tree.files.some(file => file.path === preferred)) {
-    return preferred;
+function preferredAlgorithmFile(component, tree) {
+  return tree.default || tree.defaults[component] || (tree.files[0] && tree.files[0].path);
+}
+
+function scopedEditorPaths(implementation, component) {
+  if (implementation === "ada_high_school") implementation = "ada_academy";
+  if (implementation === "ada_academy") {
+    return [
+      `carkit_ada_academy/${component}.py`,
+      "carkit_ada_academy/math_utils.py",
+      "test/test_algorithms.py",
+      "README.md",
+    ];
   }
-  return tree.defaults[component] || (tree.files[0] && tree.files[0].path);
+  if (implementation === "intro2av_python") {
+    return [
+      `carkit_intro2av/${component}_algorithm.py`,
+      `carkit_intro2av/${component}.py`,
+      `config/${component}.yaml`,
+      "test/test_boilerplates.py",
+      "README.md",
+    ];
+  }
+  if (implementation === "intro2av_cpp") {
+    return [
+      `src/${component}_algorithm.cpp`,
+      `include/carkit_intro2av_cpp/${component}_algorithm.hpp`,
+      `src/${component}.cpp`,
+      `config/${component}.yaml`,
+      "README.md",
+    ];
+  }
+  if (implementation === "reference") {
+    const paths = {
+      perception: [
+        "carkit/perception/carkit_perception/carkit_perception/perception_2d_node.py",
+        "carkit/perception/carkit_perception/carkit_perception/perception_math.py",
+        "carkit/perception/carkit_perception/carkit_perception/speed_sign_perception_node.py",
+        "carkit/perception/carkit_perception/launch/perception.launch.py",
+        "carkit/perception/README.md",
+      ],
+      planning: [
+        "carkit/navigation/carkit_amcl/config/nav2_params.yaml",
+        "carkit/navigation/carkit_amcl/launch/nav2.launch.py",
+        "carkit/navigation/carkit_navigation/launch/navigation.launch.py",
+        "carkit/navigation/carkit_amcl/src/foxglove_waypoints.cpp",
+        "carkit/navigation/README.md",
+      ],
+      control: [
+        "carkit/navigation/carkit_amcl/src/twist_to_ackermann.cpp",
+        "carkit/control/carkit_control_center/src/control_center_node.cpp",
+        "carkit/control/carkit_control_center/config/control_center.yaml",
+        "carkit/control/carkit_control_center/launch/control_center.launch.py",
+        "carkit/control/README.md",
+      ],
+    };
+    return paths[component] || [];
+  }
+  return [];
+}
+
+function scopeLegacyEditorTree(tree, implementation, component) {
+  if (tree.component) return tree;
+  const allowed = new Set(scopedEditorPaths(implementation, component));
+  const defaultFile = tree.defaults && tree.defaults[component];
+  return {
+    ...tree,
+    implementation: implementation === "ada_high_school" ? "ada_academy" : implementation,
+    component,
+    files: (tree.files || []).filter(file => allowed.has(file.path)),
+    defaults: defaultFile ? {[component]: defaultFile} : {},
+    default: defaultFile || null,
+  };
+}
+
+async function loadEditorTree(implementation, component) {
+  const query = `implementation=${encodeURIComponent(implementation)}&component=${encodeURIComponent(component)}`;
+  try {
+    const tree = await api(`/api/editor/tree?${query}`);
+    return scopeLegacyEditorTree(tree, implementation, component);
+  } catch (error) {
+    // Keep the new front end usable until an already-running classroom backend
+    // can be restarted without disrupting its shared terminal sessions.
+    const legacyProfile = implementation === "ada_academy"
+      ? "ada_high_school"
+      : implementation;
+    const tree = await api(`/api/editor/tree?profile=${encodeURIComponent(legacyProfile)}&component=${encodeURIComponent(component)}`);
+    return scopeLegacyEditorTree(tree, implementation, component);
+  }
 }
 
 async function loadEditorWorkspace(force = false) {
   if (state.editorDirty && !force) await synchronizeEditor();
-  const profile = $("editor-profile").value;
+  const implementation = $("editor-profile").value;
   const component = $("editor-component").value;
-  setEditorStatus("Opening package");
+  setEditorStatus("Opening component");
   try {
-    const tree = await api(`/api/editor/tree?profile=${encodeURIComponent(profile)}`);
+    const tree = await loadEditorTree(implementation, component);
     state.editorTree = tree;
+    setEditorReadOnly(tree.read_only);
+    state.editorApiProfile = tree.profile || implementation;
     renderFileExplorer(tree);
-    const initialFile = preferredAlgorithmFile(profile, component, tree);
-    if (!initialFile) throw new Error("No editable files were found in this package");
+    const initialFile = preferredAlgorithmFile(component, tree);
+    if (!initialFile) throw new Error("No files were found for this component");
     return loadEditorFile(force, initialFile);
   } catch (error) {
     setEditorStatus("Explorer failed", "error");
@@ -956,7 +1101,7 @@ async function loadEditorFile(force = false, requestedFile = null) {
       file: previousFile,
     }).catch(() => {});
   }
-  const profile = $("editor-profile").value;
+  const profile = state.editorApiProfile || $("editor-profile").value;
   const component = $("editor-component").value;
   const filePath = requestedFile
     || state.editorFile
@@ -981,11 +1126,12 @@ async function loadEditorFile(force = false, requestedFile = null) {
     state.editorFile = file.file;
     state.editorDirty = false;
     state.editorLoaded = true;
+    setEditorReadOnly(file.read_only || (state.editorTree && state.editorTree.read_only));
     updateEditorLines();
     renderDiagnostics(file.diagnostics);
     renderEditorPresence(file.users);
     updateExplorerActive();
-    setEditorStatus("Live", "live");
+    setEditorStatus(state.editorReadOnly ? "Read only" : "Live", state.editorReadOnly ? "neutral" : "live");
     clearTimeout(state.editorPollTimer);
     state.editorPollTimer = setTimeout(pollCollaborativeEditor, 400);
     return true;
@@ -1031,6 +1177,12 @@ function preserveNewTyping(sentContent, currentContent, canonicalContent) {
 }
 
 async function synchronizeEditor() {
+  if (state.editorReadOnly) {
+    state.editorDirty = false;
+    $("editor-save").disabled = true;
+    setEditorStatus("Read only");
+    return;
+  }
   if (!state.editorLoaded || state.editorVersion === null || state.editorSyncing) return;
   clearTimeout(state.editorSyncTimer);
   const editor = $("code-editor");
@@ -1110,7 +1262,7 @@ async function pollCollaborativeEditor() {
     }
     renderDiagnostics(snapshot.diagnostics);
     renderEditorPresence(snapshot.users);
-    if (!state.editorDirty) setEditorStatus("Live", "live");
+    if (!state.editorDirty) setEditorStatus(state.editorReadOnly ? "Read only" : "Live", state.editorReadOnly ? "neutral" : "live");
   } catch (error) {
     setEditorStatus("Reconnecting", "error");
   }
@@ -1391,7 +1543,7 @@ function handleRos(topic, message) {
   } else if (topic === "/scan") {
     state.scan = message;
     $("scan-count").textContent = message.ranges.length.toLocaleString();
-    markHealth("sensors");
+    markHealth("lidar", `${message.ranges.length.toLocaleString()} returns`);
     mapChanged = true;
   } else if (topic === "/plan") {
     state.path = message;
@@ -1874,6 +2026,352 @@ function renderLogs(status) {
       : "#16845b";
 }
 
+class TerminalEmulator {
+  constructor(columns = 120) {
+    this.columns = columns;
+    this.decoder = new TextDecoder();
+    this.reset();
+  }
+
+  reset() {
+    this.lines = [[]];
+    this.row = 0;
+    this.column = 0;
+    this.cursorVisible = true;
+    this.saved = [0, 0];
+    this.escape = "";
+  }
+
+  line(row = this.row) {
+    while (this.lines.length <= row) this.lines.push([]);
+    return this.lines[row];
+  }
+
+  writeCharacter(character) {
+    const line = this.line();
+    while (line.length < this.column) line.push(" ");
+    line[this.column] = character;
+    this.column += 1;
+    if (this.column >= this.columns) {
+      this.column = 0;
+      this.row += 1;
+    }
+  }
+
+  moveRow(amount) {
+    this.row = Math.max(0, this.row + amount);
+    this.line();
+  }
+
+  controlSequence(parameters, command) {
+    const privateMode = parameters.startsWith("?");
+    const values = (privateMode ? parameters.slice(1) : parameters)
+      .split(";")
+      .map(value => Number.parseInt(value || "0", 10));
+    const first = values[0] || 1;
+    if (privateMode && values.includes(25) && (command === "h" || command === "l")) {
+      this.cursorVisible = command === "h";
+    } else if (command === "A") this.moveRow(-first);
+    else if (command === "B") this.moveRow(first);
+    else if (command === "C") this.column = Math.min(this.columns - 1, this.column + first);
+    else if (command === "D") this.column = Math.max(0, this.column - first);
+    else if (command === "G") this.column = Math.max(0, Math.min(this.columns - 1, first - 1));
+    else if (command === "H" || command === "f") {
+      this.row = Math.max(0, (values[0] || 1) - 1);
+      this.column = Math.max(0, Math.min(this.columns - 1, (values[1] || 1) - 1));
+      this.line();
+    } else if (command === "J" && (values[0] || 0) === 2) {
+      this.lines = [[]];
+      this.row = 0;
+      this.column = 0;
+    } else if (command === "K") {
+      const line = this.line();
+      const mode = values[0] || 0;
+      if (mode === 0) line.splice(this.column);
+      else if (mode === 1) {
+        for (let index = 0; index <= this.column; index += 1) line[index] = " ";
+      } else if (mode === 2) this.lines[this.row] = [];
+    } else if (command === "P") {
+      this.line().splice(this.column, first);
+    } else if (command === "@") {
+      this.line().splice(this.column, 0, ...Array(first).fill(" "));
+    } else if (command === "X") {
+      const line = this.line();
+      for (let index = 0; index < first; index += 1) line[this.column + index] = " ";
+    } else if (command === "s") {
+      this.saved = [this.row, this.column];
+    } else if (command === "u") {
+      [this.row, this.column] = this.saved;
+      this.line();
+    }
+  }
+
+  consume(character) {
+    if (this.escape) {
+      this.escape += character;
+      if (this.escape.startsWith("\u001b]")) {
+        if (character === "\u0007" || this.escape.endsWith("\u001b\\")) this.escape = "";
+        else if (this.escape.length > 512) this.escape = "";
+        return;
+      }
+      if (this.escape.startsWith("\u001b[")) {
+        // ESC [ introduces a CSI sequence; '[' itself is not its final byte.
+        if (this.escape.length === 2) return;
+        const code = character.charCodeAt(0);
+        if (code >= 0x40 && code <= 0x7e) {
+          this.controlSequence(this.escape.slice(2, -1), character);
+          this.escape = "";
+        } else if (this.escape.length > 64) this.escape = "";
+        return;
+      }
+      if (this.escape.length >= 2) this.escape = "";
+      return;
+    }
+    if (character === "\u001b") this.escape = character;
+    else if (character === "\r") this.column = 0;
+    else if (character === "\n") {
+      this.row += 1;
+      this.line();
+    } else if (character === "\b") this.column = Math.max(0, this.column - 1);
+    else if (character === "\t") {
+      const spaces = 8 - (this.column % 8);
+      for (let index = 0; index < spaces; index += 1) this.writeCharacter(" ");
+    } else if (character >= " ") this.writeCharacter(character);
+    if (this.lines.length > 2000) {
+      const removed = this.lines.length - 2000;
+      this.lines.splice(0, removed);
+      this.row = Math.max(0, this.row - removed);
+    }
+  }
+
+  feed(bytes) {
+    const text = this.decoder.decode(bytes, {stream: true});
+    for (const character of text) this.consume(character);
+  }
+
+  render() {
+    return this.lines.map(line => line.join("").replace(/\s+$/, "")).join("\n");
+  }
+}
+
+function decodeTerminalOutput(encoded) {
+  const binary = atob(encoded || "");
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function activeTerminal() {
+  return state.terminals.find(terminal => terminal.id === state.terminalId) || null;
+}
+
+function terminalSelection() {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || !selection.rangeCount) return null;
+  const screen = $("terminal-screen");
+  const range = selection.getRangeAt(0);
+  return screen.contains(range.commonAncestorContainer) ? selection : null;
+}
+
+function updateTerminalCursor() {
+  const screen = $("terminal-screen");
+  const terminal = activeTerminal();
+  const emulator = state.terminalEmulator;
+  const visible = Boolean(
+    terminal && terminal.running && state.terminalCursor > 0
+    && emulator && emulator.cursorVisible && !terminalSelection()
+  );
+  screen.classList.toggle("terminal-input-ready", visible);
+  if (!visible) return;
+  screen.style.setProperty(
+    "--terminal-cursor-left",
+    `calc(var(--terminal-cursor-inset-x) + ${emulator.column}ch)`,
+  );
+  screen.style.setProperty(
+    "--terminal-cursor-top",
+    `calc(var(--terminal-cursor-inset-y) + ${(emulator.row * 1.42 + 0.12).toFixed(3)}em)`,
+  );
+}
+
+function renderTerminalList() {
+  const list = $("terminal-list");
+  list.replaceChildren();
+  if (!state.terminals.length) {
+    const empty = document.createElement("p");
+    empty.textContent = "No terminals are open.";
+    list.append(empty);
+  }
+  state.terminals.forEach(terminal => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `terminal-session${terminal.id === state.terminalId ? " active" : ""}${terminal.running ? "" : " exited"}`;
+    const dot = document.createElement("i");
+    const copy = document.createElement("span");
+    const title = document.createElement("strong");
+    const detail = document.createElement("small");
+    title.textContent = terminal.title;
+    detail.textContent = terminal.running
+      ? `${terminal.owner} · running`
+      : `${terminal.owner} · exited ${terminal.exit_code}`;
+    copy.append(title, detail);
+    button.append(dot, copy);
+    button.onclick = () => selectTerminal(terminal.id);
+    list.append(button);
+  });
+  const open = state.terminals.filter(terminal => terminal.running).length;
+  $("terminal-count").textContent = `${open} open`;
+  $("terminal-count").className = `status-pill ${open ? "live" : "neutral"}`;
+}
+
+function selectTerminal(terminalId) {
+  const terminal = state.terminals.find(item => item.id === terminalId);
+  if (!terminal) return;
+  if (terminalId === state.terminalId && state.terminalEmulator) {
+    $("terminal-screen").focus();
+    return;
+  }
+  state.terminalId = terminalId;
+  state.terminalCursor = 0;
+  state.terminalInputQueue = "";
+  state.terminalEmulator = new TerminalEmulator(terminal.columns);
+  $("terminal-screen").textContent = "Connecting to shared terminal…";
+  renderTerminalList();
+  renderActiveTerminal();
+  if (location.hash === "#terminal") startTerminalPolling();
+}
+
+function renderActiveTerminal() {
+  const terminal = activeTerminal();
+  const enabled = Boolean(terminal && terminal.running);
+  $("terminal-active-title").textContent = terminal ? terminal.title : "No terminal selected";
+  $("terminal-active-meta").textContent = terminal
+    ? `${terminal.owner} · ${terminal.columns}×${terminal.rows} · ${terminal.running ? "container shell running" : `exited ${terminal.exit_code}`}`
+    : "Create or join a shared terminal";
+  $("terminal-close").disabled = !terminal;
+  $("terminal-interrupt").disabled = !enabled;
+  $("terminal-eof").disabled = !enabled;
+  $("terminal-status").textContent = terminal
+    ? enabled
+      ? "Live shared input — click inside the terminal and type."
+      : "This shell has exited. Close the window or select another terminal."
+    : "Select a shell, click inside the terminal, and type.";
+  updateTerminalCursor();
+}
+
+async function refreshTerminalList() {
+  const result = await api("/api/terminals");
+  state.terminals = result.terminals || [];
+  if (state.terminalId && !activeTerminal()) {
+    state.terminalId = null;
+    state.terminalEmulator = null;
+    $("terminal-screen").textContent = "Select a terminal window to begin.";
+  }
+  renderTerminalList();
+  renderActiveTerminal();
+}
+
+async function pollTerminalOutput(token) {
+  if (token !== state.terminalPollToken || !state.terminalId) return;
+  const terminalId = state.terminalId;
+  let running = false;
+  try {
+    const result = await api(
+      `/api/terminal/output?id=${encodeURIComponent(terminalId)}&after=${state.terminalCursor}`
+    );
+    if (token !== state.terminalPollToken || terminalId !== state.terminalId) return;
+    if (result.truncated) {
+      state.terminalEmulator = new TerminalEmulator(result.columns);
+    }
+    state.terminalEmulator.feed(decodeTerminalOutput(result.output));
+    state.terminalCursor = result.output_cursor;
+    const screen = $("terminal-screen");
+    const nearBottom = screen.scrollHeight - screen.scrollTop - screen.clientHeight < 45;
+    // Replacing textContent destroys a live browser selection. Keep ingesting
+    // output while selected, then paint the latest screen once selection ends.
+    if (!terminalSelection()) {
+      screen.textContent = state.terminalEmulator.render();
+      if (nearBottom) screen.scrollTop = screen.scrollHeight;
+    }
+    const cached = state.terminals.find(item => item.id === terminalId);
+    if (cached) Object.assign(cached, result);
+    running = result.running;
+    renderActiveTerminal();
+  } catch (error) {
+    $("terminal-status").textContent = error.message;
+  }
+  if (token === state.terminalPollToken && state.terminalId && running) {
+    setTimeout(() => pollTerminalOutput(token), 180);
+  }
+}
+
+async function terminalPagePoll(token) {
+  if (token !== state.terminalPollToken || location.hash !== "#terminal") return;
+  try { await refreshTerminalList(); }
+  catch (error) { $("terminal-status").textContent = error.message; }
+  if (token === state.terminalPollToken && location.hash === "#terminal") {
+    setTimeout(() => terminalPagePoll(token), 1200);
+  }
+}
+
+function startTerminalPolling() {
+  const token = ++state.terminalPollToken;
+  terminalPagePoll(token);
+  if (state.terminalId) pollTerminalOutput(token);
+}
+
+function queueTerminalInput(data) {
+  const terminal = activeTerminal();
+  if (!terminal || !terminal.running || !data) return;
+  state.terminalInputQueue += data;
+  flushTerminalInput();
+}
+
+async function flushTerminalInput() {
+  if (state.terminalInputSending || !state.terminalInputQueue || !state.terminalId) return;
+  state.terminalInputSending = true;
+  const terminalId = state.terminalId;
+  const data = state.terminalInputQueue.slice(0, 4096);
+  state.terminalInputQueue = state.terminalInputQueue.slice(data.length);
+  try {
+    await api("/api/terminal/input", {id: terminalId, data});
+  } catch (error) {
+    $("terminal-status").textContent = error.message;
+  } finally {
+    state.terminalInputSending = false;
+    if (state.terminalInputQueue && terminalId === state.terminalId) flushTerminalInput();
+  }
+}
+
+function terminalKey(event) {
+  if (!activeTerminal() || !activeTerminal().running) return;
+  const shortcut = event.key.toLowerCase();
+  if ((event.ctrlKey || event.metaKey) && shortcut === "c" && terminalSelection()) {
+    return;
+  }
+  // Leave browser paste shortcuts alone so the paste event can forward the
+  // clipboard contents. Ctrl+V must not become the terminal's literal ^V.
+  if ((event.ctrlKey || event.metaKey) && shortcut === "v") return;
+  const named = {
+    Enter: "\r", Backspace: "\u007f", Tab: "\t", Escape: "\u001b",
+    ArrowUp: "\u001b[A", ArrowDown: "\u001b[B", ArrowRight: "\u001b[C", ArrowLeft: "\u001b[D",
+    Home: "\u001b[H", End: "\u001b[F", Delete: "\u001b[3~",
+    PageUp: "\u001b[5~", PageDown: "\u001b[6~",
+  };
+  let data = named[event.key];
+  if (!data && event.ctrlKey && event.key.length === 1) {
+    data = String.fromCharCode(event.key.toUpperCase().charCodeAt(0) & 31);
+  } else if (!data && event.key.length === 1 && !event.metaKey) {
+    data = `${event.altKey ? "\u001b" : ""}${event.key}`;
+  }
+  if (!data) return;
+  event.preventDefault();
+  const selection = terminalSelection();
+  if (selection) selection.removeAllRanges();
+  queueTerminalInput(data);
+}
+
 async function refresh() {
   try {
     const status = await api(`/api/status?log_after=${state.logCursor}`);
@@ -1997,6 +2495,7 @@ $("editor-component").addEventListener("change", () => loadEditorWorkspace());
 $("editor-reload").addEventListener("click", () => loadEditorFile(true));
 $("editor-save").addEventListener("click", saveEditorFile);
 $("code-editor").addEventListener("input", () => {
+  if (state.editorReadOnly) return;
   state.editorDirty = true;
   $("editor-save").disabled = false;
   setEditorStatus("Syncing");
@@ -2075,6 +2574,67 @@ $("compile-start").onclick = async () => {
   }
 };
 
+$("terminal-create-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  try {
+    const terminal = await api("/api/terminal/create", {
+      title: $("terminal-title").value.trim(),
+      owner: state.editorName,
+    });
+    $("terminal-title").value = "";
+    await refreshTerminalList();
+    selectTerminal(terminal.id);
+    $("terminal-screen").focus();
+  } catch (error) {
+    $("terminal-status").textContent = error.message;
+  }
+});
+
+$("terminal-refresh").onclick = () => {
+  refreshTerminalList().catch(error => {
+    $("terminal-status").textContent = error.message;
+  });
+};
+
+$("terminal-interrupt").onclick = () => {
+  queueTerminalInput("\u0003");
+  $("terminal-screen").focus();
+};
+
+$("terminal-eof").onclick = () => {
+  queueTerminalInput("\u0004");
+  $("terminal-screen").focus();
+};
+
+$("terminal-close").onclick = async () => {
+  const terminal = activeTerminal();
+  if (!terminal) return;
+  if (terminal.running && !window.confirm(
+    `Close “${terminal.title}” for everyone connected to this machine?`
+  )) return;
+  try {
+    await api("/api/terminal/close", {id: terminal.id});
+    state.terminalId = null;
+    state.terminalEmulator = null;
+    state.terminalCursor = 0;
+    $("terminal-screen").textContent = "Select a terminal window to begin.";
+    await refreshTerminalList();
+  } catch (error) {
+    $("terminal-status").textContent = error.message;
+  }
+};
+
+$("terminal-screen").addEventListener("keydown", terminalKey);
+$("terminal-screen").addEventListener("pointerdown", event => {
+  event.currentTarget.focus({preventScroll: true});
+});
+$("terminal-screen").addEventListener("paste", event => {
+  const text = event.clipboardData && event.clipboardData.getData("text");
+  if (!text) return;
+  event.preventDefault();
+  queueTerminalInput(text);
+});
+
 $("set-initial").onclick = () => armMapTool("set-initial");
 $("send-goal").onclick = () => armMapTool("send-goal");
 $("reset-view").onclick = resetView;
@@ -2107,6 +2667,7 @@ const pageConfiguration = {
   "#overview": ["overview", "Vehicle workspace", "Overview"],
   "#code": ["code-page", "Code editor", "Development / Code editor"],
   "#compile": ["compile-page", "Compile workspace", "Development / Compile"],
+  "#terminal": ["terminal-page", "Shared terminals", "Development / Terminal"],
 };
 
 function showPage(hash) {
@@ -2122,6 +2683,8 @@ function showPage(hash) {
   document.querySelector(".page-title h1").textContent = title;
   document.querySelector(".breadcrumb").textContent = breadcrumb;
   if (selectedHash === "#code" && !state.editorLoaded) loadEditorWorkspace(true);
+  state.terminalPollToken += 1;
+  if (selectedHash === "#terminal") startTerminalPolling();
   scheduleDraw();
 }
 

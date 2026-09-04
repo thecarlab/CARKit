@@ -5,17 +5,23 @@
 
 import argparse
 import ast
+import base64
 from collections import deque
 import difflib
+import errno
+import fcntl
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
 import os
 from pathlib import Path
+import pty
 import re
 import signal
+import struct
 import subprocess
+import termios
 import threading
 import time
 from urllib.parse import parse_qs, urlparse
@@ -80,39 +86,83 @@ IMPLEMENTATION_BUILD_TARGETS = {
     },
 }
 SAFE_PATH = re.compile(r"^[A-Za-z0-9_./-]+$")
-EDITOR_FILES = {
-    "ada_high_school": {
-        component: Path(
-            "carkit/education/carkit_ada_academy/"
-            f"carkit_ada_academy/{component}.py"
+EDITOR_ROOTS = {
+    "reference": Path("."),
+    "ada_academy": Path("carkit/education/carkit_ada_academy"),
+    "intro2av_python": Path("carkit/education/carkit_intro2av"),
+    "intro2av_cpp": Path("carkit/education/carkit_intro2av_cpp"),
+}
+EDITOR_ALIASES = {"ada_high_school": "ada_academy"}
+EDITOR_COMPONENT_FILES = {
+    "reference": {
+        "perception": (
+            Path("carkit/perception/carkit_perception/carkit_perception/perception_2d_node.py"),
+            Path("carkit/perception/carkit_perception/carkit_perception/perception_math.py"),
+            Path("carkit/perception/carkit_perception/carkit_perception/speed_sign_perception_node.py"),
+            Path("carkit/perception/carkit_perception/launch/perception.launch.py"),
+            Path("carkit/perception/README.md"),
+        ),
+        "planning": (
+            Path("carkit/navigation/carkit_amcl/config/nav2_params.yaml"),
+            Path("carkit/navigation/carkit_amcl/launch/nav2.launch.py"),
+            Path("carkit/navigation/carkit_navigation/launch/navigation.launch.py"),
+            Path("carkit/navigation/carkit_amcl/src/foxglove_waypoints.cpp"),
+            Path("carkit/navigation/README.md"),
+        ),
+        "control": (
+            Path("carkit/navigation/carkit_amcl/src/twist_to_ackermann.cpp"),
+            Path("carkit/control/carkit_control_center/src/control_center_node.cpp"),
+            Path("carkit/control/carkit_control_center/config/control_center.yaml"),
+            Path("carkit/control/carkit_control_center/launch/control_center.launch.py"),
+            Path("carkit/control/README.md"),
+        ),
+    },
+    "ada_academy": {
+        component: (
+            Path(f"carkit_ada_academy/{component}.py"),
+            Path("carkit_ada_academy/math_utils.py"),
+            Path("test/test_algorithms.py"),
+            Path("README.md"),
         )
         for component in ("perception", "planning", "control")
     },
     "intro2av_python": {
-        component: Path(
-            "carkit/education/carkit_intro2av/"
-            f"carkit_intro2av/{component}_algorithm.py"
+        component: (
+            Path(f"carkit_intro2av/{component}_algorithm.py"),
+            Path(f"carkit_intro2av/{component}.py"),
+            Path(f"config/{component}.yaml"),
+            Path("test/test_boilerplates.py"),
+            Path("README.md"),
         )
         for component in ("perception", "planning", "control")
     },
     "intro2av_cpp": {
-        component: Path(
-            "carkit/education/carkit_intro2av_cpp/"
-            f"src/{component}_algorithm.cpp"
+        component: (
+            Path(f"src/{component}_algorithm.cpp"),
+            Path(f"include/carkit_intro2av_cpp/{component}_algorithm.hpp"),
+            Path(f"src/{component}.cpp"),
+            Path(f"config/{component}.yaml"),
+            Path("README.md"),
         )
         for component in ("perception", "planning", "control")
     },
 }
-EDITOR_ROOTS = {
-    "ada_high_school": Path("carkit/education/carkit_ada_academy"),
-    "intro2av_python": Path("carkit/education/carkit_intro2av"),
-    "intro2av_cpp": Path("carkit/education/carkit_intro2av_cpp"),
+EDITOR_READ_ONLY = frozenset({"reference"})
+EDITOR_FILES = {
+    implementation: {
+        component: EDITOR_ROOTS[implementation] / files[0]
+        for component, files in components.items()
+    }
+    for implementation, components in EDITOR_COMPONENT_FILES.items()
 }
 EDITOR_EXTENSIONS = {
     ".cfg", ".cmake", ".cpp", ".h", ".hpp", ".json", ".md",
     ".py", ".txt", ".xml", ".yaml", ".yml",
 }
 EDITOR_FILENAMES = {"CMakeLists.txt"}
+TERMINAL_ID = re.compile(r"^[a-f0-9]{16}$")
+MAX_TERMINALS = 8
+MAX_TERMINAL_OUTPUT = 512 * 1024
 
 
 def resolve_build_packages(target, implementations=None):
@@ -267,6 +317,163 @@ class CollaborativeDocument:
         self.diagnostics = []
 
 
+class SharedTerminal:
+    """One container PTY whose output and input are shared by all browsers."""
+
+    def __init__(self, terminal_id, title, owner, workspace, columns=120, rows=32):
+        self.id = terminal_id
+        self.title = title
+        self.owner = owner
+        self.workspace = Path(workspace)
+        self.columns = columns
+        self.rows = rows
+        self.created_at = time.time()
+        self.last_activity = self.created_at
+        self.output = bytearray()
+        self.output_start = 0
+        self.output_cursor = 0
+        self.running = True
+        self.exit_code = None
+        self.lock = threading.RLock()
+
+        pid, master_fd = pty.fork()
+        if pid == 0:
+            try:
+                os.chdir(self.workspace)
+                environment = os.environ.copy()
+                environment.update({
+                    "TERM": "xterm-256color",
+                    "COLORTERM": "truecolor",
+                    "COLUMNS": str(columns),
+                    "LINES": str(rows),
+                    "PS1": "\\[\\e[1;34m\\]carkit-container\\[\\e[0m\\]:\\w$ ",
+                    "HISTFILE": f"/tmp/carkit-terminal-{terminal_id}.history",
+                })
+                os.execvpe(
+                    "/bin/bash",
+                    ["/bin/bash", "--noprofile", "--norc", "-i"],
+                    environment,
+                )
+            except BaseException:
+                os._exit(127)
+
+        self.pid = pid
+        self.master_fd = master_fd
+        self.resize(columns, rows)
+        self.reader = threading.Thread(
+            target=self._read_output,
+            name=f"carkit-terminal-{terminal_id}",
+            daemon=True,
+        )
+        self.reader.start()
+
+    def _append_output(self, data):
+        with self.lock:
+            self.output.extend(data)
+            self.output_cursor += len(data)
+            overflow = len(self.output) - MAX_TERMINAL_OUTPUT
+            if overflow > 0:
+                del self.output[:overflow]
+                self.output_start += overflow
+            self.last_activity = time.time()
+
+    def _read_output(self):
+        try:
+            while True:
+                try:
+                    data = os.read(self.master_fd, 8192)
+                except OSError as error:
+                    if error.errno in {errno.EIO, errno.EBADF}:
+                        break
+                    raise
+                if not data:
+                    break
+                self._append_output(data)
+        finally:
+            try:
+                _, status = os.waitpid(self.pid, 0)
+                exit_code = os.waitstatus_to_exitcode(status)
+            except (ChildProcessError, OSError):
+                exit_code = -1
+            with self.lock:
+                self.running = False
+                self.exit_code = exit_code
+                self.last_activity = time.time()
+            try:
+                os.close(self.master_fd)
+            except OSError:
+                pass
+
+    def metadata(self):
+        with self.lock:
+            return {
+                "id": self.id,
+                "title": self.title,
+                "owner": self.owner,
+                "running": self.running,
+                "exit_code": self.exit_code,
+                "columns": self.columns,
+                "rows": self.rows,
+                "created_at": self.created_at,
+                "last_activity": self.last_activity,
+            }
+
+    def read(self, after):
+        with self.lock:
+            requested = max(0, int(after))
+            truncated = requested < self.output_start
+            requested = max(self.output_start, min(requested, self.output_cursor))
+            offset = requested - self.output_start
+            data = bytes(self.output[offset:])
+            return {
+                **self.metadata(),
+                "output": base64.b64encode(data).decode("ascii"),
+                "output_start": requested,
+                "output_cursor": self.output_cursor,
+                "truncated": truncated,
+            }
+
+    def write(self, data):
+        encoded = data.encode("utf-8")
+        if len(encoded) > 8192:
+            raise ValueError("terminal input exceeds 8 KiB")
+        with self.lock:
+            if not self.running:
+                raise RuntimeError("terminal has exited")
+            descriptor = self.master_fd
+        total = 0
+        while total < len(encoded):
+            total += os.write(descriptor, encoded[total:])
+        with self.lock:
+            self.last_activity = time.time()
+
+    def resize(self, columns, rows):
+        columns = max(40, min(240, int(columns)))
+        rows = max(12, min(80, int(rows)))
+        with self.lock:
+            self.columns = columns
+            self.rows = rows
+            descriptor = self.master_fd
+        size = struct.pack("HHHH", rows, columns, 0, 0)
+        fcntl.ioctl(descriptor, termios.TIOCSWINSZ, size)
+
+    def close(self):
+        with self.lock:
+            if not self.running:
+                return
+            pid = self.pid
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGHUP)
+        except ProcessLookupError:
+            pass
+        self.reader.join(timeout=1.0)
+        if self.reader.is_alive():
+            try:
+                os.killpg(os.getpgid(pid), signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+
 class ProcessManager:
     def __init__(self, workspace):
         self.workspace = Path(workspace).resolve()
@@ -292,6 +499,71 @@ class ProcessManager:
         )
         self.telemetry_monitor = None
         self.collab_documents = {}
+        self.terminal_lock = threading.RLock()
+        self.terminals = {}
+
+    @staticmethod
+    def _terminal_label(value, fallback, maximum):
+        value = re.sub(r"[\x00-\x1f\x7f]", "", str(value or "")).strip()
+        return value[:maximum] or fallback
+
+    def terminal_list(self):
+        with self.terminal_lock:
+            terminals = [terminal.metadata() for terminal in self.terminals.values()]
+        return sorted(terminals, key=lambda item: item["created_at"])
+
+    def create_terminal(self, title=None, owner=None):
+        with self.terminal_lock:
+            running = sum(terminal.running for terminal in self.terminals.values())
+            if running >= MAX_TERMINALS:
+                raise RuntimeError(f"at most {MAX_TERMINALS} terminals may run at once")
+            terminal_id = os.urandom(8).hex()
+            clean_title = self._terminal_label(
+                title, f"Terminal {len(self.terminals) + 1}", 48
+            )
+            clean_owner = self._terminal_label(owner, "Student", 32)
+            terminal = SharedTerminal(
+                terminal_id,
+                clean_title,
+                clean_owner,
+                self.workspace,
+            )
+            self.terminals[terminal_id] = terminal
+            return terminal.metadata()
+
+    def _terminal(self, terminal_id):
+        if not TERMINAL_ID.fullmatch(str(terminal_id or "")):
+            raise ValueError("invalid terminal id")
+        with self.terminal_lock:
+            terminal = self.terminals.get(terminal_id)
+        if terminal is None:
+            raise ValueError("terminal does not exist")
+        return terminal
+
+    def terminal_output(self, terminal_id, after=0):
+        return self._terminal(terminal_id).read(after)
+
+    def terminal_input(self, terminal_id, data):
+        if not isinstance(data, str):
+            raise ValueError("terminal input must be text")
+        self._terminal(terminal_id).write(data)
+
+    def resize_terminal(self, terminal_id, columns, rows):
+        self._terminal(terminal_id).resize(columns, rows)
+
+    def close_terminal(self, terminal_id):
+        terminal = self._terminal(terminal_id)
+        terminal.close()
+        with self.terminal_lock:
+            self.terminals.pop(terminal_id, None)
+
+    def close(self):
+        self.stop()
+        with self.terminal_lock:
+            terminals = list(self.terminals.values())
+            self.terminals.clear()
+        for terminal in terminals:
+            terminal.close()
 
     def map_files(self):
         """List launchable occupancy-map YAML files from the workspace map folder."""
@@ -362,6 +634,52 @@ class ProcessManager:
             }
         except (OSError, ValueError, KeyError, ZeroDivisionError):
             return None
+
+    @staticmethod
+    def _workload_memory_metrics(host_total_bytes=None):
+        """Return memory charged to the current Docker cgroup."""
+        usage = None
+        limit = None
+        try:
+            usage = int(Path(
+                "/sys/fs/cgroup/memory.current"
+            ).read_text(encoding="utf-8").strip())
+            raw_limit = Path("/sys/fs/cgroup/memory.max").read_text(
+                encoding="utf-8"
+            ).strip()
+            limit = None if raw_limit == "max" else int(raw_limit)
+        except (OSError, ValueError):
+            try:
+                usage = int(Path(
+                    "/sys/fs/cgroup/memory/memory.usage_in_bytes"
+                ).read_text(encoding="utf-8").strip())
+                limit = int(Path(
+                    "/sys/fs/cgroup/memory/memory.limit_in_bytes"
+                ).read_text(encoding="utf-8").strip())
+            except (OSError, ValueError):
+                return None
+
+        host_total = (
+            int(host_total_bytes)
+            if host_total_bytes is not None and int(host_total_bytes) > 0
+            else None
+        )
+        explicitly_limited = bool(
+            limit is not None
+            and limit > 0
+            and (host_total is None or limit < host_total)
+        )
+        total = limit if explicitly_limited else host_total
+        percent = (
+            round(min(100.0, 100.0 * usage / total), 1)
+            if total else None
+        )
+        return {
+            "used_bytes": usage,
+            "total_bytes": total,
+            "percent": percent,
+            "limited": explicitly_limited,
+        }
 
     @staticmethod
     def _cpu_temperature():
@@ -443,12 +761,17 @@ class ProcessManager:
                 ).split()[0])
             except (OSError, ValueError, IndexError):
                 uptime = None
+            memory = self._memory_metrics()
+            workload_memory = self._workload_memory_metrics(
+                memory["total_bytes"] if memory else None
+            )
             self.metrics_cache = {
                 "cpu_count": cpu_count,
                 "cpu_capacity_percent": cpu_capacity_percent,
                 "cpu_percent": cpu_percent,
                 "workload_cpu_percent": workload_cpu_percent,
-                "memory": self._memory_metrics(),
+                "memory": memory,
+                "workload_memory": workload_memory,
                 "cpu_temperature_c": self._cpu_temperature(),
                 "load_average": [load_1m, load_5m, load_15m],
                 "uptime_seconds": uptime,
@@ -460,11 +783,19 @@ class ProcessManager:
     def _revision(content):
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
+    @staticmethod
+    def _editor_implementation(value):
+        implementation = EDITOR_ALIASES.get(value, value)
+        if implementation not in EDITOR_ROOTS:
+            raise ValueError("invalid editable implementation")
+        return implementation
+
     def _editor_path(self, profile, component):
+        implementation = self._editor_implementation(profile)
         try:
-            relative_path = EDITOR_FILES[profile][component]
+            relative_path = EDITOR_FILES[implementation][component]
         except KeyError as error:
-            raise ValueError("invalid editable course or component") from error
+            raise ValueError("invalid editable component") from error
         path = (self.workspace / relative_path).resolve()
         if self.workspace not in path.parents:
             raise ValueError("editor path escaped the workspace")
@@ -484,40 +815,56 @@ class ProcessManager:
             return "cpp"
         return path.suffix.lstrip(".") or "text"
 
-    def _editor_workspace_path(self, profile, file_path):
+    def _editor_workspace_path(self, profile, component, file_path):
+        implementation = self._editor_implementation(profile)
         try:
-            root_relative = EDITOR_ROOTS[profile]
+            root_relative = EDITOR_ROOTS[implementation]
+            allowed_files = EDITOR_COMPONENT_FILES[implementation][component]
         except KeyError as error:
-            raise ValueError("invalid editable course") from error
+            raise ValueError("invalid editable component") from error
         if not isinstance(file_path, str) or not file_path:
             raise ValueError("an editable file path is required")
         requested = Path(file_path)
         if requested.is_absolute() or ".." in requested.parts:
-            raise ValueError("editor path escaped the course workspace")
+            raise ValueError("editor path escaped the implementation workspace")
+        if requested.as_posix() not in {
+            allowed.as_posix() for allowed in allowed_files
+        }:
+            raise ValueError(
+                "file is not part of the selected implementation component"
+            )
         root = (self.workspace / root_relative).resolve()
         path = (root / requested).resolve()
         if root not in path.parents:
-            raise ValueError("editor path escaped the course workspace")
+            raise ValueError("editor path escaped the implementation workspace")
         if not path.is_file():
-            raise ValueError("editable course file does not exist")
+            raise ValueError("editable implementation file does not exist")
         if path.suffix not in EDITOR_EXTENSIONS and path.name not in EDITOR_FILENAMES:
-            raise ValueError("file type is not editable in the course workspace")
+            raise ValueError("file type is not editable in the implementation workspace")
         return path.relative_to(self.workspace), path, requested.as_posix()
 
-    def editor_tree(self, profile):
-        try:
-            root_relative = EDITOR_ROOTS[profile]
-            defaults = EDITOR_FILES[profile]
-        except KeyError as error:
-            raise ValueError("invalid editable course") from error
+    def editor_tree(self, profile, component=None):
+        implementation = self._editor_implementation(profile)
+        root_relative = EDITOR_ROOTS[implementation]
+        defaults = EDITOR_FILES[implementation]
+        if component is None:
+            selected_components = tuple(EDITOR_COMPONENT_FILES[implementation])
+        elif component in EDITOR_COMPONENT_FILES[implementation]:
+            selected_components = (component,)
+        else:
+            raise ValueError("invalid editable component")
         root = (self.workspace / root_relative).resolve()
         if not root.is_dir():
             raise RuntimeError(f"student package is missing: {root_relative}")
+        allowed_files = {
+            path
+            for selected in selected_components
+            for path in EDITOR_COMPONENT_FILES[implementation][selected]
+        }
         files = []
-        for path in sorted(root.rglob("*")):
-            if not path.is_file() or any(part.startswith(".") for part in path.parts):
-                continue
-            if "__pycache__" in path.parts:
+        for requested in sorted(allowed_files):
+            path = root / requested
+            if not path.is_file():
                 continue
             if path.suffix not in EDITOR_EXTENSIONS and path.name not in EDITOR_FILENAMES:
                 continue
@@ -529,10 +876,11 @@ class ProcessManager:
                 "name": path.name,
                 "language": self._editor_language(path),
             })
-            if len(files) >= 256:
-                break
         return {
-            "profile": profile,
+            "profile": implementation,
+            "implementation": implementation,
+            "component": component,
+            "read_only": implementation in EDITOR_READ_ONLY,
             "root": str(root_relative),
             "files": files,
             "defaults": {
@@ -540,26 +888,35 @@ class ProcessManager:
                     (self.workspace / relative).resolve().relative_to(root)
                 )
                 for component, relative in defaults.items()
+                if component in selected_components
             },
+            "default": str(
+                (self.workspace / defaults[selected_components[0]])
+                .resolve().relative_to(root)
+            ) if len(selected_components) == 1 else None,
         }
 
     def editor_manifest(self):
+        implementations = [
+            {"id": "reference", "label": "Reference · Read only", "read_only": True},
+            {"id": "ada_academy", "label": "ADA Academy · Python", "read_only": False},
+            {"id": "intro2av_python", "label": "Intro2AV · Python", "read_only": False},
+            {"id": "intro2av_cpp", "label": "Intro2AV · C++", "read_only": False},
+        ]
         return {
-            "profiles": [
-                {"id": "ada_high_school", "label": "ADA Academy · Python"},
-                {"id": "intro2av_python", "label": "Intro2AV · Python"},
-                {"id": "intro2av_cpp", "label": "Intro2AV · C++"},
-            ],
+            "implementations": implementations,
+            "profiles": implementations,
             "components": ["perception", "planning", "control"],
             "max_users": 5,
         }
 
     def read_editor_file(self, profile, component):
+        implementation = self._editor_implementation(profile)
         relative_path, path = self._editor_path(profile, component)
         with self.editor_lock:
             content = path.read_text(encoding="utf-8")
         return {
-            "profile": profile,
+            "profile": implementation,
             "component": component,
             "path": str(relative_path),
             "content": content,
@@ -568,6 +925,9 @@ class ProcessManager:
         }
 
     def save_editor_file(self, profile, component, content, revision):
+        implementation = self._editor_implementation(profile)
+        if implementation in EDITOR_READ_ONLY:
+            raise ValueError("reference implementation is read-only")
         if not isinstance(content, str):
             raise ValueError("editor content must be text")
         if len(content.encode("utf-8")) > 64 * 1024:
@@ -603,7 +963,7 @@ class ProcessManager:
                     "message": error.msg,
                 }
         return {
-            "profile": profile,
+            "profile": implementation,
             "component": component,
             "path": str(relative_path),
             "revision": self._revision(content),
@@ -752,15 +1112,16 @@ class ProcessManager:
         return start + inserted
 
     def _collab_document(self, profile, component, file_path=None):
+        implementation = self._editor_implementation(profile)
         if file_path:
             relative_path, path, file_id = self._editor_workspace_path(
-                profile, file_path
+                implementation, component, file_path
             )
         else:
-            relative_path, path = self._editor_path(profile, component)
-            root = (self.workspace / EDITOR_ROOTS[profile]).resolve()
+            relative_path, path = self._editor_path(implementation, component)
+            root = (self.workspace / EDITOR_ROOTS[implementation]).resolve()
             file_id = path.relative_to(root).as_posix()
-        key = (profile, file_id)
+        key = (implementation, file_id)
         document = self.collab_documents.get(key)
         if document is None:
             document = CollaborativeDocument(path.read_text(encoding="utf-8"))
@@ -805,13 +1166,14 @@ class ProcessManager:
         self, profile, component, client_id, name, cursor=0, selection=0,
         file_path=None,
     ):
+        implementation = self._editor_implementation(profile)
         with self.editor_lock:
             relative_path, path, file_id, document = self._collab_document(
                 profile, component, file_path
             )
             self._update_presence(document, client_id, name, cursor, selection)
             return {
-                "profile": profile,
+                "profile": implementation,
                 "component": component,
                 "file": file_id,
                 "path": str(relative_path),
@@ -819,6 +1181,7 @@ class ProcessManager:
                 "version": document.version,
                 "revision": self._revision(document.content),
                 "language": self._editor_language(path),
+                "read_only": implementation in EDITOR_READ_ONLY,
                 "diagnostics": document.diagnostics,
                 "users": self._presence(document),
             }
@@ -827,6 +1190,9 @@ class ProcessManager:
         self, profile, component, client_id, name, base_version,
         content, cursor=0, selection=0, file_path=None,
     ):
+        implementation = self._editor_implementation(profile)
+        if implementation in EDITOR_READ_ONLY:
+            raise ValueError("reference implementation is read-only")
         self._validate_editor_content(content)
         with self.editor_lock:
             relative_path, path, file_id, document = self._collab_document(
@@ -883,7 +1249,7 @@ class ProcessManager:
             document.diagnostics = self._source_diagnostics(path, document.content)
             self._update_presence(document, client_id, name, cursor, selection)
             return {
-                "profile": profile,
+                "profile": implementation,
                 "component": component,
                 "file": file_id,
                 "path": str(relative_path),
@@ -896,17 +1262,25 @@ class ProcessManager:
             }
 
     def leave_editor(self, profile, component, client_id, file_path=None):
+        try:
+            implementation = self._editor_implementation(profile)
+        except ValueError:
+            return
         with self.editor_lock:
             try:
-                _, _, file_id = self._editor_workspace_path(profile, file_path)
+                _, _, file_id = self._editor_workspace_path(
+                    implementation, component, file_path
+                )
             except (ValueError, KeyError):
                 try:
-                    _, path = self._editor_path(profile, component)
-                    root = (self.workspace / EDITOR_ROOTS[profile]).resolve()
+                    _, path = self._editor_path(implementation, component)
+                    root = (
+                        self.workspace / EDITOR_ROOTS[implementation]
+                    ).resolve()
                     file_id = path.relative_to(root).as_posix()
                 except (ValueError, KeyError):
                     return
-            document = self.collab_documents.get((profile, file_id))
+            document = self.collab_documents.get((implementation, file_id))
             if document:
                 document.users.pop(client_id, None)
 
@@ -1289,6 +1663,23 @@ class ApiHandler(BaseHTTPRequestHandler):
                 "web_bridge_port": 9090,
             })
             return
+        if path == "/api/terminals":
+            self._json(200, {
+                "terminals": self.server.manager.terminal_list(),
+                "maximum": MAX_TERMINALS,
+            })
+            return
+        if path == "/api/terminal/output":
+            values = parse_qs(parsed.query)
+            try:
+                after = int(values.get("after", [0])[0])
+                value = self.server.manager.terminal_output(
+                    values.get("id", [None])[0], after
+                )
+                self._json(200, value)
+            except (TypeError, ValueError, RuntimeError, OSError) as error:
+                self._json(400, {"error": str(error)})
+            return
         if path == "/api/editor":
             self._json(200, self.server.manager.editor_manifest())
             return
@@ -1296,7 +1687,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             values = parse_qs(parsed.query)
             try:
                 value = self.server.manager.editor_tree(
-                    values.get("profile", [None])[0]
+                    values.get("implementation", values.get("profile", [None]))[0],
+                    values.get("component", [None])[0],
                 )
                 self._json(200, value)
             except (ValueError, RuntimeError, OSError) as error:
@@ -1350,6 +1742,24 @@ class ApiHandler(BaseHTTPRequestHandler):
                 return
             elif path == "/api/stop":
                 self.server.manager.stop()
+            elif path == "/api/terminal/create":
+                value = self.server.manager.create_terminal(
+                    request.get("title"), request.get("owner")
+                )
+                self._json(201, value)
+                return
+            elif path == "/api/terminal/input":
+                self.server.manager.terminal_input(
+                    request.get("id"), request.get("data")
+                )
+            elif path == "/api/terminal/resize":
+                self.server.manager.resize_terminal(
+                    request.get("id"),
+                    request.get("columns", 120),
+                    request.get("rows", 32),
+                )
+            elif path == "/api/terminal/close":
+                self.server.manager.close_terminal(request.get("id"))
             elif path == "/api/editor/save":
                 value = self.server.manager.save_editor_file(
                     request.get("profile"),
@@ -1468,7 +1878,7 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        manager.stop()
+        manager.close()
         telemetry_monitor.close()
         server.server_close()
 

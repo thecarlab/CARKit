@@ -29,18 +29,31 @@ def pure_pursuit_command(
     wheelbase=0.325,
     speed=0.45,
 ):
-    """Guided controller with deliberately approachable tuning constants."""
+    """Return a stable pure-pursuit command for the unconsumed path ahead."""
     if not path:
         return 0.0, 0.0
+
+    # Searching from path[0] can select an already-passed waypoint once it is
+    # a lookahead distance behind the car, causing alternating steering.
+    nearest_index = min(
+        range(len(path)),
+        key=lambda index: math.hypot(
+            path[index][0] - position[0],
+            path[index][1] - position[1],
+        ),
+    )
     target = path[-1]
-    for candidate in path:
-        distance = math.hypot(
-            candidate[0] - position[0],
-            candidate[1] - position[1],
+    distance_ahead = 0.0
+    previous = path[nearest_index]
+    for candidate in path[nearest_index + 1:]:
+        distance_ahead += math.hypot(
+            candidate[0] - previous[0],
+            candidate[1] - previous[1],
         )
-        if distance >= lookahead:
+        if distance_ahead >= max(0.05, lookahead):
             target = candidate
             break
+        previous = candidate
     dx = target[0] - position[0]
     dy = target[1] - position[1]
     local_y = -math.sin(yaw) * dx + math.cos(yaw) * dy
@@ -50,7 +63,15 @@ def pure_pursuit_command(
         path[-1][0] - position[0],
         path[-1][1] - position[1],
     )
-    commanded_speed = 0.0 if remaining < 0.15 else speed
+    if remaining < 0.12:
+        commanded_speed = 0.0
+    elif remaining < 0.60:
+        commanded_speed = max(0.18, speed * remaining / 0.60)
+    else:
+        commanded_speed = speed
+
+    # Reduce speed in tight turns to avoid lateral slip.
+    commanded_speed *= max(0.55, 1.0 - abs(steering) / 0.68)
     return commanded_speed, clamp(steering, -0.34, 0.34)
 
 

@@ -82,10 +82,11 @@ def generate_launch_description():
         parameters=[{
             'cmd_vel_topic': '/cmd_vel',
             'ackermann_topic': '/drive',
-            'wheelbase': 0.25,
-            'max_speed': 3.0,
-            'max_reverse_speed': 0.3,
-            'max_steering_angle': 0.27,
+            # Keep these aligned with the legacy OSRacer capability contract.
+            'wheelbase': 0.325,
+            'max_speed': 0.8,
+            'max_reverse_speed': 0.0,
+            'max_steering_angle': 0.34,
             'min_speed_for_steering': 0.05,
         }],
         condition=IfCondition(start_cmd_bridge),

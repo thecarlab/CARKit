@@ -10,41 +10,36 @@ mounts the checkout at `/workspaces/CARKit`.
 
 ## User Flow
 
-On the Jetson host:
+Clone the release branch, then run one setup command with the vehicle ID and
+chassis:
 
 ```bash
-git clone https://github.com/thecarlab/CARKit.git
-cd CARKit
-docker pull ariiees/carkit:latest
-./docker/setup_osracer_device.sh
-./docker/run_jetson.sh
+git clone --branch ada2026 https://github.com/thecarlab/CARKit.git ~/CARKit
+cd ~/CARKit
+./docker/setup_jetson.sh ADA5 f1tenth
 ```
 
-`run_jetson.sh` starts the CARKit WebUI by default. Open:
+Use `osracer` instead of `f1tenth` for an OSRacer. The first run securely
+prompts for the CARLab monitor token; later runs reuse the protected host
+configuration. The setup installs missing host requirements, configures the
+NVIDIA Docker runtime, pulls the image, installs applicable device rules, and
+enables both the WebUI/container and IP reporter at boot.
 
-```text
-http://<jetson-ip>:8080
-```
+Find the vehicle in the public fleet monitor:
+
+[CARLab ADA Fleet Monitor](https://carlab-ada-monitor.udcarlab.chatgpt.site)
 
 ## Start Automatically at Boot
 
-Install and enable the included systemd service once:
+`setup_jetson.sh` installs and enables both boot services. Manage them with:
 
 ```bash
-sudo install -m 0644 docker/carkit.service /etc/systemd/system/carkit.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now carkit.service
-```
-
-The service starts after Docker without requiring a GNOME login. It runs the
-equivalent of `cd /home/nvidia/CARKit && ./docker/run_jetson.sh`, using the
-local runtime image so boot does not wait for Docker Hub. Manage it with:
-
-```bash
-sudo systemctl status carkit.service
+systemctl status carkit.service carkit-webmonitor.service
 sudo systemctl restart carkit.service
+sudo systemctl restart carkit-webmonitor.service
 sudo systemctl stop carkit.service
 journalctl -u carkit.service -f
+journalctl -u carkit-webmonitor.service -f
 ```
 
 Choose `osracer` or `f1tenth`, install/build it, then start the desired course
@@ -119,6 +114,7 @@ failures on an 8 GB Jetson Orin Nano.
 
 ## Scripts
 
+- `setup_jetson.sh`: one-command host setup, boot services, and fleet reporting.
 - `run_jetson.sh`: pulls/runs the runtime image and mounts this checkout.
 - `start_webui.sh`: serves the browser dashboard on port `8080`.
 - `install_carkit.sh`: selects/fetches one chassis adapter and builds CARKit.

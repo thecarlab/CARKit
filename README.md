@@ -36,66 +36,70 @@ the native C++ CARKit WebSocket bridge.
 
 ## ⚙️ Setup
 
-### Common preparation
+### One-command Jetson setup
 
-On the Jetson host, clone the `ada2026` release and pull its matching image:
+On a fresh Jetson, clone the `ada2026` branch and run the setup script once.
+Pass the vehicle's ADA number and chassis:
 
 ```bash
 git clone --branch ada2026 https://github.com/thecarlab/CARKit.git ~/CARKit
 cd ~/CARKit
-docker pull ariiees/carkit:latest
+./docker/setup_jetson.sh ADA5 f1tenth
 ```
 
-Continue with only the section for the vehicle being installed.
-
-### OSRacer installation
-
-Install the OSRacer's persistent chassis and camera device rules and configure
-the dedicated LakiBeam network once, then start CARKit in the foreground:
+For an OSRacer, use its own ADA number and `osracer`:
 
 ```bash
-./docker/setup_osracer_device.sh
-./docker/run_jetson.sh
+./docker/setup_jetson.sh ADA1 osracer
 ```
 
-On the computer or tablet used to view the dashboard:
+The first run asks for the CARLab monitor token with hidden input. Obtain it
+from the CARLab administrator. It is stored only in the root-readable
+`/etc/carkit-webmonitor.env` file and is reused automatically on later setup
+runs. It is deliberately not committed to this public repository, because
+that would let anyone overwrite vehicle addresses.
+
+`setup_jetson.sh` performs the complete host setup:
+
+- installs missing Docker, Python, and HTTPS client packages;
+- enables Docker and configures the NVIDIA container runtime;
+- pulls `ariiees/carkit:latest`;
+- installs OSRacer USB, camera, and LakiBeam network rules when applicable;
+- installs and enables the CARKit container/WebUI boot service;
+- installs and enables the authenticated IP reporter; and
+- starts both services and waits until the WebUI answers on port `8080`.
+
+The script is safe to run again after updating the checkout. If the vehicle
+and chassis arguments are omitted, it reuses the existing configuration or
+prompts for the missing values:
+
+```bash
+./docker/setup_jetson.sh
+```
+
+After setup, open the public
+[CARLab ADA Fleet Monitor](https://carlab-ada-monitor.udcarlab.chatgpt.site).
+The selected vehicle appears there as online with its current WebUI address.
+The reporter sends an update immediately after startup and every hour. If the
+vehicle starts without internet access, it retries once per minute until the
+connection returns.
+
+On the computer or tablet used to view an OSRacer:
 
 1. Connect to the vehicle's **OSR Wi-Fi** network. The OSRacer Jetson reaches
    that network through its CUDY router and receives a private `192.*` address.
-2. List the Jetson's IPv4 interfaces:
-
-   ```bash
-   ip -4 -brief address
-   ```
-
-3. Use the `192.*` address assigned by the CUDY LAN/Wi-Fi interface. Do not use
-   the LakiBeam interface's `192.168.8.*` address. Open
-   `http://<cudy-192-address>:8080`, select **OSRacer**, and click
-   **Install / build selected chassis**.
+2. Open the vehicle from the fleet monitor, select **OSRacer**, and click
+   **Install / build selected chassis**. Do not use the LakiBeam interface's
+   `192.168.8.*` address.
 
 The viewing device must remain on the OSR Wi-Fi network while using the
 OSRacer WebUI.
 
-### F1TENTH installation
-
-The F1TENTH Jetson does not use the OSRacer device-rule script. Start CARKit
-directly:
-
-```bash
-./docker/run_jetson.sh
-```
-
-On the computer or tablet used to view the dashboard:
+On the computer or tablet used to view a F1TENTH:
 
 1. Connect to **eduroam**. The F1TENTH Jetson is connected directly to
    eduroam and receives a `128.*` address.
-2. Find that address on the Jetson:
-
-   ```bash
-   hostname -I | tr ' ' '\n' | grep '^128\.'
-   ```
-
-3. Open `http://<128-address>:8080`, select **F1TENTH**, and click
+2. Open the vehicle from the fleet monitor, select **F1TENTH**, and click
    **Install / build selected chassis**. This fetches the pinned F1TENTH/VESC
    sources when they are absent and builds the F1TENTH adapter.
 
@@ -103,33 +107,25 @@ The viewing device must remain on eduroam while using the F1TENTH WebUI.
 
 For either chassis, the dashboard lets you choose the course profile,
 independently override each algorithm, select startup components, launch,
-stop, and inspect live results. The collaborative **Code editor** exposes only
-the selected course package, provides a file explorer and syntax diagnostics,
-and supports up to five users editing together. The **Compile** page can
+stop, and inspect live results. The **Code editor** provides a read-only view
+of the component-scoped reference implementation plus editable ADA and
+Intro2AV workspaces, a file explorer, syntax diagnostics, and collaborative
+editing for up to five users. The **Compile** page can
 rebuild the entire repository or only perception, localization, control, or
 planning. The next launch automatically sources the updated install overlay.
 
-### Start automatically at boot
+### Service management
 
-As an alternative to the foreground command, install the included systemd
-unit once to start the WebUI/container whenever the Jetson boots. Stop a
-foreground CARKit process with Control-C before enabling the service; both
-startup paths use the same `carkit` container name.
+The setup command enables both services at boot. They do not require a GNOME
+login. Useful commands:
 
 ```bash
-sudo install -m 0644 docker/carkit.service /etc/systemd/system/carkit.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now carkit.service
-```
-
-The service starts after Docker and does not require a GNOME login. It runs
-the equivalent of `cd ~/CARKit && ./docker/run_jetson.sh`. Useful commands:
-
-```bash
-systemctl status carkit
+systemctl status carkit carkit-webmonitor
 sudo systemctl restart carkit
+sudo systemctl restart carkit-webmonitor
 sudo systemctl stop carkit
 journalctl -u carkit -f
+journalctl -u carkit-webmonitor -f
 ```
 
 To use a shell while the boot service or foreground WebUI is running:
