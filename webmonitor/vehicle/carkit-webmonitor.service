@@ -1,0 +1,18 @@
+[Unit]
+Description=Report CARKit WebUI address to the CARLab fleet monitor
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/carkit-webmonitor.env
+ExecStart=/usr/bin/python3 /usr/local/lib/carkit-webmonitor/report_ip.py
+Restart=always
+RestartSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
