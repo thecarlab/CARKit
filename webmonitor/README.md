@@ -2,7 +2,8 @@
 
 This project is a ChatGPT Site, separate from the CARKit WebUI. It keeps a public,
 filterable list of ADA vehicle WebUI addresses. A host-side service reports the
-vehicle's routed IP at startup and hourly, retrying every minute while offline.
+vehicle's routed IP at startup and hourly. When offline, it tries every five
+minutes and stops after 20 consecutive failures.
 
 The public dashboard is read-only. `POST /api/check-in` requires the shared
 `CARKIT_REPORTER_TOKEN` Sites secret. Vehicle state is persisted in the `DB` D1
