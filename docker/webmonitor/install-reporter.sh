@@ -33,7 +33,7 @@ chmod 0600 "${config_tmp}"
 printf 'CARKIT_VEHICLE_ID=%s\n' "${vehicle_id}" >> "${config_tmp}"
 printf 'CARKIT_MONITOR_ENDPOINT=%s\n' "${endpoint}" >> "${config_tmp}"
 printf 'CARKIT_REPORTER_TOKEN=%s\n' "${reporter_token}" >> "${config_tmp}"
-printf 'CARKIT_WEBUI_PORT=8080\nCARKIT_REPORT_INTERVAL=3600\nCARKIT_REPORT_RETRY=60\n' >> "${config_tmp}"
+printf 'CARKIT_WEBUI_PORT=8080\nCARKIT_REPORT_INTERVAL=3600\nCARKIT_REPORT_RETRY=300\nCARKIT_REPORT_MAX_TRIES=20\n' >> "${config_tmp}"
 mv "${config_tmp}" /etc/carkit-webmonitor.env
 
 systemctl daemon-reload

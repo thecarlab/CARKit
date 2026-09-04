@@ -42,6 +42,11 @@ journalctl -u carkit.service -f
 journalctl -u carkit-webmonitor.service -f
 ```
 
+The reporter updates hourly while connected. When the vehicle has no internet
+access, it tries every five minutes and stops after 20 consecutive failures.
+Restart `carkit-webmonitor.service` to begin a new retry window without
+rebooting the vehicle.
+
 Choose `osracer` or `f1tenth`, install/build it, then start the desired course
 profile and components. Use `./docker/run_jetson.sh bash` when a terminal is
 preferred.

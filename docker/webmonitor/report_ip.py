@@ -77,7 +77,10 @@ def main() -> int:
         success_interval = max(
             300, int(os.environ.get("CARKIT_REPORT_INTERVAL", "3600"))
         )
-        retry_interval = max(15, int(os.environ.get("CARKIT_REPORT_RETRY", "60")))
+        retry_interval = max(300, int(os.environ.get("CARKIT_REPORT_RETRY", "300")))
+        max_tries = min(
+            20, max(1, int(os.environ.get("CARKIT_REPORT_MAX_TRIES", "20")))
+        )
     except (RuntimeError, ValueError) as error:
         LOG.error("invalid configuration: %s", error)
         return 2
@@ -96,14 +99,32 @@ def main() -> int:
         LOG.error("CARKIT_WEBUI_PORT must be between 1 and 65535")
         return 2
 
+    consecutive_failures = 0
     while True:
         try:
             address = current_ip()
             send_check_in(endpoint, token, vehicle_id, port, address)
+            consecutive_failures = 0
             LOG.info("reported %s at %s", vehicle_id, address)
             time.sleep(success_interval)
         except (OSError, RuntimeError, urllib.error.URLError) as error:
-            LOG.warning("check-in failed; retrying in %ss: %s", retry_interval, error)
+            consecutive_failures += 1
+            if consecutive_failures >= max_tries:
+                LOG.warning(
+                    "check-in attempt %s/%s failed; stopping until the service "
+                    "or vehicle restarts: %s",
+                    consecutive_failures,
+                    max_tries,
+                    error,
+                )
+                return 0
+            LOG.warning(
+                "check-in attempt %s/%s failed; retrying in %ss: %s",
+                consecutive_failures,
+                max_tries,
+                retry_interval,
+                error,
+            )
             time.sleep(retry_interval)
 
 

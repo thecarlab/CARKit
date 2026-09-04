@@ -81,8 +81,10 @@ After setup, open the public
 [CARLab ADA Fleet Monitor](https://carlab-ada-monitor.udcarlab.chatgpt.site).
 The selected vehicle appears there as online with its current WebUI address.
 The reporter sends an update immediately after startup and every hour. If the
-vehicle starts without internet access, it retries once per minute until the
-connection returns.
+vehicle is offline, it retries every five minutes for at most 20 consecutive
+attempts, then stops until the reporter service or vehicle is restarted. This
+avoids continual internet traffic when the vehicle is intentionally operating
+only on a local network.
 
 On the computer or tablet used to view an OSRacer:
 
