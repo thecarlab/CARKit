@@ -65,6 +65,8 @@ that would let anyone overwrite vehicle addresses.
 - enables Docker and configures the NVIDIA container runtime;
 - pulls `ariiees/carkit:latest`;
 - installs OSRacer USB, camera, and LakiBeam network rules when applicable;
+- repairs the Richbeam network binding before every container start, even when
+  its MAC-derived Linux interface name changes;
 - installs and enables the CARKit container/WebUI boot service;
 - installs and enables the authenticated IP reporter; and
 - starts both services and waits until the WebUI answers on port `8080`.

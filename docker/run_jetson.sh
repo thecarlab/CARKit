@@ -11,6 +11,13 @@ HOST_UID="$(id -u)"
 HOST_GID="$(id -g)"
 HOST_USER="${USER:-carkit}"
 
+# Repair the randomized Richbeam RNDIS binding for foreground/manual starts.
+# The systemd unit runs the same helper as root before boot-time starts.
+if ! "${WORKSPACE}/docker/configure_lakibeam_network.sh"; then
+  echo "CARKit warning: automatic LakiBeam network configuration failed." >&2
+  echo "Run ./docker/setup_osracer_device.sh on the Jetson host." >&2
+fi
+
 case "${PULL_IMAGE}" in
   always)
     docker pull "${IMAGE}"

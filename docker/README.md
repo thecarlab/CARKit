@@ -70,8 +70,10 @@ controller and `2993:0858` UVC camera. It verifies `/dev/osrbot_base` and
 creates `/dev/osrbot_usb_cam`. It also identifies the Richbeam RNDIS adapter,
 creates the persistent `carkit-lakibeam` NetworkManager connection at
 `192.168.8.1/24`, and prevents LiDAR traffic from using `l4tbr0` or the CUDY
-default route. Run it again after changing a rule or if a stale regular file
-exists at either device path, then restart the container.
+default route. Because the adapter's MAC-derived `enx*` name can change across
+cold boots, `carkit.service` reruns the identity-based network helper before
+starting the container. Run the setup again after changing a rule or if a
+stale regular file exists at either device path, then restart the container.
 
 Start the OSRacer sensors inside the container with:
 
@@ -120,6 +122,8 @@ failures on an 8 GB Jetson Orin Nano.
 ## Scripts
 
 - `setup_jetson.sh`: one-command host setup, boot services, and fleet reporting.
+- `configure_lakibeam_network.sh`: rebinds the Richbeam adapter and repairs its
+  direct route before every OSRacer container start.
 - `run_jetson.sh`: pulls/runs the runtime image and mounts this checkout.
 - `start_webui.sh`: serves the browser dashboard on port `8080`.
 - `install_carkit.sh`: selects/fetches one chassis adapter and builds CARKit.
