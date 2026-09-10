@@ -314,6 +314,10 @@ def _driver_shell():
     driver.nonfinite_frame_counts = {}
     driver.nonfinite_last_warning = {}
     driver.last_legacy_gyro_z = 0.0
+    driver.legacy_stationary_speed_threshold = 0.02
+    driver.last_legacy_raw_yaw = None
+    driver.legacy_corrected_yaw = None
+    driver.reset_legacy_calibration()
     driver.rc_pub = mock.Mock()
     driver.mag_pub = mock.Mock()
     driver.battery_pub = mock.Mock()
@@ -423,7 +427,7 @@ class PublicApiTests(unittest.TestCase):
             'publish_rc', 'rc_topic', 'publish_mag', 'mag_topic', 'mag_frame_id',
             'imu_orientation_covariance', 'imu_angular_velocity_covariance',
             'imu_linear_acceleration_covariance', 'odom_twist_covariance',
-            'publish_battery', 'battery_topic',
+            'publish_battery', 'battery_topic', 'legacy_stationary_speed_threshold',
         ):
             self.assertIn(f"declare_parameter('{name}'", source)
             self.assertIn(f"DeclareLaunchArgument('{name}'", launch)
@@ -850,7 +854,7 @@ class SensorPublicationTests(unittest.TestCase):
         with mock.patch.object(
             DRIVER.time,
             'monotonic',
-            side_effect=[1.0, 1.005, 1.021],
+            side_effect=[1.0, 1.0, 1.005, 1.005, 1.021, 1.021],
         ):
             self.driver.publish_legacy_imu(parts)
             self.driver.publish_legacy_imu(parts)
@@ -858,6 +862,97 @@ class SensorPublicationTests(unittest.TestCase):
 
         self.assertEqual(self.driver.imu_pub.publish.call_count, 2)
         self.assertEqual(self.driver.last_legacy_gyro_z, 0.03)
+
+    def test_stationary_legacy_odometry_rejects_imu_yaw_drift(self):
+        self.configure_motion_publishers()
+        self.driver.last_legacy_gyro_z = -0.054
+
+        self.driver.publish_legacy_odometry('o 1.0 2.0 0.0 0.0 0.0 0.0 0.5'.split())
+        self.driver.publish_legacy_odometry('o 1.0 2.0 0.0 0.0 0.0 0.0 0.2'.split())
+
+        odom = self.driver.odom_pub.publish.call_args.args[0]
+        self.assertAlmostEqual(odom.pose.pose.orientation.z, math.sin(0.25))
+        self.assertAlmostEqual(odom.pose.pose.orientation.w, math.cos(0.25))
+        self.assertEqual(odom.twist.twist.angular.z, 0.0)
+
+    def test_legacy_yaw_resumes_incrementally_without_stationary_jump(self):
+        self.configure_motion_publishers()
+
+        self.driver.publish_legacy_odometry('o 0 0 0 0 0 0 0.5'.split())
+        self.driver.publish_legacy_odometry('o 0 0 0 0 0 0 0.2'.split())
+        self.driver.publish_legacy_odometry('o 0 0 0 0.4 0 0 0.3'.split())
+
+        odom = self.driver.odom_pub.publish.call_args.args[0]
+        self.assertAlmostEqual(odom.pose.pose.orientation.z, math.sin(0.3))
+        self.assertAlmostEqual(odom.pose.pose.orientation.w, math.cos(0.3))
+
+    def test_legacy_yaw_increment_wraps_across_pi(self):
+        self.driver.last_legacy_raw_yaw = math.pi - 0.05
+        self.driver.legacy_corrected_yaw = 0.4
+
+        corrected = self.driver.correct_legacy_yaw(-math.pi + 0.05, stationary=False)
+
+        self.assertAlmostEqual(corrected, 0.5)
+
+    def test_calibration_removes_bias_while_preserving_a_moving_turn(self):
+        self.configure_motion_publishers()
+        for index in range(81):
+            t = index * 0.05
+            with mock.patch.object(DRIVER.time, 'monotonic', return_value=t):
+                self.driver.publish_legacy_odometry(
+                    f'o 0 0 0 0 0 0 {0.2*t}'.split())
+                self.driver.publish_legacy_imu(
+                    'i 0 0 0 1 0 0 9.81 0.15 0.11 0.2'.split())
+        self.assertAlmostEqual(self.driver.legacy_yaw_bias, 0.2)
+        imu = self.driver.imu_pub.publish.call_args.args[0]
+        self.assertAlmostEqual(imu.angular_velocity.x, 0.0)
+        self.assertAlmostEqual(imu.angular_velocity.y, 0.0)
+        self.assertAlmostEqual(imu.angular_velocity.z, 0.0)
+        self.assertAlmostEqual(imu.linear_acceleration.z, 9.81)
+        with mock.patch.object(DRIVER.time, 'monotonic', return_value=4.1):
+            self.driver.publish_legacy_odometry('o 0.1 0 0 1 0 0 0.87'.split())
+            self.driver.publish_legacy_imu('i 0 0 0 1 0 0 9.81 0.15 0.11 0.7'.split())
+        self.assertAlmostEqual(self.driver.legacy_corrected_yaw, 0.05)
+        self.assertAlmostEqual(self.driver.last_legacy_gyro_z, 0.5)
+        self.assertAlmostEqual(self.driver.legacy_yaw_bias, 0.2)
+
+    def test_unstable_or_missing_imu_does_not_calibrate(self):
+        for index in range(81):
+            t = index * 0.05
+            with mock.patch.object(DRIVER.time, 'monotonic', return_value=t):
+                self.driver.correct_legacy_yaw(0.2*t, True)
+                self.driver.legacy_imu_samples.append((t, index % 2, 0, .2, 0, 0, 9.81))
+        self.assertEqual(self.driver.legacy_yaw_bias, 0.0)
+        self.assertEqual(self.driver.legacy_gyro_bias, (0.0, 0.0, 0.0))
+        self.driver.reset_legacy_calibration()
+        self.assertFalse(self.driver.legacy_stationary)
+        self.assertIsNone(self.driver.legacy_odom_time)
+
+    def test_straight_motion_corrects_heading_and_position_after_calibration(self):
+        self.configure_motion_publishers()
+        self.driver.legacy_yaw_bias = 0.2
+        with mock.patch.object(DRIVER.time, 'monotonic', return_value=0):
+            self.driver.publish_legacy_odometry('o 0 0 0 0 0 0 0'.split())
+        with mock.patch.object(DRIVER.time, 'monotonic', return_value=0.1):
+            self.driver.publish_legacy_odometry('o 0 0 0 0 0 0 0.5'.split())
+        raw_x, raw_y = 0.1*math.cos(0.52), 0.1*math.sin(0.52)
+        with mock.patch.object(DRIVER.time, 'monotonic', return_value=0.2):
+            self.driver.publish_legacy_odometry(f'o {raw_x} {raw_y} 0 1 0 0 0.52'.split())
+        odom = self.driver.odom_pub.publish.call_args.args[0]
+        self.assertAlmostEqual(odom.pose.pose.position.x, 0.1)
+        self.assertAlmostEqual(odom.pose.pose.position.y, 0.0)
+        self.assertAlmostEqual(self.driver.legacy_corrected_yaw, 0.0)
+
+    def test_moving_samples_cannot_learn_a_real_turn_as_bias(self):
+        self.configure_motion_publishers()
+        for index in range(81):
+            t = index*0.05
+            with mock.patch.object(DRIVER.time, 'monotonic', return_value=t):
+                self.driver.publish_legacy_odometry(f'o 0 0 0 -1 0 0 {0.2*t}'.split())
+                self.driver.publish_legacy_imu('i 0 0 0 1 0 0 9.81 0 0 0.2'.split())
+        self.assertEqual(self.driver.legacy_yaw_bias, 0.0)
+        self.assertFalse(self.driver.legacy_bias_ready)
+        self.assertAlmostEqual(self.driver.legacy_corrected_yaw, 0.8)
 
     def test_nonfinite_sync_values_drop_the_entire_frame(self):
         self.configure_motion_publishers()

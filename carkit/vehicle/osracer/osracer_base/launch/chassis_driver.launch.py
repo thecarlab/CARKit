@@ -19,6 +19,7 @@ def generate_launch_description():
         DeclareLaunchArgument('legacy_battery_min_voltage', default_value='10.8'),
         DeclareLaunchArgument('legacy_battery_max_voltage', default_value='12.6'),
         DeclareLaunchArgument('legacy_status_period', default_value='1.0'),
+        DeclareLaunchArgument('legacy_stationary_speed_threshold', default_value='0.02'),
         DeclareLaunchArgument('cmd_timeout', default_value='0.5'),
         DeclareLaunchArgument('reconnect_interval', default_value='2.0'),
         DeclareLaunchArgument('firmware_version_timeout', default_value='0.3'),
@@ -72,6 +73,9 @@ def generate_launch_description():
             ),
             'legacy_status_period': ParameterValue(
                 LaunchConfiguration('legacy_status_period'), value_type=float
+            ),
+            'legacy_stationary_speed_threshold': ParameterValue(
+                LaunchConfiguration('legacy_stationary_speed_threshold'), value_type=float
             ),
             'cmd_timeout': ParameterValue(LaunchConfiguration('cmd_timeout'), value_type=float),
             'reconnect_interval': ParameterValue(

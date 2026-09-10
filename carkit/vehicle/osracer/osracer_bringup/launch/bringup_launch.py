@@ -33,6 +33,7 @@ def generate_launch_description():
         DeclareLaunchArgument('max_steering_angle', default_value='0.5235987756'),
         DeclareLaunchArgument('battery_min_voltage', default_value='10.8'),
         DeclareLaunchArgument('battery_max_voltage', default_value='12.6'),
+        DeclareLaunchArgument('stationary_speed_threshold', default_value='0.02'),
         DeclareLaunchArgument('cmd_timeout', default_value='0.5'),
     ]
 
@@ -78,6 +79,9 @@ def generate_launch_description():
                 'legacy_max_steering_angle': float_parameter('max_steering_angle'),
                 'legacy_battery_min_voltage': float_parameter('battery_min_voltage'),
                 'legacy_battery_max_voltage': float_parameter('battery_max_voltage'),
+                'legacy_stationary_speed_threshold': float_parameter(
+                    'stationary_speed_threshold'
+                ),
                 'cmd_timeout': float_parameter('cmd_timeout'),
                 'odom_frame_id': 'odom',
                 'base_frame_id': 'base_link',

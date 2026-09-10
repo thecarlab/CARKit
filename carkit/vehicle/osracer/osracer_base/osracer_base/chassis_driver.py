@@ -7,6 +7,7 @@ import termios
 import threading
 import time
 from dataclasses import dataclass
+from collections import deque
 
 import rclpy
 from ackermann_msgs.msg import AckermannDriveStamped
@@ -58,6 +59,7 @@ class ChassisDriver(Node):
         self.declare_parameter('legacy_battery_min_voltage', 10.8)
         self.declare_parameter('legacy_battery_max_voltage', 12.6)
         self.declare_parameter('legacy_status_period', 1.0)
+        self.declare_parameter('legacy_stationary_speed_threshold', 0.02)
         self.declare_parameter('cmd_timeout', 0.5)
         self.declare_parameter('reconnect_interval', 2.0)
         self.declare_parameter('firmware_version_timeout', 0.3)
@@ -99,6 +101,9 @@ class ChassisDriver(Node):
         if self.legacy_capabilities.battery_min_v >= self.legacy_capabilities.battery_max_v:
             raise ValueError('legacy battery minimum must be below its maximum')
         self.legacy_status_period = self.require_positive_parameter('legacy_status_period')
+        self.legacy_stationary_speed_threshold = self.require_nonnegative_parameter(
+            'legacy_stationary_speed_threshold'
+        )
         self.cmd_timeout = float(self.get_parameter('cmd_timeout').value)
         self.reconnect_interval = float(self.get_parameter('reconnect_interval').value)
         self.firmware_version_timeout = float(self.get_parameter('firmware_version_timeout').value)
@@ -171,6 +176,9 @@ class ChassisDriver(Node):
         self.nonfinite_frame_counts = {}
         self.nonfinite_last_warning = {}
         self.last_legacy_gyro_z = 0.0
+        self.last_legacy_raw_yaw = None
+        self.legacy_corrected_yaw = None
+        self.reset_legacy_calibration()
         self.last_motion_publish_monotonic = None
         self.last_imu_publish_monotonic = None
 
@@ -227,7 +235,8 @@ class ChassisDriver(Node):
                 return False
             self.get_logger().warning(
                 'Legacy chassis protocol enabled: controller capabilities cannot be queried; '
-                'using configured conservative motion limits'
+                'using configured conservative motion limits. Keep the chassis still for '
+                'at least 4 seconds to calibrate IMU bias before driving.'
             )
             return True
 
@@ -464,6 +473,9 @@ class ChassisDriver(Node):
         self.capability_ready = False
         self.vehicle_capabilities = None
         self.capability_conn = None
+        self.last_legacy_raw_yaw = None
+        self.legacy_corrected_yaw = None
+        self.reset_legacy_calibration()
 
     def bind_vehicle_capabilities(self, expected_conn, capabilities):
         with self.serial_lock:
@@ -734,7 +746,21 @@ class ChassisDriver(Node):
         if values is None:
             return
         px, py, pz, vx, vy, vz, yaw = values
-        half_yaw = yaw * 0.5
+        stationary = math.hypot(vx, vy) <= self.legacy_stationary_speed_threshold
+        corrected_yaw = self.correct_legacy_yaw(yaw, stationary)
+        if self.legacy_position is None:
+            self.legacy_position = (px, py)
+        elif self.legacy_raw_position is not None:
+            dx = px - self.legacy_raw_position[0]
+            dy = py - self.legacy_raw_position[1]
+            rotation = corrected_yaw - yaw
+            self.legacy_position = (
+                self.legacy_position[0] + dx * math.cos(rotation) - dy * math.sin(rotation),
+                self.legacy_position[1] + dx * math.sin(rotation) + dy * math.cos(rotation),
+            )
+        self.legacy_raw_position = (px, py)
+        px, py = self.legacy_position
+        half_yaw = corrected_yaw * 0.5
         stamp = self.get_clock().now().to_msg()
 
         odom = Odometry()
@@ -749,7 +775,7 @@ class ChassisDriver(Node):
         odom.twist.twist.linear.x = vx
         odom.twist.twist.linear.y = vy
         odom.twist.twist.linear.z = vz
-        odom.twist.twist.angular.z = self.last_legacy_gyro_z
+        odom.twist.twist.angular.z = 0.0 if stationary else self.last_legacy_gyro_z
         odom.twist.covariance = self.odom_twist_covariance
         self.odom_pub.publish(odom)
 
@@ -764,11 +790,88 @@ class ChassisDriver(Node):
             transform.transform.rotation = odom.pose.pose.orientation
             self.tf_broadcaster.sendTransform(transform)
 
+    def correct_legacy_yaw(self, raw_yaw, stationary):
+        now = time.monotonic()
+        previous_time = self.legacy_odom_time
+        self.legacy_odom_time = now
+        self.legacy_stationary = stationary
+        dt = now - previous_time if previous_time is not None else 0.0
+        if not stationary or dt > 0.5:
+            self.legacy_calibration_start = None
+            self.legacy_calibration_yaw = 0.0
+            self.legacy_imu_samples.clear()
+        if self.last_legacy_raw_yaw is None or self.legacy_corrected_yaw is None:
+            self.last_legacy_raw_yaw = raw_yaw
+            self.legacy_corrected_yaw = self.normalize_angle(raw_yaw)
+            return self.legacy_corrected_yaw
+
+        yaw_delta = self.normalize_angle(raw_yaw - self.last_legacy_raw_yaw)
+        self.last_legacy_raw_yaw = raw_yaw
+        if stationary:
+            if self.legacy_calibration_start is None:
+                self.legacy_calibration_start = now
+                self.legacy_calibration_yaw = 0.0
+            else:
+                self.legacy_calibration_yaw += yaw_delta
+                self.calibrate_legacy_bias(now)
+        if not stationary:
+            self.legacy_corrected_yaw = self.normalize_angle(
+                self.legacy_corrected_yaw + yaw_delta - self.legacy_yaw_bias * dt
+            )
+        return self.legacy_corrected_yaw
+
+    def reset_legacy_calibration(self):
+        self.legacy_bias_ready = False
+        self.legacy_gyro_bias = (0.0, 0.0, 0.0)
+        self.legacy_yaw_bias = 0.0
+        self.legacy_odom_time = None
+        self.legacy_stationary = False
+        self.legacy_calibration_start = None
+        self.legacy_calibration_yaw = 0.0
+        self.legacy_imu_samples = deque(maxlen=2000)
+        self.legacy_position = None
+        self.legacy_raw_position = None
+        self.last_legacy_gyro_z = 0.0
+
+    def calibrate_legacy_bias(self, now):
+        elapsed = now - self.legacy_calibration_start
+        if elapsed < 3.0:
+            return
+        samples = list(self.legacy_imu_samples)
+        if len(samples) >= 30 and samples[-1][0] - samples[0][0] >= 2.5:
+            stable = all(
+                max(s[i] for s in samples) - min(s[i] for s in samples)
+                < (0.04 if i <= 3 else 0.3)
+                for i in range(1, 7)
+            )
+            yaw_bias = self.legacy_calibration_yaw / elapsed
+            if stable and abs(yaw_bias) < 0.35:
+                self.legacy_gyro_bias = tuple(
+                    sum(s[i] for s in samples) / len(samples) for i in range(1, 4)
+                )
+                self.legacy_yaw_bias = yaw_bias
+                if not self.legacy_bias_ready:
+                    self.get_logger().info(
+                        f'Legacy IMU calibrated: gyro bias {self.legacy_gyro_bias} rad/s; '
+                        f'heading drift {yaw_bias:.6f} rad/s'
+                    )
+                self.legacy_bias_ready = True
+        self.legacy_calibration_start = now
+        self.legacy_calibration_yaw = 0.0
+        self.legacy_imu_samples.clear()
+
     def publish_legacy_imu(self, parts):
         values = self.parse_finite_telemetry('i', parts[1:])
         if values is None:
             return
         qx, qy, qz, qw, ax, ay, az, gx, gy, gz = values
+        now = time.monotonic()
+        if (self.legacy_stationary and self.legacy_odom_time is not None
+                and now - self.legacy_odom_time < 0.5):
+            self.legacy_imu_samples.append((now, gx, gy, gz, ax, ay, az))
+        else:
+            self.legacy_imu_samples.clear()
+        gx, gy, gz = (v - bias for v, bias in zip((gx, gy, gz), self.legacy_gyro_bias))
         self.last_legacy_gyro_z = gz
         if not self.telemetry_channel_due(
             'last_imu_publish_monotonic',
@@ -779,6 +882,13 @@ class ChassisDriver(Node):
         imu = Imu()
         imu.header.stamp = self.get_clock().now().to_msg()
         imu.header.frame_id = self.imu_frame_id
+        if (self.legacy_corrected_yaw is not None and self.legacy_odom_time is not None
+                and now - self.legacy_odom_time < 0.5):
+            raw_imu_yaw = math.atan2(2 * (qw * qz + qx * qy),
+                                     1 - 2 * (qy * qy + qz * qz))
+            half_offset = self.normalize_angle(self.legacy_corrected_yaw - raw_imu_yaw) / 2
+            c, s = math.cos(half_offset), math.sin(half_offset)
+            qx, qy, qz, qw = c*qx-s*qy, c*qy+s*qx, c*qz+s*qw, c*qw-s*qz
         imu.orientation.x = qx
         imu.orientation.y = qy
         imu.orientation.z = qz
@@ -932,6 +1042,12 @@ class ChassisDriver(Node):
             raise ValueError(f'{name} must be a positive finite number')
         return value
 
+    def require_nonnegative_parameter(self, name):
+        value = float(self.get_parameter(name).value)
+        if not math.isfinite(value) or value < 0.0:
+            raise ValueError(f'{name} must be a nonnegative finite number')
+        return value
+
     def parse_finite_telemetry(self, command, raw_values):
         values = [float(value) for value in raw_values]
         if all(math.isfinite(value) for value in values):
@@ -980,6 +1096,10 @@ class ChassisDriver(Node):
     @staticmethod
     def clamp(value, lower, upper):
         return max(lower, min(upper, value))
+
+    @staticmethod
+    def normalize_angle(angle):
+        return math.atan2(math.sin(angle), math.cos(angle))
 
     @staticmethod
     def as_bool(value):

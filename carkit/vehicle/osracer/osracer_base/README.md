@@ -27,6 +27,23 @@ controller and the rest of the robot software. It translates the chassis serial
 stream into standard ROS messages and accepts both velocity and Ackermann drive
 commands.
 
+In legacy mode, leave the vehicle still for at least four seconds after startup
+or serial reconnection. The driver estimates gyro offsets from stable IMU samples
+and heading drift from stationary odometry, then retains those corrections while
+driving. The log reports `Legacy IMU calibrated` when calibration succeeds.
+Stationary windows require fresh wheel telemetry and stable gyro/acceleration
+readings; moving or stale telemetry interrupts calibration. Further stops refresh
+the estimate as the IMU warms up. `/imu/data` contains corrected angular velocity
+and heading; acceleration still includes gravity. Odometry position increments
+are rotated into the corrected heading frame as well.
+
+The stationary wheel-speed threshold is `legacy_stationary_speed_threshold`
+(default 0.02 m/s), exposed as `stationary_speed_threshold` in the bringup launch.
+This assumes a wheeled Ackermann chassis resting on the ground: do not lift or
+rotate it during calibration. This software correction does not repair the
+firmware's sensor calibration, and uncalibrated startup or changing bias during
+long uninterrupted drives can still cause drift.
+
 ## Features
 
 - Velocity and Ackermann command interfaces

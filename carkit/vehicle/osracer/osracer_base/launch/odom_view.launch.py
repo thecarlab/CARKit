@@ -14,6 +14,7 @@ def generate_launch_description():
     args = [
         DeclareLaunchArgument('port', default_value='/dev/osrbot_base'),
         DeclareLaunchArgument('baudrate', default_value='460800'),
+        DeclareLaunchArgument('legacy_stationary_speed_threshold', default_value='0.02'),
         DeclareLaunchArgument('cmd_timeout', default_value='0.5'),
         DeclareLaunchArgument('odom_frame_id', default_value='odom'),
         DeclareLaunchArgument('base_frame_id', default_value='base_footprint'),
@@ -45,6 +46,9 @@ def generate_launch_description():
         launch_arguments={
             'port': LaunchConfiguration('port'),
             'baudrate': LaunchConfiguration('baudrate'),
+            'legacy_stationary_speed_threshold': LaunchConfiguration(
+                'legacy_stationary_speed_threshold'
+            ),
             'cmd_timeout': LaunchConfiguration('cmd_timeout'),
             'odom_frame_id': LaunchConfiguration('odom_frame_id'),
             'base_frame_id': LaunchConfiguration('base_frame_id'),
