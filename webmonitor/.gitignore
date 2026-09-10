@@ -1,0 +1,5 @@
+.env
+!.env.example
+*.tar.gz
+__pycache__/
+.pytest_cache/
