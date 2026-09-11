@@ -10,6 +10,12 @@ mounts the checkout at `/workspaces/CARKit`.
 
 ## User Flow
 
+For VESC + RPLidar **S3M1-R2** + RealSense **D435i**, use
+`./docker/setup_jetson.sh ADA2 vesc_rplidar`, then choose
+**VESC + RPLidar + RealSense** and install/build it in the browser.
+See [the setup guide](../docs/vesc_rplidar_setup.md) for device aliases,
+calibration, and installing locally before a fleet-monitor token is available.
+
 Clone the release branch, then run one setup command with the vehicle ID and
 chassis:
 

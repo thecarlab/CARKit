@@ -1,0 +1,15 @@
+# Runtime additions for the VESC + S3M1-R2 + D435i profile only.
+ARG BASE_IMAGE=ariiees/carkit:latest
+FROM ${BASE_IMAGE}
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       ros-humble-compressed-image-transport \
+       ros-humble-serial-driver \
+    && rm -rf /var/lib/apt/lists/*
+
+# Check ROS image libraries against the OpenCV selected by CMake in this image.
+# Rebuild only when they are missing or linked against a different library.
+COPY build_vesc_image_transport.sh /tmp/build_vesc_image_transport.sh
+RUN bash /tmp/build_vesc_image_transport.sh \
+    && rm /tmp/build_vesc_image_transport.sh

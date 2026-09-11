@@ -9,6 +9,13 @@ F1TENTH_COMMIT="8f724985dd8517f44870b5348cca10a878935bea"
 F1TENTH_VENDOR="${WORKSPACE}/carkit/vendor/ada_system"
 
 case "${CHASSIS}" in
+  vesc_rplidar)
+    VESC_VENDOR="${WORKSPACE}/carkit/vendor/vesc"
+    if [ ! -d "${VESC_VENDOR}/vesc_driver" ]; then
+      git clone https://github.com/f1tenth/vesc.git "${VESC_VENDOR}"
+      git -C "${VESC_VENDOR}" checkout 1bc8251296abb3936da5f30821b6311d67e861b7
+    fi
+    ;;
   osracer)
     if [ ! -d "${WORKSPACE}/carkit/vehicle/osracer/osracer_bringup" ]; then
       echo "CARKit error: the OSRacer platform source is missing." >&2
@@ -27,7 +34,7 @@ case "${CHASSIS}" in
     fi
     ;;
   *)
-    echo "Usage: $0 osracer|f1tenth" >&2
+    echo "Usage: $0 osracer|f1tenth|vesc_rplidar" >&2
     exit 2
     ;;
 esac

@@ -4,6 +4,8 @@ CARKit supports one installed vehicle adapter at a time:
 
 - `osracer`: serial chassis, LakiBeam lidar, and UVC camera.
 - `f1tenth`: VESC chassis, URG lidar, and RealSense camera.
+- `vesc_rplidar`: public ROS 2 VESC driver, RPLidar S3M1-R2, and RealSense D435i.
+  See [the ADA2 setup guide](../../docs/vesc_rplidar_setup.md).
 
 Select it in the WebUI or run `docker/install_carkit.sh osracer|f1tenth`.
 Both adapters sit behind `carkit_bringup` and the same `/odom`, `/scan`,

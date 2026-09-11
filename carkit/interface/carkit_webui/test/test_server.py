@@ -56,7 +56,39 @@ class TestServer(unittest.TestCase):
         return manager
 
     def test_supported_chassis_are_explicit(self):
-        self.assertEqual(CHASSIS, {"osracer", "f1tenth"})
+        self.assertEqual(CHASSIS, {"osracer", "f1tenth", "vesc_rplidar"})
+
+    def test_host_selection_does_not_mark_an_incomplete_build_installed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".carkit").mkdir()
+            (root / "install").mkdir()
+            (root / "install" / "setup.bash").touch()
+            (root / ".carkit" / "config.json").write_text(
+                '{"chassis":"vesc_rplidar","installation_pending":true}'
+            )
+            manager = ProcessManager(root)
+            self.assertFalse(manager.status()["installed"])
+
+    def test_vesc_rplidar_install_uses_its_own_selection(self):
+        with tempfile.TemporaryDirectory() as directory:
+            manager = ProcessManager(Path(directory))
+            manager._spawn = Mock()
+            manager.install("vesc_rplidar")
+            self.assertEqual(manager._spawn.call_args.args[0][-1], "vesc_rplidar")
+
+    def test_vesc_component_build_does_not_rebuild_osracer_drivers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".carkit").mkdir()
+            (root / ".carkit" / "config.json").write_text('{"chassis":"vesc_rplidar"}')
+            manager = ProcessManager(root)
+            manager._spawn = Mock()
+            result = manager.compile("control", {"control": "reference"})
+            self.assertNotIn("carkit_human_control", result["packages"])
+            self.assertIn("carkit_control_center", result["packages"])
+            command = manager._spawn.call_args.args[0][2]
+            self.assertIn("--packages-ignore lakibeam1 osracer_base osracer_bringup", command)
 
     def test_compile_targets_are_explicit_package_groups(self):
         self.assertEqual(

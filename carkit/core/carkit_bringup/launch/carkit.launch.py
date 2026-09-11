@@ -22,7 +22,7 @@ COURSE_PACKAGES = {
     "intro2av_python": "carkit_intro2av",
     "intro2av_cpp": "carkit_intro2av_cpp",
 }
-VALID_CHASSIS = {"osracer", "f1tenth"}
+VALID_CHASSIS = {"osracer", "f1tenth", "vesc_rplidar"}
 VALID_PERCEPTION_MODELS = {
     "generic_coco", "traffic_signs", "combined", "custom"
 }
@@ -94,7 +94,7 @@ def _launch_stack(context):
     profile = _profile(context)
     chassis = _value(context, "chassis")
     if chassis not in VALID_CHASSIS:
-        raise RuntimeError(f"Unsupported chassis {chassis!r}; choose osracer or f1tenth")
+        raise RuntimeError(f"Unsupported chassis {chassis!r}; choose osracer, f1tenth or vesc_rplidar")
 
     components = {
         key: _enabled(
@@ -142,6 +142,11 @@ def _launch_stack(context):
                 "bringup_launch.py",
                 {"vehicle_command_topic": platform_command_topic},
             ))
+        elif chassis == "vesc_rplidar":
+            actions.append(_include(
+                "carkit_bringup", "vesc_rplidar.launch.py",
+                {"start_chassis": "true", "start_sensors": "false"},
+            ))
         else:
             actions.append(_include(
                 "f1tenth_stack",
@@ -158,6 +163,15 @@ def _launch_stack(context):
                     "start_camera": _value(context, "start_camera"),
                     "start_lidar": _value(context, "start_lidar"),
                     "lidar_topic": "/scan/raw",
+                },
+            ))
+        elif chassis == "vesc_rplidar":
+            actions.append(_include(
+                "carkit_bringup", "vesc_rplidar.launch.py",
+                {
+                    "start_chassis": "false", "start_sensors": "true",
+                    "start_camera": _value(context, "start_camera"),
+                    "start_lidar": _value(context, "start_lidar"),
                 },
             ))
         else:
@@ -210,6 +224,7 @@ def _launch_stack(context):
                     "mode": _value(context, "navigation_mode"),
                     "map": _value(context, "map"),
                     "start_lidar": "false",
+                    **({"start_odom_tf": "false"} if chassis == "vesc_rplidar" else {}),
                     "start_cmd_bridge": (
                         "true" if implementations["control"] == "reference" else "false"
                     ),

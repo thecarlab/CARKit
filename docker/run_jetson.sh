@@ -3,8 +3,22 @@
 # CARKit learning annotation: orchestrates a repeatable CARKit command-line workflow.
 set -euo pipefail
 
-IMAGE="${IMAGE:-ariiees/carkit:latest}"
 WORKSPACE="${WORKSPACE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+selected_chassis="$(python3 - "${WORKSPACE}/.carkit/config.json" <<'PYCONFIG'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+try:
+    print(json.loads(p.read_text()).get("chassis", "osracer"))
+except (OSError, ValueError):
+    print("osracer")
+PYCONFIG
+)"
+default_image=ariiees/carkit:latest
+if [[ ${selected_chassis} == "vesc_rplidar" ]]; then
+  default_image=carkit-vesc-rplidar:local
+fi
+IMAGE="${IMAGE:-${default_image}}"
+
 PULL_IMAGE="${PULL_IMAGE:-missing}"
 CARKIT_REQUIRE_RUNTIME="${CARKIT_REQUIRE_RUNTIME:-${CARKIT_REQUIRE_NAV2:-1}}"
 HOST_UID="$(id -u)"
@@ -18,13 +32,22 @@ if ! "${WORKSPACE}/docker/configure_lakibeam_network.sh"; then
   echo "Run ./docker/setup_osracer_device.sh on the Jetson host." >&2
 fi
 
+refresh_image() {
+  if [[ ${IMAGE} == "carkit-vesc-rplidar:local" ]]; then
+    docker buildx build --load --pull -f "${WORKSPACE}/docker/Dockerfile.vesc_rplidar" \
+      -t "${IMAGE}" "${WORKSPACE}/docker"
+  else
+    docker pull "${IMAGE}"
+  fi
+}
+
 case "${PULL_IMAGE}" in
   always)
-    docker pull "${IMAGE}"
+    refresh_image
     ;;
   missing)
     if ! docker image inspect "${IMAGE}" >/dev/null 2>&1; then
-      docker pull "${IMAGE}"
+      refresh_image
     fi
     ;;
   never)
@@ -37,7 +60,7 @@ esac
 
 if [ "${CARKIT_REQUIRE_RUNTIME}" = "1" ]; then
   echo "Checking ${IMAGE} for CARKit runtime packages..."
-  if ! docker run --rm --entrypoint bash "${IMAGE}" -lc '
+  if ! docker run --rm -e CARKIT_CHASSIS="${selected_chassis}" --entrypoint bash "${IMAGE}" -lc '
       source /opt/ros/${ROS_DISTRO:-humble}/setup.bash
       missing=0
       for pkg in \
@@ -55,6 +78,14 @@ if [ "${CARKIT_REQUIRE_RUNTIME}" = "1" ]; then
           missing=1
         fi
       done
+      if [ "${CARKIT_CHASSIS}" = "vesc_rplidar" ]; then
+        for pkg in compressed_image_transport serial_driver; do
+          ros2 pkg prefix "${pkg}" >/dev/null 2>&1 || {
+            echo "missing VESC profile runtime package: ${pkg}" >&2
+            missing=1
+          }
+        done
+      fi
       python3 -c "import serial" || {
         echo "missing Python package: pyserial" >&2
         missing=1
@@ -88,6 +119,8 @@ if [ "$#" -gt 0 ]; then
   CONTAINER_CMD=("$@")
 fi
 
+
+if [[ ${selected_chassis} != "vesc_rplidar" ]]; then
 OSRACER_DEVICE="${OSRACER_DEVICE:-/dev/osrbot_base}"
 OSRACER_CAMERA_DEVICE="${OSRACER_CAMERA_DEVICE:-/dev/osrbot_usb_cam}"
 if [ -e "${OSRACER_DEVICE}" ] && [ ! -c "${OSRACER_DEVICE}" ]; then
@@ -108,6 +141,14 @@ else
   printf '%s\n' \
     "CARKit warning: ${OSRACER_CAMERA_DEVICE} is missing." \
     "Run ./docker/setup_osracer_device.sh on the host before launching the camera." >&2
+fi
+
+else
+  for device in /dev/carkit_vesc /dev/carkit_rplidar; do
+    if [[ ! -c ${device} ]]; then
+      echo "CARKit warning: ${device} is missing; run ./docker/setup_vesc_rplidar_device.sh"
+    fi
+  done
 fi
 
 

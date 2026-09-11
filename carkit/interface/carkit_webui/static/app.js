@@ -134,7 +134,7 @@ function setActivity(message, type = "") {
 function updateSetupLabels(profile, chassis) {
   const label = profileNames[profile] || profile || "Not selected";
   $("sidebar-profile").textContent = label;
-  $("sidebar-chassis").textContent = chassis === "f1tenth" ? "F1TENTH" : "OSRacer";
+  $("sidebar-chassis").textContent = chassis === "vesc_rplidar" ? "VESC / RPLidar" : chassis === "f1tenth" ? "F1TENTH" : "OSRacer";
   $("metric-profile").textContent = label.replace(" Academy", "");
   state.activeChassis = chassis;
   subscribeChassisTelemetry(chassis);
@@ -161,7 +161,7 @@ async function configure() {
   }
   state.config.profiles.forEach(profile => $("profile").append(option(profile.id, profile.label)));
   state.config.chassis.forEach(chassis => {
-    $("chassis").append(option(chassis, chassis === "f1tenth" ? "F1TENTH / VESC" : "OSRacer"));
+    $("chassis").append(option(chassis, chassis === "vesc_rplidar" ? "VESC + RPLidar + RealSense" : chassis === "f1tenth" ? "F1TENTH / VESC" : "OSRacer"));
   });
   ["planning", "control", "perception"].forEach(id => {
     state.config.implementations.forEach(value => $(id).append(option(value, implementationLabel(value))));
@@ -462,7 +462,7 @@ function connectRos() {
 function subscribeChassisTelemetry(chassis) {
   const socket = state.socket;
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  const selection = chassis === "f1tenth"
+  const selection = ["f1tenth", "vesc_rplidar"].includes(chassis)
     ? ["/sensors/core", "vesc_msgs/msg/VescStateStamped"]
     : ["/battery_state", "sensor_msgs/msg/BatteryState"];
   if (state.chassisTelemetrySubscription === selection[0]) return;
@@ -1572,6 +1572,7 @@ function handleRos(topic, message) {
       voltage: message.state && message.state.voltage_input,
       percentage: null,
     });
+    if (state.activeChassis === "vesc_rplidar") markHealth("chassis", "Telemetry");
   } else if (topic === "/yolo/detections_2d") {
     const trafficLights = (message.traffic_lights || []).map(item => ({
       ...(item.detection || {}),
@@ -2412,6 +2413,10 @@ async function refresh() {
             : "Install a chassis to continue",
       status.running || status.installed ? "success" : "",
     );
+    if (!state.chassisHydrated && status.selection && status.selection.chassis) {
+      $("chassis").value = status.selection.chassis;
+      state.chassisHydrated = true;
+    }
     if (status.launch_config) applyLaunchConfig(status.launch_config);
     updateActiveMapFile(
       status.launch_config && status.launch_config.map

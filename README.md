@@ -38,6 +38,18 @@ the native C++ CARKit WebSocket bridge.
 
 ### One-command Jetson setup
 
+For **ADA2's VESC + RPLidar S3M1-R2 + RealSense D435i**, use the additional
+`vesc_rplidar` selection:
+
+```bash
+./docker/setup_jetson.sh ADA2 vesc_rplidar
+```
+
+Then select **VESC + RPLidar + RealSense** in the WebUI and click
+**Install / build selected chassis**. See the
+[ADA2 setup and calibration instructions](docs/vesc_rplidar_setup.md).
+The OSRacer and legacy F1TENTH instructions below remain available.
+
 On a fresh Jetson, clone the `ada2026` branch and run the setup script once.
 Pass the vehicle's ADA number and chassis:
 

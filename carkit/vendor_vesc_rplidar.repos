@@ -1,0 +1,10 @@
+# Sensor revisions used by the VESC/S3M1-R2/D435i setup.
+repositories:
+  carkit/sensors/realsense-ros:
+    type: git
+    url: https://github.com/IntelRealSense/realsense-ros.git
+    version: 9a11121700cb4780e273e34141f6402fe184321d
+  carkit/sensors/sllidar_ros2:
+    type: git
+    url: https://github.com/Slamtec/sllidar_ros2.git
+    version: 34300099fadfc772965962dec837bf436706188f

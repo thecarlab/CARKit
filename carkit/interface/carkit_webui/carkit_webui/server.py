@@ -28,7 +28,7 @@ from urllib.parse import parse_qs, urlparse
 
 
 PROFILES = {"reference", "ada_high_school", "intro2av"}
-CHASSIS = {"osracer", "f1tenth"}
+CHASSIS = {"osracer", "f1tenth", "vesc_rplidar"}
 IMPLEMENTATIONS = {
     "reference", "ada_academy", "intro2av_python", "intro2av_cpp", "off"
 }
@@ -1327,7 +1327,7 @@ class ProcessManager:
 
     def install(self, chassis):
         if chassis not in CHASSIS:
-            raise ValueError("chassis must be osracer or f1tenth")
+            raise ValueError("chassis must be osracer, f1tenth or vesc_rplidar")
         self.stop()
         with self.lock:
             if self.job and self.job.poll() is None:
@@ -1349,11 +1349,22 @@ class ProcessManager:
         if self.job and self.job.poll() is None:
             raise RuntimeError("an install/build job is already running")
 
+        config_path = self.workspace / ".carkit" / "config.json"
+        chassis = "osracer"
+        if config_path.is_file():
+            try:
+                selected = json.loads(config_path.read_text(encoding="utf-8")).get("chassis")
+                if selected in CHASSIS:
+                    chassis = selected
+            except (OSError, json.JSONDecodeError):
+                pass
         packages = (
             []
             if target == "all"
             else resolve_build_packages(target, implementations)
         )
+        if chassis == "vesc_rplidar":
+            packages = [name for name in packages if name != "carkit_human_control"]
         if target != "all" and not packages:
             raise ValueError(
                 f"{target} implementation is off; no packages to compile"
@@ -1362,17 +1373,6 @@ class ProcessManager:
         # Never replace files in the install overlay while nodes are using it.
         self.stop()
         if target == "all":
-            config_path = self.workspace / ".carkit" / "config.json"
-            chassis = "osracer"
-            if config_path.is_file():
-                try:
-                    selected = json.loads(
-                        config_path.read_text(encoding="utf-8")
-                    ).get("chassis")
-                    if selected in CHASSIS:
-                        chassis = selected
-                except (OSError, json.JSONDecodeError):
-                    pass
             command = [
                 "bash",
                 "-lc",
@@ -1383,6 +1383,10 @@ class ProcessManager:
             ]
         else:
             package_names = " ".join(packages)
+            discovery_args = (
+                "--packages-ignore lakibeam1 osracer_base osracer_bringup carkit_human_control "
+                if chassis == "vesc_rplidar" else ""
+            )
             command = [
                 "bash",
                 "-lc",
@@ -1390,6 +1394,7 @@ class ProcessManager:
                 "if [ -f install/setup.bash ]; then "
                 "source install/setup.bash; fi && "
                 "exec colcon build --symlink-install "
+                f"{discovery_args}"
                 f"--packages-up-to {package_names} "
                 "--cmake-args -DCMAKE_BUILD_TYPE=Release "
                 "--event-handlers console_cohesion+",
@@ -1462,15 +1467,18 @@ class ProcessManager:
         if not config_path.is_file():
             raise RuntimeError("install/build a chassis before starting CARKit")
         try:
-            installed_chassis = json.loads(
+            installed_config = json.loads(
                 config_path.read_text(encoding="utf-8")
-            ).get("chassis")
+            )
+            installed_chassis = installed_config.get("chassis")
         except (OSError, json.JSONDecodeError) as error:
             raise RuntimeError("the CARKit installation selection is invalid") from error
         if installed_chassis != chassis:
             raise RuntimeError(
                 f"{installed_chassis} is installed; install {chassis} before launching it"
             )
+        if installed_config.get("installation_pending"):
+            raise RuntimeError("complete the chassis installation before launching it")
 
         self.stop()
         launch_args = [
@@ -1554,6 +1562,8 @@ class ProcessManager:
                 "installed": (
                     (self.workspace / "install" / "setup.bash").is_file()
                     and config_path.is_file()
+                    and isinstance(selected, dict)
+                    and not selected.get("installation_pending", False)
                 ),
                 "selection": selected,
                 "launch_config": self.current_config,
@@ -1631,7 +1641,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                         "implementations": PROFILE_IMPLEMENTATIONS["reference"],
                     },
                 ],
-                "chassis": ["osracer", "f1tenth"],
+                "chassis": ["osracer", "f1tenth", "vesc_rplidar"],
                 "implementations": [
                     "reference", "ada_academy", "intro2av_python",
                     "intro2av_cpp", "off"

@@ -253,10 +253,18 @@ async function listVehicles(env) {
 }
 
 async function checkIn(request, env) {
-  if (!env.CARKIT_REPORTER_TOKEN) return json({ error: "Reporter authentication is not configured" }, 503);
   const authorization = request.headers.get("authorization") || "";
-  const expected = `Bearer ${env.CARKIT_REPORTER_TOKEN}`;
-  if (!constantTimeEqual(authorization, expected)) return json({ error: "Unauthorized" }, 401);
+  // Preserve the shared fleet credential and optionally provision individual
+  // cars without rotating it. A vehicle credential can update only that car.
+  const sharedAuthorized = Boolean(env.CARKIT_REPORTER_TOKEN) &&
+    constantTimeEqual(authorization, `Bearer ${env.CARKIT_REPORTER_TOKEN}`);
+  const vehicleTokens = Object.entries(env).filter(([key, value]) =>
+    /^CARKIT_REPORTER_TOKEN_ADA[1-9]\d{0,2}$/.test(key) && typeof value === "string" && value);
+  if (!env.CARKIT_REPORTER_TOKEN && !vehicleTokens.length) return json({ error: "Reporter authentication is not configured" }, 503);
+  const authorizedVehicles = new Set(vehicleTokens
+    .filter(([, token]) => constantTimeEqual(authorization, `Bearer ${token}`))
+    .map(([key]) => key.slice("CARKIT_REPORTER_TOKEN_".length)));
+  if (!sharedAuthorized && !authorizedVehicles.size) return json({ error: "Unauthorized" }, 401);
   const length = Number(request.headers.get("content-length") || 0);
   if (length > 2048) return json({ error: "Request is too large" }, 413);
   let payload;
@@ -265,6 +273,7 @@ async function checkIn(request, env) {
   const ipAddress = typeof payload.ip_address === "string" ? payload.ip_address.trim() : "";
   const webuiPort = Number(payload.webui_port || 8080);
   if (!/^ADA[1-9]\d{0,2}$/.test(vehicleId)) return json({ error: "vehicle_id must look like ADA5" }, 400);
+  if (!sharedAuthorized && !authorizedVehicles.has(vehicleId)) return json({ error: "Unauthorized" }, 401);
   if (!validIp(ipAddress)) return json({ error: "ip_address is invalid" }, 400);
   if (!Number.isInteger(webuiPort) || webuiPort < 1 || webuiPort > 65535) return json({ error: "webui_port is invalid" }, 400);
   await ensureSchema(env.DB);

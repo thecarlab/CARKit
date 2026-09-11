@@ -57,32 +57,37 @@ if [[ -z "${chassis}" && -f "${ROOT_DIR}/.carkit/config.json" ]]; then
 fi
 if [[ -z "${chassis}" ]]; then
   if [[ -t 0 ]]; then
-    read -r -p "Chassis [f1tenth/osracer] (f1tenth): " chassis
+    read -r -p "Chassis [f1tenth/osracer/vesc_rplidar] (f1tenth): " chassis
     chassis="${chassis:-f1tenth}"
   else
-    fail "pass f1tenth or osracer as the second argument"
+    fail "pass f1tenth, osracer or vesc_rplidar as the second argument"
   fi
 fi
 chassis="${chassis,,}"
-[[ ${chassis} == "f1tenth" || ${chassis} == "osracer" ]] \
-  || fail "chassis must be f1tenth or osracer"
+[[ ${chassis} == "f1tenth" || ${chassis} == "osracer" || ${chassis} == "vesc_rplidar" ]] \
+  || fail "chassis must be f1tenth, osracer or vesc_rplidar"
 
-reporter_token="${CARKIT_REPORTER_TOKEN:-$(read_existing_setting CARKIT_REPORTER_TOKEN)}"
-if [[ -z "${reporter_token}" ]]; then
-  if [[ -t 0 ]]; then
-    read -r -s -p "CARLab monitor token (input hidden): " reporter_token
-    echo
-  else
-    fail "set CARKIT_REPORTER_TOKEN for a first-time non-interactive setup"
+if [[ ${CARKIT_SKIP_REPORTER:-0} != 1 ]]; then
+  reporter_token="${CARKIT_REPORTER_TOKEN:-$(read_existing_setting CARKIT_REPORTER_TOKEN)}"
+  if [[ -z "${reporter_token}" ]]; then
+    if [[ -t 0 ]]; then
+      read -r -s -p "CARLab monitor token (input hidden): " reporter_token
+      echo
+    else
+      fail "set CARKIT_REPORTER_TOKEN for a first-time non-interactive setup"
+    fi
   fi
+  [[ ${#reporter_token} -ge 32 ]] || fail "the CARLab monitor token is invalid"
 fi
-[[ ${#reporter_token} -ge 32 ]] || fail "the CARLab monitor token is invalid"
 
 command -v systemctl >/dev/null || fail "systemd is not available"
 packages=()
 command -v docker >/dev/null || packages+=(docker.io)
 command -v python3 >/dev/null || packages+=(python3)
 command -v curl >/dev/null || packages+=(curl ca-certificates)
+if [[ ${chassis} == "vesc_rplidar" ]] && ! docker buildx version >/dev/null 2>&1; then
+  packages+=(docker-buildx)
+fi
 if ((${#packages[@]})); then
   echo "Installing host requirements: ${packages[*]}"
   "${SUDO[@]}" apt-get update
@@ -113,10 +118,37 @@ fi
 echo "Pulling ${IMAGE}..."
 "${SUDO[@]}" docker pull "${IMAGE}"
 
+if [[ ${chassis} == "vesc_rplidar" ]]; then
+  echo "Preparing the VESC/RPLidar/RealSense runtime additions..."
+  "${SUDO[@]}" docker buildx build --load --build-arg "BASE_IMAGE=${IMAGE}" \
+    -f "${ROOT_DIR}/docker/Dockerfile.vesc_rplidar" \
+    -t carkit-vesc-rplidar:local "${ROOT_DIR}/docker"
+fi
+
 if [[ ${chassis} == "osracer" ]]; then
   echo "Installing OSRacer host device and LakiBeam network rules..."
   USER="${INSTALL_USER}" "${ROOT_DIR}/docker/setup_osracer_device.sh"
 fi
+
+if [[ ${chassis} == "vesc_rplidar" ]]; then
+  "${ROOT_DIR}/docker/setup_vesc_rplidar_device.sh"
+fi
+
+# Record the host selection before the first browser build.
+mkdir -p "${ROOT_DIR}/.carkit"
+"${SUDO[@]}" python3 - "${ROOT_DIR}/.carkit/config.json" "${chassis}" <<'PYCONFIG'
+import json, os, pathlib, sys, tempfile
+p = pathlib.Path(sys.argv[1])
+config = json.loads(p.read_text()) if p.exists() else {"installation_pending": True}
+if config.get("chassis") != sys.argv[2]:
+    config = {"chassis": sys.argv[2], "installation_pending": True}
+with tempfile.NamedTemporaryFile(mode="w", dir=p.parent, delete=False) as stream:
+    json.dump(config, stream, indent=2)
+    stream.write("\n")
+os.chmod(stream.name, 0o644)
+os.replace(stream.name, p)
+PYCONFIG
+"${SUDO[@]}" chown "${INSTALL_USER}:${INSTALL_GROUP}" "${ROOT_DIR}/.carkit/config.json"
 
 escaped_root="${ROOT_DIR//\\/\\\\}"
 escaped_root="${escaped_root//&/\\&}"
@@ -130,10 +162,12 @@ sed \
   "${ROOT_DIR}/docker/carkit.service.in" > "${service_tmp}"
 "${SUDO[@]}" install -m 0644 "${service_tmp}" /etc/systemd/system/carkit.service
 
-printf '%s\n' "${reporter_token}" \
-  | "${SUDO[@]}" "${ROOT_DIR}/docker/webmonitor/install-reporter.sh" \
-      "${vehicle_id}" "${MONITOR_URL}"
-unset reporter_token
+if [[ ${CARKIT_SKIP_REPORTER:-0} != 1 ]]; then
+  printf '%s\n' "${reporter_token}" \
+    | "${SUDO[@]}" "${ROOT_DIR}/docker/webmonitor/install-reporter.sh" \
+        "${vehicle_id}" "${MONITOR_URL}"
+  unset reporter_token
+fi
 
 "${SUDO[@]}" systemctl daemon-reload
 if "${SUDO[@]}" systemctl is-active --quiet carkit.service; then
@@ -142,14 +176,19 @@ fi
 if "${SUDO[@]}" docker container inspect carkit >/dev/null 2>&1; then
   fail "a manually started 'carkit' container is running; stop it and rerun setup"
 fi
-"${SUDO[@]}" systemctl enable carkit.service carkit-webmonitor.service
-"${SUDO[@]}" systemctl restart carkit-webmonitor.service
+"${SUDO[@]}" systemctl enable carkit.service
+if [[ ${CARKIT_SKIP_REPORTER:-0} != 1 ]]; then
+  "${SUDO[@]}" systemctl enable carkit-webmonitor.service
+  "${SUDO[@]}" systemctl restart carkit-webmonitor.service
+fi
 "${SUDO[@]}" systemctl restart carkit.service
 
 "${SUDO[@]}" systemctl is-active --quiet carkit.service \
   || fail "carkit.service did not start; run: journalctl -u carkit.service -n 100"
-"${SUDO[@]}" systemctl is-active --quiet carkit-webmonitor.service \
-  || fail "carkit-webmonitor.service did not start"
+if [[ ${CARKIT_SKIP_REPORTER:-0} != 1 ]]; then
+  "${SUDO[@]}" systemctl is-active --quiet carkit-webmonitor.service \
+    || fail "carkit-webmonitor.service did not start"
+fi
 
 webui_ready=0
 for _ in {1..60}; do
@@ -165,6 +204,10 @@ done
 echo
 echo "CARKit setup complete for ${vehicle_id} (${chassis})."
 echo "WebUI/container autostart: enabled"
-echo "Hourly IP reporting: enabled"
+if [[ ${CARKIT_SKIP_REPORTER:-0} == 1 ]]; then
+  echo "IP reporter setup skipped; rerun without CARKIT_SKIP_REPORTER to configure it."
+else
+  echo "Hourly IP reporting: enabled"
+fi
 echo "Fleet monitor: ${MONITOR_URL}"
 echo "Local WebUI: http://<this-vehicle-IP>:8080"

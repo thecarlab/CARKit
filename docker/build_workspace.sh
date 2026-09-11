@@ -8,7 +8,13 @@ ROSDEP_SKIP_KEYS="${ROSDEP_SKIP_KEYS:-librealsense2}"
 REALSENSE_MIN_VERSION="${REALSENSE_MIN_VERSION:-2.58.0}"
 BUILD_JOBS="${BUILD_JOBS:-1}"
 PARALLEL_WORKERS="${PARALLEL_WORKERS:-1}"
-REALSENSE_ACCELERATE_GPU_WITH_GLSL="${REALSENSE_ACCELERATE_GPU_WITH_GLSL:-auto}"
+REALSENSE_DEFAULT_GLSL=auto
+if [ "${CARKIT_CHASSIS:-}" = "vesc_rplidar" ]; then
+  # The ROS wrapper constructs a GLFW window when compiled with GLSL, even
+  # when its runtime acceleration parameter is false. Boot services have no X.
+  REALSENSE_DEFAULT_GLSL=0
+fi
+REALSENSE_ACCELERATE_GPU_WITH_GLSL="${REALSENSE_ACCELERATE_GPU_WITH_GLSL:-${REALSENSE_DEFAULT_GLSL}}"
 ROSDEP_SKIP_ARGS=()
 if [ -n "${ROSDEP_SKIP_KEYS}" ]; then
   read -r -a ROSDEP_SKIP_ARGS <<< "${ROSDEP_SKIP_KEYS}"
@@ -52,8 +58,12 @@ UNUSED_VENDOR_PACKAGES=(
   realsense2_rviz_plugin
 )
 COLCON_SKIP_PACKAGES=("${UNUSED_VENDOR_PACKAGES[@]}")
+COLCON_DISCOVERY_ARGS=()
 case "${CARKIT_CHASSIS}" in
   osracer)
+    # Do not retain a link to VESC messages when switching back from this
+    # profile: the inactive VESC install artifacts are removed below.
+    COLCON_CMAKE_ARGS+=(-DCARKIT_ENABLE_VESC_TELEMETRY=OFF)
     COLCON_SKIP_PACKAGES+=(
       "${LEGACY_VEHICLE_PACKAGES[@]}"
       "${REALSENSE_PACKAGES[@]}"
@@ -64,7 +74,8 @@ case "${CARKIT_CHASSIS}" in
       "${UNUSED_VENDOR_PACKAGES[@]}"
     )
     ;;
-  f1tenth)
+  f1tenth|vesc_rplidar)
+    COLCON_CMAKE_ARGS+=(-DCARKIT_ENABLE_VESC_TELEMETRY=ON)
     COLCON_SKIP_PACKAGES+=("${OSRACER_PACKAGES[@]}")
     INACTIVE_PACKAGES=(
       "${OSRACER_PACKAGES[@]}"
@@ -72,10 +83,28 @@ case "${CARKIT_CHASSIS}" in
     )
     ;;
   *)
-    echo "CARKIT_CHASSIS must be osracer or f1tenth" >&2
+    echo "CARKIT_CHASSIS must be osracer, f1tenth or vesc_rplidar" >&2
     exit 2
     ;;
 esac
+
+# The public VESC source and legacy F1TENTH vendor may contain packages with
+# identical names. Keep both checkouts but expose only the selected source.
+if [ "${CARKIT_CHASSIS}" = "vesc_rplidar" ]; then
+  # Ignore these packages at discovery, not merely at build selection. Shared
+  # legacy manifests name osracer_bringup as an optional runtime dependency;
+  # --packages-skip still makes colcon require its missing install/package.sh.
+  COLCON_DISCOVERY_ARGS=(--packages-ignore "${OSRACER_PACKAGES[@]}" carkit_human_control)
+  INACTIVE_PACKAGES+=(carkit_human_control)
+  for vendor in carkit/vendor/ada_system carkit/vehicle/f1tenth_system; do
+    if [ -d "${vendor}" ]; then touch "${vendor}/COLCON_IGNORE"; fi
+  done
+  rm -f carkit/vendor/vesc/COLCON_IGNORE
+  ROSDEP_SKIP_ARGS+=(osracer_bringup)
+else
+  if [ -d carkit/vendor/vesc ]; then touch carkit/vendor/vesc/COLCON_IGNORE; fi
+  rm -f carkit/vendor/ada_system/COLCON_IGNORE carkit/vehicle/f1tenth_system/COLCON_IGNORE
+fi
 
 ./carkit/setup_vendor_repos.sh
 
@@ -87,7 +116,7 @@ set -u
 # skip list with discovered packages so colcon does not print misleading
 # "unknown package" warnings for the platform that is intentionally absent.
 mapfile -t DISCOVERED_PACKAGES < <(
-  colcon list --base-paths carkit --names-only
+  colcon list --base-paths carkit "${COLCON_DISCOVERY_ARGS[@]}" --names-only
 )
 DISCOVERED_SKIP_PACKAGES=()
 for skipped in "${COLCON_SKIP_PACKAGES[@]}"; do
@@ -103,7 +132,7 @@ if [ "$(id -u)" -eq 0 ]; then
   ldconfig
 fi
 
-if [ "${CARKIT_CHASSIS}" = "f1tenth" ]; then
+if [ "${CARKIT_CHASSIS}" != "osracer" ]; then
 if ! ldconfig -p 2>/dev/null | grep -q 'librealsense2\.so' \
   && [ ! -e /usr/local/lib/librealsense2.so ] \
   && [ ! -f /usr/local/lib/cmake/realsense2/realsense2Config.cmake ]; then
@@ -178,6 +207,7 @@ EOF
     COLCON_CMAKE_ARGS+=(-DBUILD_ACCELERATE_GPU_WITH_GLSL=ON)
     ;;
   0|false|FALSE|off|OFF)
+    COLCON_CMAKE_ARGS+=(-DBUILD_ACCELERATE_GPU_WITH_GLSL=OFF)
     ;;
   *)
     echo "REALSENSE_ACCELERATE_GPU_WITH_GLSL must be auto, 1, or 0" >&2
@@ -201,6 +231,7 @@ rosdep update
 mapfile -t ACTIVE_PACKAGE_PATHS < <(
   colcon list \
     --base-paths carkit \
+    "${COLCON_DISCOVERY_ARGS[@]}" \
     --packages-skip "${DISCOVERED_SKIP_PACKAGES[@]}" \
     --paths-only
 )
@@ -214,11 +245,37 @@ ROSDEP_INSTALL_CMD=(
   --dependency-types buildtool --dependency-types build --dependency-types exec
 )
 if [ "${#ROSDEP_SKIP_ARGS[@]}" -gt 0 ]; then
-  ROSDEP_INSTALL_CMD+=(--skip-keys "${ROSDEP_SKIP_ARGS[@]}")
+  ROSDEP_INSTALL_CMD+=(--skip-keys "${ROSDEP_SKIP_ARGS[*]}")
 fi
 "${ROSDEP_INSTALL_CMD[@]}"
 
+if [ "${CARKIT_CHASSIS}" = "vesc_rplidar" ]; then
+  # rosdep may install binary ROS packages built against another OpenCV.
+  image_transport_helper="${WORKSPACE}/docker/build_vesc_image_transport.sh"
+  if ! bash "$image_transport_helper" --check; then
+    if [ "$(id -u)" -eq 0 ]; then
+      bash "$image_transport_helper"
+    else
+      sudo bash "$image_transport_helper"
+    fi
+  fi
+  # Don't retain an OpenCV path cached by a previous container/device.
+  COLCON_CMAKE_ARGS+=(-UOpenCV_DIR)
+fi
+
+# The bridge discovers VESC telemetry optionally at CMake configure time.
+# Install these messages first on this profile so a clean build includes it.
+if [ "${CARKIT_CHASSIS}" = "vesc_rplidar" ]; then
+  colcon build --symlink-install --packages-up-to vesc_msgs \
+    "${COLCON_DISCOVERY_ARGS[@]}" \
+    --executor sequential --cmake-args "${COLCON_CMAKE_ARGS[@]}"
+  set +u
+  source install/setup.bash
+  set -u
+fi
+
 colcon build --symlink-install \
+  "${COLCON_DISCOVERY_ARGS[@]}" \
   --executor sequential \
   --parallel-workers "${PARALLEL_WORKERS}" \
   --packages-skip "${DISCOVERED_SKIP_PACKAGES[@]}" \
@@ -239,7 +296,11 @@ if [ "${CARKIT_CHASSIS}" = "osracer" ]; then
   ros2 pkg prefix osracer_base
   ros2 pkg prefix osracer_bringup
   ros2 pkg prefix lakibeam1
-else
+elif [ "${CARKIT_CHASSIS}" = "f1tenth" ]; then
   ros2 pkg prefix f1tenth_stack
   ros2 pkg prefix vesc_driver
+else
+  ros2 pkg prefix vesc_driver
+  ros2 pkg prefix sllidar_ros2
+  ros2 pkg prefix realsense2_camera
 fi

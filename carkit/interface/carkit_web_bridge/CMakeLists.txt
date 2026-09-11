@@ -19,7 +19,10 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(Threads REQUIRED)
-find_package(vesc_msgs QUIET)
+option(CARKIT_ENABLE_VESC_TELEMETRY "Include optional VESC telemetry" ON)
+if(CARKIT_ENABLE_VESC_TELEMETRY)
+  find_package(vesc_msgs QUIET)
+endif()
 
 # CARKit build note: defines a compiled target and the source files that implement it.
 add_executable(web_bridge_node src/web_bridge_node.cpp)
@@ -41,7 +44,7 @@ target_link_libraries(
   Threads::Threads
 )
 
-if(vesc_msgs_FOUND)
+if(CARKIT_ENABLE_VESC_TELEMETRY AND vesc_msgs_FOUND)
   ament_target_dependencies(web_bridge_node vesc_msgs)
   target_compile_definitions(web_bridge_node PRIVATE CARKIT_HAS_VESC_MSGS=1)
 endif()
