@@ -46,21 +46,22 @@
     if (snapshot && ((snapshot.running && !value.running) || snapshot.run_id !== value.run_id || snapshot.next_stage?.id !== value.next_stage?.id)) el('clear').checked = false;
     snapshot = value;
     el('title').textContent = value.method_label || 'Chassis calibration';
-    el('intro').textContent = value.supported
+    const notRequired = value.chassis === 'osracer' || value.status === 'not_required';
+    el('intro').textContent = notRequired ? 'No calibration needed for the OSRacer chassis in CARKit.' : value.supported
       ? 'Choose a single check or all six checks. A single check returns and stops with E-stop latched, waiting for your next confirmation. Run all continues through the unfinished checks automatically, returning between maneuvers, then stops. Green means all six checks passed at the tested speed.'
-      : 'Calibration is selected automatically from the chassis type. OSRacer uses a separate method, which has not been configured yet. The VESC command sequence and RealSense IMU calibration are unavailable for this chassis.';
+      : 'Select a supported chassis to configure calibration.';
     el('stages').hidden = !value.supported;
     el('start').hidden = !value.supported;
     el('all').hidden = !value.supported;
     state.calibrationRunning = Boolean(value.running);
-    const status = value.status === 'good' ? 'good' : value.running ? 'running' : 'needs-calibration';
+    const status = notRequired || value.status === 'good' ? 'good' : value.running ? 'running' : 'needs-calibration';
     button.classList.remove('good', 'running', 'needs-calibration');
     button.classList.add(status);
-    button.title = value.reason;
-    button.setAttribute('aria-label', `Calibration: ${value.running ? 'in progress' : value.status === 'good' ? 'verified' : 'verification required'}`);
+    button.title = notRequired ? 'No calibration needed for OSRacer' : value.reason;
+    button.setAttribute('aria-label', `Calibration: ${notRequired ? 'not needed' : value.running ? 'in progress' : value.status === 'good' ? 'verified' : 'verification required'}`);
     el('state').className = `calibration-state ${status}`;
-    el('status-label').textContent = value.running ? 'Calibration in progress' : value.status === 'good' ? 'Steering verified' : value.progress?.phase === 'awaiting_confirmation' ? 'Waiting for your confirmation' : !value.supported ? 'Calibration method unavailable' : 'Calibration required';
-    el('reason').textContent = (value.reason || '').replace(/[.!?]$/, '') + '.' + (value.supported ? ` ${value.completed_stages?.length || 0}/6 measurements have enough steady data.` : '') + (value.retry_stages?.length ? ` ${value.retry_stages.length} prior maneuvers need more data; usable samples are saved for the next confirmed attempt.` : '') + (value.legacy_measurements ? ' Older samples without a saved IMU baseline must be remeasured.' : '');
+    el('status-label').textContent = notRequired ? 'No calibration needed' : value.running ? 'Calibration in progress' : value.status === 'good' ? 'Steering verified' : value.progress?.phase === 'awaiting_confirmation' ? 'Waiting for your confirmation' : !value.supported ? 'Calibration method unavailable' : 'Calibration required';
+    el('reason').textContent = notRequired ? 'No calibration needed for the OSRacer chassis in CARKit.' : (value.reason || '').replace(/[.!?]$/, '') + '.' + (value.supported ? ` ${value.completed_stages?.length || 0}/6 measurements have enough steady data.` : '') + (value.retry_stages?.length ? ` ${value.retry_stages.length} prior maneuvers need more data; usable samples are saved for the next confirmed attempt.` : '') + (value.legacy_measurements ? ' Older samples without a saved IMU baseline must be remeasured.' : '');
     const progress = value.progress || {};
     el('progress').hidden = !value.running;
     el('setup').hidden = !value.supported || Boolean(value.running);

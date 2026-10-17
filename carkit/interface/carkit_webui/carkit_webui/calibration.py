@@ -237,7 +237,7 @@ class CalibrationService:
         method = self.method()
         chassis = method['chassis']
         if not method['supported']:
-            raise ValueError('OSRacer calibration method is not configured yet' if chassis == 'osracer' else 'Select a supported chassis to configure calibration')
+            raise ValueError('OSRacer requires no calibration in CARKit' if chassis == 'osracer' else 'Select a supported chassis to configure calibration')
         path = self.manager.workspace / 'carkit/core/carkit_bringup/config/hardware' / f'{chassis}.yaml'
         config = yaml.safe_load(path.read_text(encoding='utf-8'))
         return path, config
@@ -251,7 +251,7 @@ class CalibrationService:
                 _, config = self.profile()
                 signature = fingerprint(config)
             except (ValueError, OSError) as error:
-                return {**self.method(), 'status': 'requires_calibration', 'supported': False, 'reason': str(error), 'running': False, 'can_apply': False, 'result': None, 'stages': []}
+                return {**self.method(), 'status': 'not_required' if self.method()['chassis'] == 'osracer' else 'requires_calibration', 'supported': False, 'reason': str(error), 'running': False, 'can_apply': False, 'result': None, 'stages': []}
             pointer = read_json(self.root / 'latest.json', {})
             run_dir = self.root / pointer.get('run_id', '_none')
             record = read_json(run_dir / 'status.json', {})

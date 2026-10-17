@@ -197,3 +197,34 @@ the local WebUI landing page responds, and `timedatectl` confirms the clock is
 synchronized. These readiness checks repeat every five seconds without consuming
 upload retries. If time cannot synchronize, the WebUI can still run, but reporting
 waits; inspect `timedatectl status` and the host NTP service in that case.
+
+### OSRacer Wi-Fi assignment
+
+`setup_jetson.sh ... osracer` binds the saved OSR Wi-Fi profile to the onboard
+adapter and the saved eduroam profiles to the USB adapter. Other saved Wi-Fi
+profiles have autoconnect disabled, preventing automatic fallback to another
+network. This is NetworkManager connection policy; administrators can still
+explicitly change or create profiles.
+
+Save credentials for both networks before setup. The helper detects one onboard
+and one USB Wi-Fi adapter from sysfs, and selects the unique saved `OSR-*` SSID.
+It refuses missing or ambiguous adapters/profiles. For multiple saved OSR
+networks, run the helper explicitly with `--osr-ssid OSR-F912`.
+
+```bash
+python3 docker/configure_osracer_wifi.py          # preview
+sudo python3 docker/configure_osracer_wifi.py --apply
+```
+
+Applying saves previous profile settings under `/var/lib/carkit/network-backups`
+and changes only saved connection settings; it does not disconnect or activate
+an interface. Existing active connections must already match their assigned
+networks. The reporter is pinned to the USB adapter through a systemd drop-in
+and reports no substitute address if that adapter is unavailable. Restart only
+`carkit-webmonitor.service` after applying this helper to a running installation.
+
+OSRacer setup gives USB eduroam IPv4 routes metric 50 and permits its default
+route, so it takes priority over the usual metric-100 Ethernet default. OSR
+profile routing is unchanged. Existing installations can apply the saved USB
+settings with `sudo nmcli device reapply <usb-interface>` without reconnecting
+the onboard adapter.

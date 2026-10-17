@@ -170,6 +170,11 @@ if [[ ${CARKIT_SKIP_REPORTER:-0} != 1 ]]; then
   unset reporter_token
 fi
 
+if [[ ${chassis} == "osracer" ]]; then
+  echo "Binding onboard Wi-Fi to OSR and USB Wi-Fi to eduroam..."
+  "${SUDO[@]}" python3 "${ROOT_DIR}/docker/configure_osracer_wifi.py" --apply
+fi
+
 "${SUDO[@]}" systemctl daemon-reload
 if "${SUDO[@]}" systemctl is-active --quiet carkit.service; then
   "${SUDO[@]}" systemctl stop carkit.service

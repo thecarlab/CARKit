@@ -139,3 +139,17 @@ def test_report_is_sent_only_after_startup_ready():
             pass
     send.assert_called_once()
     assert [call.args for call in sleep.call_args_list] == [(5,), (60,)]
+
+
+def test_selected_interface_never_falls_back_to_default_route():
+    with mock.patch.dict(REPORT_IP.os.environ, {"CARKIT_REPORT_INTERFACE": "usbwifi"}), mock.patch.object(REPORT_IP.subprocess, "run") as run, mock.patch.object(REPORT_IP.socket, "socket") as sock:
+        run.return_value.stdout = '[{"flags":["UP","LOWER_UP"],"addr_info":[{"scope":"global","local":"128.4.188.123"}]}]'
+        assert REPORT_IP.current_ip() == "128.4.188.123"
+        run.return_value.stdout = '[]'
+        try:
+            REPORT_IP.current_ip()
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("Missing interface address must prevent reporting")
+        sock.assert_not_called()

@@ -22,6 +22,22 @@ LOG = logging.getLogger("carkit-webmonitor")
 
 def current_ip(probe_host: str = "1.1.1.1", probe_port: int = 443) -> str:
     """Return the source address selected by the default route without sending data."""
+    interface = os.environ.get("CARKIT_REPORT_INTERFACE", "").strip()
+    if interface:
+        result = subprocess.run(
+            ["ip", "-j", "-4", "address", "show", "dev", interface],
+            check=True, capture_output=True, text=True, timeout=5,
+        )
+        for device in json.loads(result.stdout):
+            if not {"UP", "LOWER_UP"}.issubset(device.get("flags", [])):
+                continue
+            for address in device.get("addr_info", []):
+                if address.get("scope") != "global":
+                    continue
+                parsed = ipaddress.ip_address(address["local"])
+                if not (parsed.is_unspecified or parsed.is_loopback or parsed.is_link_local):
+                    return str(parsed)
+        raise RuntimeError(f"report interface {interface} has no usable IPv4 address")
     family = socket.AF_INET6 if ":" in probe_host else socket.AF_INET
     with socket.socket(family, socket.SOCK_DGRAM) as connection:
         connection.connect((probe_host, probe_port))
@@ -84,7 +100,7 @@ def wait_for_boot_network(endpoint: str, timeout: float = 120) -> None:
                 raise RuntimeError("waiting for the system clock")
             socket.getaddrinfo(hostname, 443, type=socket.SOCK_STREAM)
             return
-        except (OSError, RuntimeError) as error:
+        except (OSError, RuntimeError, subprocess.SubprocessError, ValueError) as error:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 LOG.warning("boot readiness wait expired; using normal check-in retries: %s", error)
@@ -164,7 +180,7 @@ def main() -> int:
             consecutive_failures = 0
             LOG.info("reported %s at %s", vehicle_id, address)
             time.sleep(success_interval)
-        except (OSError, RuntimeError, urllib.error.URLError) as error:
+        except (OSError, RuntimeError, subprocess.SubprocessError, ValueError, urllib.error.URLError) as error:
             consecutive_failures += 1
             if consecutive_failures >= max_tries:
                 LOG.warning(

@@ -49,3 +49,12 @@ the local WebUI landing page responds, and `timedatectl` confirms the clock is
 synchronized. These readiness checks repeat every five seconds without consuming
 upload retries. If time cannot synchronize, the WebUI can still run, but reporting
 waits; inspect `timedatectl status` and the host NTP service in that case.
+
+To report only a designated adapter, set `CARKIT_REPORT_INTERFACE` in
+`/etc/carkit-webmonitor.env`, then restart `carkit-webmonitor.service`.
+For ADA5's OSRacer setup, use `CARKIT_REPORT_INTERFACE=wlxa047d74d7bd3`
+(the USB Wi-Fi adapter connected to eduroam). The onboard Wi-Fi remains on
+`OSR-F912`. When the selected adapter is disconnected or has no usable IPv4
+address, reporting fails and follows the retry policy; it never substitutes an
+Ethernet or onboard Wi-Fi address. Without this setting, default-route address
+selection is retained for other vehicles.
