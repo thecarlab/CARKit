@@ -55,11 +55,16 @@ Save the map:
 
 ```bash
 ros2 run nav2_map_server map_saver_cli \
-  -f /workspaces/CARKit/map/<map_name>
+  -f /workspaces/CARKit/map/<map_name> \
+  --ros-args -p free_thresh_default:=0.196
 ```
 
 This creates `<map_name>.yaml` and `<map_name>.pgm` in
 `/workspaces/CARKit/map`.
+
+Keep the free threshold at `0.196` for PGM maps. Unknown pixels are saved
+as gray value 205, which represents occupancy `1 - 205/255 ≈ 0.196078`.
+A free threshold of `0.25` incorrectly reloads those pixels as free space.
 
 ## Navigation
 

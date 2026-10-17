@@ -48,7 +48,8 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': use_sim_time,
             'save_map_timeout': 5.0,
-            'free_thresh_default': 0.25,
+            # PGM unknown pixels are 205/255: keep them above the free threshold.
+            'free_thresh_default': 0.196,
             'occupied_thresh_default': 0.65,
             'map_subscribe_transient_local': True,
         }],
