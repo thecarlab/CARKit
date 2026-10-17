@@ -11,6 +11,7 @@ import difflib
 import errno
 import fcntl
 import hashlib
+import ipaddress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import math
@@ -25,6 +26,14 @@ import termios
 import threading
 import time
 from urllib.parse import parse_qs, urlparse
+
+
+try:
+    from .access import AccessControl, load_access_key
+    from .calibration import CalibrationService
+except ImportError:  # docker/start_webui.sh also executes this file directly.
+    from access import AccessControl, load_access_key
+    from calibration import CalibrationService
 
 
 PROFILES = {"reference", "ada_high_school", "intro2av"}
@@ -53,8 +62,9 @@ PERCEPTION_MODELS = {"generic_coco", "traffic_signs", "combined", "custom"}
 COMPONENTS = {"chassis", "sensors", "planning", "control", "perception", "behavior"}
 BUILD_TARGETS = {
     "perception": ["carkit_perception_msgs"],
-    "localization": ["carkit_amcl", "carkit_slam"],
+    "localization": ["carkit_amcl", "carkit_slam", "carkit_vehicle_runtime", "carkit_bringup"],
     "control": [
+        "carkit_vehicle_runtime",
         "carkit_control_center",
         "carkit_human_control",
     ],
@@ -501,6 +511,7 @@ class ProcessManager:
         self.collab_documents = {}
         self.terminal_lock = threading.RLock()
         self.terminals = {}
+        self.calibration = CalibrationService(self)
 
     @staticmethod
     def _terminal_label(value, fallback, maximum):
@@ -702,7 +713,7 @@ class ProcessManager:
     def system_metrics(self):
         now = time.monotonic()
         with self.metrics_lock:
-            if self.metrics_cache is not None and now - self.metrics_cache_time < 1.0:
+            if self.metrics_cache is not None and now - self.metrics_cache_time < 0.25:
                 return self.metrics_cache
             cpu_count = os.cpu_count() or 1
             cpu_capacity_percent = 100.0 * cpu_count
@@ -1415,11 +1426,29 @@ class ProcessManager:
             self.job = self._spawn(command, f"compile:{target}")
         return {"target": target, "packages": packages}
 
+    def _reload_map(self, map_path):
+        helper = Path(__file__).with_name("map_reload.py")
+        command = ["bash", "-c",
+                   'source /opt/ros/${ROS_DISTRO:-humble}/setup.bash && '
+                   'source install/setup.bash && exec python3 "$1" "$2"',
+                   "carkit-map-reload", str(helper), map_path]
+        result = subprocess.run(command, cwd=self.workspace, capture_output=True,
+                                text=True, timeout=70)
+        if result.returncode:
+            raise RuntimeError((result.stderr or result.stdout).strip()[-1500:])
+        with self.lock:
+            self._append_log_locked(f"[map] {result.stdout.strip()}")
+
     def launch(self, request):
+        if self.calibration.busy():
+            raise RuntimeError("Stop calibration before changing the running configuration")
         if self.job and self.job.poll() is None:
             raise RuntimeError("wait for the install/build job to finish")
         profile = request.get("profile", "ada_high_school")
         chassis = request.get("chassis", "osracer")
+        manual_input = request.get("manual_input", "keyboard")
+        if manual_input not in {"keyboard", "joystick"}:
+            raise ValueError("invalid manual input")
         if profile not in PROFILES or chassis not in CHASSIS:
             raise ValueError("invalid profile or chassis")
         requested_implementations = request.get("implementations", {})
@@ -1480,10 +1509,30 @@ class ProcessManager:
         if installed_config.get("installation_pending"):
             raise RuntimeError("complete the chassis installation before launching it")
 
+        next_config = dict(request)
+        next_config.update(profile=profile, chassis=chassis, map=map_path,
+                           manual_input=manual_input, implementations=implementations)
+        if self.process and self.process.poll() is None and self.current_config:
+            old = dict(self.current_config)
+            old.setdefault("profile", "ada_high_school")
+            old.setdefault("chassis", "osracer")
+            old.setdefault("manual_input", "keyboard")
+            old.setdefault("implementations", PROFILE_IMPLEMENTATIONS[old["profile"]])
+            old_map = old.pop("map", None)
+            without_map = {key: value for key, value in next_config.items() if key != "map"}
+            if old == without_map:
+                if old_map == map_path:
+                    return {"action": "unchanged"}
+                self._reload_map(map_path)
+                with self.lock:
+                    self.current_config = next_config
+                return {"action": "map_reloaded"}
+
         self.stop()
         launch_args = [
             f"profile:={profile}",
             f"chassis:={chassis}",
+            f"manual_input:={manual_input}",
             f"map:={map_path}",
             f"perception_model:={perception_model}",
         ]
@@ -1501,6 +1550,7 @@ class ProcessManager:
             f"start_camera:={'true' if request.get('camera', True) else 'false'}",
             f"start_lidar:={'true' if request.get('lidar', True) else 'false'}",
             "web_bridge:=true",
+            f"web_bridge_address:={getattr(self, 'bridge_address', '127.0.0.1')}",
         ])
         ros_command = " ".join([
             "source /opt/ros/${ROS_DISTRO:-humble}/setup.bash",
@@ -1510,11 +1560,12 @@ class ProcessManager:
         ])
         with self.lock:
             self._append_log_locked(f"[launch] profile={profile} chassis={chassis}")
-            self.current_config = dict(request)
-            self.current_config["implementations"] = implementations
+            self.current_config = next_config
             self.process = self._spawn(["bash", "-lc", ros_command], "carkit")
+        return {"action": "launched"}
 
     def stop(self):
+        self.calibration.wait_stopped()
         process = self.process
         if not process or process.poll() is not None:
             self.process = None
@@ -1595,7 +1646,31 @@ class ApiHandler(BaseHTTPRequestHandler):
             raise ValueError("request is too large")
         return json.loads(self.rfile.read(length) or b"{}")
 
+    def _authenticated(self):
+        access = getattr(self.server, 'access', None)
+        return bool(access and access.authenticated(self.headers.get('Cookie')))
+
+    def _same_origin(self):
+        origin = self.headers.get('Origin')
+        if self.headers.get('Sec-Fetch-Site') == 'cross-site':
+            return False
+        if not origin:
+            return True  # Nonbrowser clients still require authentication.
+        allowed = getattr(self.server, 'allowed_origins', set())
+        return origin in allowed or origin in {
+            'http://' + self.headers.get('Host', ''),
+            'https://' + self.headers.get('Host', ''),
+        }
+
     def do_GET(self):
+        if self.path == '/api/session':
+            authenticated = self._authenticated()
+            self._json(200, {'authenticated': authenticated,
+                'bridge_token': self.server.access.bridge_token if authenticated else None})
+            return
+        if self.path.startswith('/api/') and not self._authenticated():
+            self._json(401, {'error': 'Sign in to access CARKit'})
+            return
         parsed = urlparse(self.path)
         path = parsed.path
         if path == "/api/status":
@@ -1606,6 +1681,9 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "log_after must be an integer"})
                 return
             self._json(200, self.server.manager.status(log_after))
+            return
+        if path == "/api/calibration":
+            self._json(200, self.server.manager.calibration.snapshot())
             return
         if path == "/api/config":
             maps = self.server.manager.map_files()
@@ -1737,12 +1815,50 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if not self._same_origin():
+            self._json(403, {'error': 'Cross-origin request rejected'})
+            return
+        if path == '/api/login':
+            try:
+                request = self._request_json()
+                session = self.server.access.login(request.get('key'))
+            except (ValueError, AttributeError):
+                session = None
+            if not session:
+                self._json(401, {'error': 'Invalid access key'})
+                return
+            self.send_response(200)
+            self.send_header('Set-Cookie', 'carkit_session=' + session +
+                '; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200' +
+                ('; Secure' if self.headers.get('Origin', '').startswith('https://') else ''))
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Cache-Control', 'no-store')
+            self.end_headers()
+            self.wfile.write(b'{"ok":true}')
+            return
+        if not self._authenticated():
+            self._json(401, {'error': 'Sign in to access CARKit'})
+            return
         try:
             request = self._request_json()
-            if path == "/api/install":
+            if path == "/api/calibration/start":
+                value = self.server.manager.calibration.start(request)
+                self._json(202, {"ok": True, **value})
+                return
+            elif path == "/api/calibration/heartbeat":
+                self.server.manager.calibration.heartbeat(request)
+            elif path == "/api/calibration/cancel":
+                self.server.manager.calibration.cancel(request.get("reason", "Stop calibration requested"))
+            elif path == "/api/calibration/apply":
+                value = self.server.manager.calibration.apply(request)
+                self._json(200, {"ok": True, **value})
+                return
+            elif path == "/api/install":
                 self.server.manager.install(request.get("chassis", "osracer"))
             elif path == "/api/launch":
-                self.server.manager.launch(request)
+                value = self.server.manager.launch(request)
+                self._json(200, {"ok": True, **(value or {})})
+                return
             elif path == "/api/compile":
                 value = self.server.manager.compile(
                     request.get("target", "all"),
@@ -1811,7 +1927,7 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         path = urlparse(self.path).path
-        if path not in {"", "/", "/index.html", "/app.js", "/style.css"}:
+        if path not in {"", "/", "/index.html", "/app.js", "/keyboard.js", "/calibration.js", "/style.css"}:
             self.send_error(404)
             return
         name = "index.html" if path in {"", "/"} else path.lstrip("/")
@@ -1832,7 +1948,7 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def _serve_static(self, path):
         name = "index.html" if path in {"", "/"} else path.lstrip("/")
-        if "/" in name or name not in {"index.html", "app.js", "style.css"}:
+        if "/" in name or name not in {"index.html", "app.js", "keyboard.js", "calibration.js", "style.css"}:
             self.send_error(404)
             return
         file_path = self.server.static_dir / name
@@ -1869,20 +1985,31 @@ def find_static_dir(workspace):
 
 def main(args=None):
     parser = argparse.ArgumentParser(description="CARKit browser dashboard")
-    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--allowed-origin", action="append", default=[])
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument(
         "--workspace",
         default=os.environ.get("CARKIT_WORKSPACE", "/workspaces/CARKit"),
     )
     options = parser.parse_args(args)
+    ipaddress.ip_address(options.host)
+    require_key = os.environ.get("CARKIT_REQUIRE_ACCESS_KEY", "1") != "0"
+    access = AccessControl(load_access_key(options.workspace), require_key=require_key)
+    os.environ['CARKIT_CONTROL_TOKEN'] = access.bridge_token
+    os.environ['CARKIT_ALLOWED_ORIGINS'] = ','.join(options.allowed_origin)
+    os.environ['CARKIT_WEBUI_PORT'] = str(options.port)
     manager = ProcessManager(options.workspace)
+    manager.bridge_address = options.host
     telemetry_monitor = ChassisTelemetryMonitor()
     manager.telemetry_monitor = telemetry_monitor
     server = ThreadingHTTPServer((options.host, options.port), ApiHandler)
+    server.access = access
+    server.allowed_origins = set(options.allowed_origin)
     server.manager = manager
     server.static_dir = find_static_dir(options.workspace)
     print(f"CARKit WebUI: http://{options.host}:{options.port}")
+    print("Access-key sign-in enabled" if require_key else "Access-key sign-in disabled")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

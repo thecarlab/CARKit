@@ -166,6 +166,13 @@ def generate_launch_description():
                 ),
                 launch_arguments={
                     'map': LaunchConfiguration('map'),
+                    'wheelbase': LaunchConfiguration('wheelbase'),
+                    'max_speed': LaunchConfiguration('max_speed'),
+                    'max_reverse_speed': LaunchConfiguration('max_reverse_speed'),
+                    'max_steering_angle': LaunchConfiguration('max_steering_angle'),
+                    'desired_linear_vel': LaunchConfiguration('desired_linear_vel'),
+                    'minimum_turning_radius': LaunchConfiguration('minimum_turning_radius'),
+                    'footprint': LaunchConfiguration('footprint'),
                     'params_file': LaunchConfiguration('params_file'),
                     'use_sim_time': use_sim_time,
                     'autostart': LaunchConfiguration('autostart'),
@@ -182,6 +189,13 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        DeclareLaunchArgument('wheelbase', default_value='0.325'),
+        DeclareLaunchArgument('max_speed', default_value='0.8'),
+        DeclareLaunchArgument('max_reverse_speed', default_value='0.0'),
+        DeclareLaunchArgument('max_steering_angle', default_value='0.34'),
+        DeclareLaunchArgument('desired_linear_vel', default_value='0.75'),
+        DeclareLaunchArgument('minimum_turning_radius', default_value='0.92'),
+        DeclareLaunchArgument('footprint', default_value='[[0.435, 0.135], [0.435, -0.135], [-0.05, -0.135], [-0.05, 0.135]]'),
         DeclareLaunchArgument(
             'mode',
             default_value='navigation',

@@ -48,7 +48,7 @@ journalctl -u carkit.service -f
 journalctl -u carkit-webmonitor.service -f
 ```
 
-The reporter updates hourly while connected. When the vehicle has no internet
+The reporter updates every minute while connected. When the vehicle has no internet
 access, it tries every five minutes and stops after 20 consecutive failures.
 Restart `carkit-webmonitor.service` to begin a new retry window without
 rebooting the vehicle.
@@ -183,3 +183,17 @@ Override skipped keys if needed:
 ```bash
 ROSDEP_SKIP_KEYS="" ./docker/build_workspace.sh
 ```
+
+The WebUI and reporter run as system services without a display or desktop login.
+At startup, routing and DNS get a two-minute grace period before normal upload
+retries begin; container readiness and clock synchronization are always required.
+
+CARKit setup now enables the host NTP provider, installing `systemd-timesyncd`
+when none is available. Each CARKit service start re-enables synchronization;
+the container shares the host clock and uses the host timezone by default.
+The reporter starts with `carkit.service` and follows its stop/restart lifecycle.
+Before every upload it verifies that the named `carkit` container is running,
+the local WebUI landing page responds, and `timedatectl` confirms the clock is
+synchronized. These readiness checks repeat every five seconds without consuming
+upload retries. If time cannot synchronize, the WebUI can still run, but reporting
+waits; inspect `timedatectl status` and the host NTP service in that case.

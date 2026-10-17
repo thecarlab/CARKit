@@ -21,6 +21,7 @@ def generate_launch_description():
         DeclareLaunchArgument('legacy_status_period', default_value='1.0'),
         DeclareLaunchArgument('legacy_stationary_speed_threshold', default_value='0.02'),
         DeclareLaunchArgument('cmd_timeout', default_value='0.5'),
+        DeclareLaunchArgument('enable_cmd_vel', default_value='false'),
         DeclareLaunchArgument('reconnect_interval', default_value='2.0'),
         DeclareLaunchArgument('firmware_version_timeout', default_value='0.3'),
         DeclareLaunchArgument('connection_status_enabled', default_value='true'),
@@ -78,6 +79,8 @@ def generate_launch_description():
                 LaunchConfiguration('legacy_stationary_speed_threshold'), value_type=float
             ),
             'cmd_timeout': ParameterValue(LaunchConfiguration('cmd_timeout'), value_type=float),
+            'enable_cmd_vel': ParameterValue(
+                LaunchConfiguration('enable_cmd_vel'), value_type=bool),
             'reconnect_interval': ParameterValue(
                 LaunchConfiguration('reconnect_interval'), value_type=float
             ),

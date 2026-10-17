@@ -1,3 +1,4 @@
+import time
 from types import SimpleNamespace
 from unittest import mock
 
@@ -126,6 +127,8 @@ def test_inference_image_is_still_published_with_a_subscriber():
     node.compressed_image_pub = SimpleNamespace(
         get_subscription_count=lambda: 0,
     )
+    node.output_received_at = time.monotonic()
+    node.output_timeout_sec = 0.5
     node.latest_detection_output = None
     node.latest_raw_inference_image = None
     node.latest_compressed_inference_image = None
@@ -154,6 +157,8 @@ def test_inference_image_can_be_published_as_browser_ready_jpeg():
         get_subscription_count=lambda: 1,
         publish=published.append,
     )
+    node.output_received_at = time.monotonic()
+    node.output_timeout_sec = 0.5
     node.latest_detection_output = None
     node.latest_raw_inference_image = None
     node.latest_compressed_inference_image = None
@@ -172,3 +177,93 @@ def test_inference_image_can_be_published_as_browser_ready_jpeg():
     assert published[0].header is header
     assert published[0].format == "jpeg"
     assert bytes(published[0].data).startswith(b"\xff\xd8")
+
+
+def test_camera_loss_does_not_republish_cached_detections():
+    node = object.__new__(Perception2DNode)
+    published = []
+    node.detection_pub = SimpleNamespace(publish=published.append)
+    node.latest_detection_output = object()
+    node.latest_raw_inference_image = None
+    node.latest_compressed_inference_image = None
+    node.output_received_at = time.monotonic()
+    node.output_timeout_sec = .5
+    for _ in range(100):
+        node.publish_latest_results()
+    assert len(published) == 1
+    node.latest_detection_output = object()
+    node.output_received_at = time.monotonic() - 1
+    node.publish_latest_results()
+    assert len(published) == 1
+
+
+def test_rate_limit_preserves_ten_hz_from_fifteen_fps_camera():
+    node = object.__new__(Perception2DNode)
+    node.max_inference_rate_hz = 10.0
+    node.last_inference_monotonic = None
+    with mock.patch("carkit_perception.perception_2d_node.time.monotonic",
+                    side_effect=[1.0 + index / 15 for index in range(90)]):
+        assert sum(node.inference_due() for _ in range(90)) == 60
+
+
+def test_rate_limit_skips_missed_slots_without_catchup_burst():
+    node = object.__new__(Perception2DNode)
+    node.max_inference_rate_hz = 10.0
+    node.last_inference_monotonic = None
+    with mock.patch("carkit_perception.perception_2d_node.time.monotonic",
+                    side_effect=[1.0, 3.04, 3.05, 3.1]):
+        assert [node.inference_due() for _ in range(4)] == [True, True, False, True]
+
+
+def _callback_node(published):
+    node = object.__new__(Perception2DNode)
+    node.output_timeout_sec = .5
+    node.last_source_stamp = None
+    node.get_clock = lambda: SimpleNamespace(now=lambda: SimpleNamespace(nanoseconds=10_000_000_000))
+    node.inference_due = lambda: True
+    node.input_transport = "raw"
+    node.bridge = SimpleNamespace(imgmsg_to_cv2=lambda *a, **k: np.zeros((2, 2, 3), dtype=np.uint8))
+    node.model = SimpleNamespace(predict=lambda *a, **k: [])
+    node.image_size = 448
+    node.min_confidence = .2
+    node.primary_class_names = {}
+    node.extract_detections = lambda *a: []
+    node.frame_sequence = 0
+    node.secondary_model_enabled = False
+    node.publish_inference_image = lambda *a: None
+    node.latest_raw_inference_image = None
+    node.latest_compressed_inference_image = None
+    node.detection_pub = SimpleNamespace(publish=published.append)
+    return node
+
+
+def test_completed_inference_publishes_without_waiting_for_another_timer():
+    published = []
+    node = _callback_node(published)
+    header = Header()
+    header.stamp.sec = 10
+    with mock.patch("carkit_perception.perception_2d_node.time.monotonic", side_effect=[1.0, 1.02]):
+        node.image_callback(SimpleNamespace(header=header))
+    assert len(published) == 1
+    assert published[0].header.stamp.sec == 10
+    assert node.latest_detection_output is None
+
+
+def test_slow_inference_cannot_publish_an_expired_result():
+    published = []
+    node = _callback_node(published)
+    header = Header()
+    header.stamp.sec = 10
+    with mock.patch("carkit_perception.perception_2d_node.time.monotonic", side_effect=[1.0, 1.6]):
+        node.image_callback(SimpleNamespace(header=header))
+    assert published == []
+
+
+def test_out_of_order_camera_frame_does_not_run_inference():
+    node = _callback_node([])
+    node.last_source_stamp = 9_900_000_000
+    node.inference_due = lambda: (_ for _ in ()).throw(AssertionError("old frame reached inference"))
+    header = Header()
+    header.stamp.sec = 9
+    header.stamp.nanosec = 800_000_000
+    node.image_callback(SimpleNamespace(header=header))

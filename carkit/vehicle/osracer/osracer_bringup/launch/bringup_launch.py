@@ -3,6 +3,7 @@
 # CARKit learning annotation: assembles ROS nodes, parameters, and remappings for startup.
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -22,6 +23,8 @@ def generate_launch_description():
     ])
 
     arguments = [
+        DeclareLaunchArgument('start_joystick', default_value='true'),
+        DeclareLaunchArgument('publish_sensor_tf', default_value='true'),
         DeclareLaunchArgument('joy_config', default_value=default_joy_config),
         DeclareLaunchArgument('vehicle_command_topic', default_value='/ackermann_cmd'),
         DeclareLaunchArgument('chassis_port', default_value='/dev/osrbot_base'),
@@ -42,6 +45,7 @@ def generate_launch_description():
             package='joy',
             executable='joy_node',
             name='joy',
+            condition=IfCondition(LaunchConfiguration('start_joystick')),
             output='screen',
             parameters=[LaunchConfiguration('joy_config')],
         ),
@@ -49,13 +53,15 @@ def generate_launch_description():
             package='osracer_bringup',
             executable='joystick_teleop',
             name='joy_teleop',
+            condition=IfCondition(LaunchConfiguration('start_joystick')),
             output='screen',
-            parameters=[LaunchConfiguration('joy_config')],
+            parameters=[LaunchConfiguration('joy_config'), {'standalone_manual': True}],
         ),
         Node(
             package='osracer_bringup',
             executable='command_relay',
             name='osracer_command_relay',
+            condition=IfCondition(LaunchConfiguration('start_joystick')),
             output='screen',
             parameters=[{
                 'input_topic': '/teleop',
@@ -83,6 +89,7 @@ def generate_launch_description():
                     'stationary_speed_threshold'
                 ),
                 'cmd_timeout': float_parameter('cmd_timeout'),
+                'enable_cmd_vel': False,
                 'odom_frame_id': 'odom',
                 'base_frame_id': 'base_link',
                 'imu_frame_id': 'imu_link',
@@ -94,6 +101,7 @@ def generate_launch_description():
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_baselink_to_laser',
+            condition=IfCondition(LaunchConfiguration('publish_sensor_tf')),
             arguments=[
                 '--x', '-0.082558', '--y', '-0.017229', '--z', '0.034095',
                 '--yaw', '0.0', '--pitch', '0.0', '--roll', '0.0',
@@ -104,6 +112,7 @@ def generate_launch_description():
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_baselink_to_imu',
+            condition=IfCondition(LaunchConfiguration('publish_sensor_tf')),
             arguments=[
                 '--x', '0.041796', '--y', '-0.017758', '--z', '-0.063599',
                 '--yaw', '0.0', '--pitch', '0.0', '--roll', '0.0',
@@ -114,6 +123,7 @@ def generate_launch_description():
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_baselink_to_camera',
+            condition=IfCondition(LaunchConfiguration('publish_sensor_tf')),
             arguments=[
                 '--x', '0.12323', '--y', '-0.017229', '--z', '-0.053395',
                 '--yaw', '-1.5708', '--pitch', '0.0', '--roll', '-1.5708',

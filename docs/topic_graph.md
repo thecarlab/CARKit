@@ -7,7 +7,9 @@ final `/ackermann_cmd` publisher whenever unified control is enabled.
 ## Unified course flow
 
 ```text
-selected chassis -> /odom + /camera/*
+OSRacer adapter -> /odom
+VESC measured RPM + RealSense gyro -> realsense_wheel_odometry -> /odom
+selected camera -> /camera/*
 selected lidar -> /scan/raw -> carkit_scan_filter -> /scan
 
 /camera/* -> reference|ADA Academy|Intro2AV perception -> /yolo/*
@@ -21,6 +23,11 @@ selected lidar -> /scan/raw -> carkit_scan_filter -> /scan
 
 C++ CARKit WebSocket bridge :9090 -> CARKit WebUI :8080
 ```
+
+For F1TENTH/VESC, `/odom` and the WebUI's speed/yaw-rate metrics use measured
+motion. Commanded steering is not a localization input. RealSense accelerometer
+readings help validate the stationary startup bias check; they are not integrated
+into speed. OSRacer retains its separate odometry/IMU adapter.
 
 Launch all selected components with `carkit_bringup/carkit.launch.py`; course
 profiles change implementations without changing topic names.

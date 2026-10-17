@@ -18,7 +18,6 @@
   <exec_depend>nav2_regulated_pure_pursuit_controller</exec_depend>
   <exec_depend>nav2_smac_planner</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>
-  <exec_depend>osracer_bringup</exec_depend>
   <exec_depend>carkit_amcl</exec_depend>
   <exec_depend>carkit_slam</exec_depend>
   <exec_depend>carkit_scan_filter</exec_depend>

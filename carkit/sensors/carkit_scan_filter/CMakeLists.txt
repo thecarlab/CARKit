@@ -11,6 +11,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
 
 # CARKit build note: defines a compiled target and the source files that implement it.
 add_executable(scan_footprint_filter_node src/scan_footprint_filter_node.cpp)
@@ -19,7 +21,7 @@ target_include_directories(scan_footprint_filter_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 # CARKit build note: attaches ROS dependencies and their transitive include/link settings to the target.
-ament_target_dependencies(scan_footprint_filter_node rclcpp sensor_msgs)
+ament_target_dependencies(scan_footprint_filter_node rclcpp sensor_msgs tf2 tf2_ros)
 
 # CARKit build note: copies runtime targets and resources into the ROS install space.
 install(TARGETS scan_footprint_filter_node

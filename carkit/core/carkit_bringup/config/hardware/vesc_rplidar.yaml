@@ -1,0 +1,52 @@
+# Existing calibration / conservative limits; verify on each assembled vehicle.
+# mounts: [x, y, z, yaw, pitch, roll] in base_link; VESC camera mounts are nominal.
+max_speed: 4.0
+max_reverse_speed: 2.0
+# Reduced to preserve servo_min=0.15 with the calibrated center.
+max_steering_angle: 0.245
+footprint:
+  length: 0.5
+  width: 0.25
+  center_x: 0.0
+  center_y: 0.0
+joystick:
+  device_id: 0
+  speed_axis: 1
+  steering_axis: 2
+  mode_toggle_button: 10
+  estop_button: 2
+  clear_estop_button: 3
+mounts:
+  # Rear-facing sensor +X: rotate 180 degrees into vehicle base_link.
+  laser:
+  - 0.0
+  - 0.0
+  - 0.15
+  - 3.141592653589793
+  - 0.0
+  - 0.0
+  camera_link:
+  - 0.0
+  - 0.0
+  - 0.15
+  - 0.0
+  - 0.0
+  - 0.0
+chassis: vesc_rplidar
+wheelbase: 0.33
+driver:
+  port: /dev/carkit_vesc
+  speed_to_erpm_gain: 4614.0
+  speed_to_erpm_offset: 0.0
+  steering_angle_to_servo_gain: -1.2135
+  # ADA2 straight-line calibration, 2026-10-15; recheck for other vehicles.
+  steering_angle_to_servo_offset: 0.452
+  servo_min: 0.15
+  servo_max: 0.85
+camera:
+  type: realsense
+lidar:
+  type: rplidar
+  serial_port: /dev/carkit_rplidar
+  serial_baudrate: 1000000
+  scan_mode: DenseBoost

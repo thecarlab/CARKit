@@ -10,6 +10,7 @@ endif()
 # CARKit build note: resolves build-time dependencies and makes their CMake targets available.
 find_package(ament_cmake REQUIRED)
 find_package(ackermann_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -20,6 +21,7 @@ add_executable(control_center_node src/control_center_node.cpp)
 ament_target_dependencies(
   control_center_node
   ackermann_msgs
+  nav_msgs
   rclcpp
   sensor_msgs
   std_msgs
@@ -35,6 +37,9 @@ install(
 )
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(test_command_safety test/test_command_safety.cpp)
+  ament_target_dependencies(test_command_safety ackermann_msgs nav_msgs rclcpp sensor_msgs std_msgs)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
 endif()

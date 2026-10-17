@@ -114,9 +114,7 @@ controller_server:
 
     FollowPath:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
-      # Match the legacy OSRacer capability contract. Commanding above the
-      # chassis limit distorted velocity-scaled lookahead even though the
-      # driver ultimately clamped speed.
+      # Bringup clamps this cruise target to the selected chassis capability.
       desired_linear_vel: 0.75
       lookahead_dist: 0.60
       min_lookahead_dist: 0.45
@@ -152,6 +150,8 @@ local_costmap:
       height: 4
       resolution: 0.05
       footprint: "[[0.435, 0.135], [0.435, -0.135], [-0.05, -0.135], [-0.05, 0.135]]"
+      # Reserve body clearance independently of the soft inflation cost.
+      footprint_padding: 0.08
       plugins: [obstacle_layer, inflation_layer]
       obstacle_layer:
         plugin: nav2_costmap_2d::ObstacleLayer
@@ -181,8 +181,8 @@ local_costmap:
           min_obstacle_height: 0.0
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        cost_scaling_factor: 4.0
-        inflation_radius: 0.25
+        cost_scaling_factor: 2.5
+        inflation_radius: 0.80
       always_send_full_costmap: true
 
 global_costmap:
@@ -196,6 +196,7 @@ global_costmap:
       resolution: 0.05
       track_unknown_space: true
       footprint: "[[0.435, 0.135], [0.435, -0.135], [-0.05, -0.135], [-0.05, 0.135]]"
+      footprint_padding: 0.08
       plugins: [static_layer, obstacle_layer, inflation_layer]
       static_layer:
         plugin: nav2_costmap_2d::StaticLayer
@@ -228,10 +229,10 @@ global_costmap:
           min_obstacle_height: 0.0
       inflation_layer:
         plugin: nav2_costmap_2d::InflationLayer
-        # Preserve wall clearance without allowing inflated costs to close
-        # corridors that are wider than the vehicle footprint.
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.35
+        # Spread a soft cost field across corridors to prefer their middle.
+        # Inflation is a preference; footprint_padding provides the hard margin.
+        cost_scaling_factor: 2.5
+        inflation_radius: 0.80
       always_send_full_costmap: true
 
 map_server:
@@ -270,8 +271,9 @@ planner_server:
       analytic_expansion_max_cost: 200.0
       minimum_turning_radius: 0.92
       reverse_penalty: 2.0
-      change_penalty: 0.0
-      non_straight_penalty: 1.35
+      # Discourage gratuitous left/right switching (not a steering-rate limit).
+      change_penalty: 0.2
+      non_straight_penalty: 1.5
       cost_penalty: 2.5
       retrospective_penalty: 0.015
       lookup_table_size: 20.0
@@ -279,9 +281,12 @@ planner_server:
       debug_visualizations: false
       use_quadratic_cost_penalty: false
       downsample_obstacle_heuristic: true
-      smooth_path: true
+      # Preserve Hybrid-A* curvature and full-footprint collision checks.
+      # Humble smoothing checks point costs, not interior curvature/footprint.
+      smooth_path: false
       smoother:
-        max_iterations: 1000
+        # Also disable smoothing on Humble builds that ignore smooth_path.
+        max_iterations: 0
         w_smooth: 0.3
         w_data: 0.2
         tolerance: 1.0e-10

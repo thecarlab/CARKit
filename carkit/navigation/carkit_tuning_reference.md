@@ -58,3 +58,31 @@ parameters include:
 
 Always keep the path clear and the emergency stop within reach during motion
 tests.
+
+## Footprint clearance and steering feasibility
+
+Integrated bringup derives the Hybrid-A* minimum turning radius from the selected
+hardware profile as `1.10 * wheelbase / tan(max_steering_angle)`. The 10% radius
+reserve leaves room for tracking corrections; it does not change the actuator's
+physical steering limit. For ADA2's 0.33 m wheelbase and 0.245 rad limit this is
+1.452 m, versus the physical-model minimum of 1.320 m.
+
+Both costmaps add 0.08 m of footprint padding. Their 0.80 m inflation radius and
+2.5 cost scaling spread a soft wall-proximity cost across corridors. Inflation
+is not an 0.80 m exclusion zone. The physical rectangle still comes from the
+hardware profile, so measure its length, width and offset from `base_link`.
+Padding cannot correct a misplaced or undersized physical footprint.
+
+The Hybrid-A* smoother is disabled (`smooth_path: false` and
+`smoother.max_iterations: 0` for Humble compatibility). Humble's interior smoothing
+moves path points using point-cost checks without enforcing interior curvature or
+checking the whole polygon. Retaining the search path preserves its heading and
+turn-radius constraints. A 0.2 change penalty discourages unnecessary left/right
+switching, but does not impose a steering slew-rate limit. Necessary S-shaped
+maneuvers can still appear, especially for offset or constrained goal headings.
+
+Planner-only validation must use an isolated ROS domain, with no controller or
+vehicle-command publisher. Check straight corridors, lateral shifts, a passage
+narrower than the padded footprint, and replay poses on the saved map. Compare
+path curvature with `tan(max_steering_angle) / wheelbase`; physical driving and
+localization/tracking errors still require a separate supervised check.

@@ -18,6 +18,7 @@ def generate_launch_description():
             PathJoinSubstitution([share, 'launch', 'camera_launch.py'])
         ),
         condition=IfCondition(LaunchConfiguration('start_camera')),
+        launch_arguments={'camera_device': LaunchConfiguration('camera_device')}.items(),
     )
     lidar = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
@@ -26,6 +27,8 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('start_lidar')),
         launch_arguments={
             'lidar_topic': LaunchConfiguration('lidar_topic'),
+            **{key: LaunchConfiguration(key) for key in
+               ('lidar_sensor_ip', 'lidar_host_ip', 'lidar_port')},
         }.items(),
     )
 
@@ -33,6 +36,10 @@ def generate_launch_description():
         DeclareLaunchArgument('start_camera', default_value='true'),
         DeclareLaunchArgument('start_lidar', default_value='true'),
         DeclareLaunchArgument('lidar_topic', default_value='/scan'),
+        DeclareLaunchArgument('camera_device', default_value='/dev/osrbot_usb_cam'),
+        DeclareLaunchArgument('lidar_sensor_ip', default_value='192.168.8.2'),
+        DeclareLaunchArgument('lidar_host_ip', default_value='0.0.0.0'),
+        DeclareLaunchArgument('lidar_port', default_value='2368'),
         camera,
         lidar,
     ])

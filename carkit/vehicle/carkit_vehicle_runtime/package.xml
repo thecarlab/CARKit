@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>carkit_vehicle_runtime</name>
+  <version>0.1.0</version>
+  <description>Internal native sensor and actuator adapters; student interfaces remain unchanged.</description>
+  <maintainer email="ada@udel.edu">CAR Lab</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>ackermann_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <!-- Optional VESC messages are installed first by the chassis build script. -->
+  <test_depend>ament_cmake_gtest</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

@@ -3,62 +3,44 @@
 This folder contains the nodes that decide which driving command reaches the
 vehicle.
 
-- `carkit_human_control`: launches joystick teleop and the OSRacer vehicle
-  stack.
+- `carkit_human_control`: hardware-independent optional joystick input and a
+  watchdog-protected standalone relay.
 - `carkit_control_center`: native C++ safety arbiter that chooses the final
   command source and publishes `/ackermann_cmd` at 30 Hz.
 
 Behavior decisions now live in `carkit/planning/carkit_behavior`. This control
 module only consumes the stable `/behavior/*` decision interface.
 
-## Topic Flow
+## Default input and command flow
 
-Manual driving:
-
-```text
-/joy
-  -> osracer joystick teleop
-  -> /teleop
-  -> osracer command relay
-  -> /ackermann_cmd
-  -> osracer_base
-  -> OSRacer chassis
-```
-
-Autonomous driving:
+The integrated launch uses keyboard control in the WebUI by default for all
+chassis. Hold WASD for motion, release to stop, use Caps Lock to toggle autonomy,
+and Space or the Emergency stop button to latch a stop. Reset to manual clears
+it without motion. Typing in editors/terminals is excluded. Select
+`manual_input:=joystick` for the common joystick adapter instead.
 
 ```text
-Nav2 /cmd_vel
-  -> twist_to_ackermann
-  -> /drive
-
-/yolo/detections_2d + /scan + /plan + /odom
-  -> behavior_center_node
-  -> /behavior/override_active
-  -> /behavior/override_cmd
-  -> /behavior/state
-
-/teleop + /drive + /behavior/* + /enable_autonomous_control
-  -> control_center_node
-  -> /ackermann_cmd
-  -> osracer_base
-  -> OSRacer chassis
+WebUI WASD -> native bridge -> /teleop ─┐
+Optional joystick -> /teleop ──────────┤
+Nav2 /cmd_vel -> Twist adapter -> /drive├-> control_center -> /ackermann_cmd -> hardware
+Behavior override and E-stop ─────────┘
 ```
 
-When autonomous mode is enabled, `control_center_node` uses this priority:
+The arbiter remains present in manual-only integrated sessions. OSRacer's direct
+`/cmd_vel` input is disabled by default; vendor VESC joystick/multiplexer launches
+are not used. An active behavior override that loses its command or heartbeat
+holds zero until explicitly released. Freshness uses a monotonic clock.
 
-1. `EMERGENCY_STOP`: publish zero speed.
-2. `HUMAN_CONTROL`: publish fresh `/teleop`, otherwise zero speed.
-3. `AUTO_DRIVE`: publish fresh behavior override if active, otherwise fresh
-   `/drive`, otherwise zero speed.
-
-Launch autonomous driving with the manual relay output moved away from
-`/ackermann_cmd`:
+Use the integrated launch for either input method:
 
 ```bash
-ros2 launch carkit_human_control joystick.launch.py \
-  vehicle_command_topic:=/manual_command_unused
+ros2 launch carkit_bringup carkit.launch.py chassis:=osracer profile:=reference
+# Optional joystick:
+ros2 launch carkit_bringup carkit.launch.py chassis:=f1tenth manual_input:=joystick
 ```
+
+The legacy `carkit_human_control joystick.launch.py` remains an OSRacer-only
+standalone diagnostic launch. Do not run it alongside an integrated launch.
 
 ## Control Center Topics
 
@@ -70,6 +52,7 @@ Subscriptions:
 - `/behavior/override_active`
 - `/behavior/override_cmd`
 - `/enable_autonomous_control`
+- `/control_center/emergency_stop` (Bool: latch stop / reset to manual)
 
 Publications:
 
@@ -80,7 +63,8 @@ Publications:
 
 Main tuning file:
 
-- `carkit_control_center/config/control_center.yaml`
+- Shared vehicle geometry and limits: `carkit_bringup/config/hardware/*.yaml`.
+- Standalone arbiter defaults: `carkit_control_center/config/control_center.yaml`.
 
 Useful parameters:
 

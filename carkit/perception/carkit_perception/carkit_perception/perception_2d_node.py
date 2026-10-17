@@ -91,6 +91,10 @@ class Perception2DNode(Node):
         self.declare_parameter("secondary_inference_interval", 2)
         self.declare_parameter("inference_jpeg_quality", 70)
         self.declare_parameter("require_engine_metadata", True)
+        self.declare_parameter("output_timeout_sec", 0.5)
+        self.output_timeout_sec = float(self.get_parameter("output_timeout_sec").value)
+        self.output_received_at = None
+        self.last_source_stamp = None
 
         self.model_profile = str(
             self.get_parameter("model_profile").value
@@ -197,10 +201,6 @@ class Perception2DNode(Node):
         self.latest_detection_output = None
         self.latest_raw_inference_image = None
         self.latest_compressed_inference_image = None
-        self.output_timer = self.create_timer(
-            1.0 / self.max_inference_rate_hz,
-            self.publish_latest_results,
-        )
 
         self.get_logger().info(
             f"Loaded {self.model_profile} FP16 TensorRT model "
@@ -285,8 +285,14 @@ class Perception2DNode(Node):
                 )
 
     def image_callback(self, image_msg) -> None:
+        stamp = image_msg.header.stamp.sec * 1_000_000_000 + image_msg.header.stamp.nanosec
+        age = (self.get_clock().now().nanoseconds - stamp) / 1e9
+        if stamp <= 0 or (self.last_source_stamp is not None and stamp <= self.last_source_stamp) or not 0 <= age <= self.output_timeout_sec:
+            return
         if not self.inference_due():
             return
+        self.last_source_stamp = stamp
+        self.output_received_at = time.monotonic() - age
         try:
             if self.input_transport == "compressed":
                 encoded = np.frombuffer(image_msg.data, dtype=np.uint8)
@@ -315,6 +321,7 @@ class Perception2DNode(Node):
             self.primary_class_names,
         )
         self.frame_sequence += 1
+        traffic_sign_detections = []
         if (
             self.secondary_model_enabled
             and (
@@ -329,12 +336,11 @@ class Perception2DNode(Node):
                 batch=1,
                 verbose=False,
             )
-            self.cached_secondary_detections = self.extract_detections(
+            traffic_sign_detections = self.extract_detections(
                 traffic_sign_results,
                 self.traffic_sign_model,
                 TRAFFIC_SIGN_CLASS_NAMES,
             )
-        traffic_sign_detections = self.cached_secondary_detections
 
         output = YoloDetection2DArray()
         output.header = image_msg.header
@@ -356,6 +362,9 @@ class Perception2DNode(Node):
             detections + traffic_sign_detections,
             image_msg,
         )
+        # Rate limiting happens before inference. Publish the fresh result now
+        # instead of adding a second timer's delay or overwriting a pending frame.
+        self.publish_latest_results()
 
     def inference_due(self) -> bool:
         """Return whether enough time has elapsed to run another inference."""
@@ -366,7 +375,15 @@ class Perception2DNode(Node):
             + 0.002 < 1.0 / self.max_inference_rate_hz
         ):
             return False
-        self.last_inference_monotonic = now
+        # Keep the target schedule phase instead of restarting it on each
+        # camera frame. At 15 FPS, restarting a 100 ms interval yields 7.5 Hz.
+        # Skip elapsed slots after a stall so we never accumulate a backlog.
+        period = 1.0 / self.max_inference_rate_hz
+        if self.last_inference_monotonic is None:
+            self.last_inference_monotonic = now
+        else:
+            elapsed_slots = max(1, int((now - self.last_inference_monotonic + 0.002) / period))
+            self.last_inference_monotonic += elapsed_slots * period
         return True
 
     def publish_inference_image(
@@ -413,7 +430,13 @@ class Perception2DNode(Node):
             self.latest_compressed_inference_image = compressed
 
     def publish_latest_results(self) -> None:
-        """Publish a stable-rate view of the newest completed inference."""
+        """Publish each completed frame once; never make old inference look live."""
+        if (self.output_received_at is None or
+                time.monotonic() - self.output_received_at > self.output_timeout_sec):
+            self.latest_detection_output = None
+            self.latest_raw_inference_image = None
+            self.latest_compressed_inference_image = None
+            return
         if self.latest_detection_output is not None:
             self.detection_pub.publish(self.latest_detection_output)
         if (
@@ -428,6 +451,9 @@ class Perception2DNode(Node):
             self.compressed_image_pub.publish(
                 self.latest_compressed_inference_image
             )
+        self.latest_detection_output = None
+        self.latest_raw_inference_image = None
+        self.latest_compressed_inference_image = None
 
     def draw_detections(
         self,

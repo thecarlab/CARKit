@@ -9,7 +9,14 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="app-shell">
+  <section id="login-panel" class="login-panel" aria-label="CARKit sign in">
+    <form id="login-form" class="surface login-card">
+      <h1>Sign in to CARKit</h1><p>Enter the access key from your vehicle computer.</p>
+      <label for="access-key">Access key</label><input id="access-key" type="password" autocomplete="current-password" required>
+      <button class="button primary" type="submit">Sign in</button><p id="login-error" role="alert"></p>
+    </form>
+  </section>
+  <div class="app-shell" inert>
     <aside class="sidebar" aria-label="Primary navigation">
       <div class="brand-lockup">
         <div class="brand-mark" aria-hidden="true"></div>
@@ -33,6 +40,7 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4V5Zm3 4 3 3-3 3m6 0h4"/></svg>
           <span>Terminal</span>
         </a>
+        <a href="#console" id="nav-console"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM7 8h10M7 12h10M7 16h6"/></svg><span>System console</span></a>
       </nav>
 
       <div class="sidebar-session">
@@ -63,6 +71,9 @@
         </dl>
         <div class="topbar-actions">
           <div class="connection" aria-live="polite"><i id="connection-dot"></i><span id="connection-text">ROS disconnected</span></div>
+          <button id="open-calibration" class="button calibration-button needs-calibration" title="Steering calibration requires verification">
+            <i aria-hidden="true"></i><span>Calibration</span>
+          </button>
           <button id="open-config" class="button secondary icon-button">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10m4 0h2M4 17h2m4 0h10M14 4v6M6 14v6"/></svg>
             Configure
@@ -70,6 +81,14 @@
           <button id="stop" class="button stop-button">Stop stack</button>
         </div>
       </header>
+      <section class="global-control" aria-label="Vehicle safety and operator">
+        <strong id="global-mode">Waiting for control center</strong>
+        <span id="operator-status">Observer</span>
+
+
+
+        <small>Ctrl + Shift + Space stops from any page</small>
+      </section>
 
       <main id="overview" class="page-view">
         <section class="session-banner" aria-label="Session status">
@@ -81,16 +100,23 @@
             <div class="control-mode-metric">
               <dt>Control authority</dt>
               <dd class="control-mode-switch" role="group" aria-label="Vehicle control authority" aria-describedby="mode-source">
-                <button id="mode-human" type="button" aria-pressed="false" disabled title="Use remote-controller commands from /teleop">Human</button>
+                <button id="mode-human" type="button" aria-pressed="false" disabled title="Use manual keyboard or joystick control">Human</button>
                 <button id="mode-autonomous" type="button" aria-pressed="false" disabled title="Use autonomous Ackermann commands from /drive"><span class="full-label">Autonomous</span><span class="compact-label">Auto</span></button>
               </dd>
               <small id="mode-source">Waiting for control center</small>
             </div>
-            <div><dt>Speed</dt><dd id="speed">—</dd></div>
-            <div><dt>Steering</dt><dd id="steering">—</dd></div>
+            <div><dt>Measured speed</dt><dd id="speed">—</dd><small id="motion-source">Waiting for motion feedback</small></div>
+            <div><dt>Measured yaw rate</dt><dd id="yaw-rate">—</dd></div>
             <div><dt>Lidar returns</dt><dd id="scan-count">—</dd></div>
             <div><dt>Profile</dt><dd id="metric-profile">ADA</dd></div>
           </dl>
+        </section>
+
+        <section class="keyboard-controls" aria-label="Keyboard driving">
+          <div><strong>Keyboard driving</strong><span><kbd>W</kbd> forward · <kbd>S</kbd> reverse · <kbd>A</kbd> left · <kbd>D</kbd> right</span></div>
+          <div><span><kbd>Caps Lock</kbd> toggle autonomy · <kbd>Space</kbd> emergency stop</span><small id="keyboard-status" aria-live="polite">Keep this window focused. Release keys to stop.</small></div>
+          <button id="keyboard-estop" class="button stop-button" type="button" disabled>Emergency stop</button>
+          <button id="keyboard-reset" class="button secondary" type="button" hidden>Reset to manual</button>
         </section>
 
         <section class="workspace-grid">
@@ -98,10 +124,10 @@
             <header class="panel-header"><div><span class="overline">Localization · Planning + control</span><h2>Environment map</h2></div><span id="map-status" class="status-pill neutral">Waiting for map</span></header>
             <div class="map-stage">
               <canvas id="map-canvas" width="1400" height="820"></canvas>
-              <div class="map-legend" aria-label="Map legend"><span class="vehicle">Vehicle 0.50 × 0.25 m</span><span class="path">Planned path</span><span class="scan">Lidar · motion corrected</span><span class="grid" id="grid-size">Grid 0.5 m</span></div>
+              <div class="map-legend" aria-label="Map legend"><span class="vehicle" id="vehicle-dimensions">Vehicle geometry pending</span><span class="path">Planned path</span><span class="scan" id="scan-frame-label">LiDAR</span><span class="grid" id="grid-size">Grid 0.5 m</span></div>
               <div class="map-coordinate" id="map-coordinate">Map x — · y —</div>
             </div>
-            <footer class="map-toolbar"><div class="tool-group"><button id="set-initial" class="tool-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-14v5l3 2"/></svg>Set initial pose</button><button id="send-goal" class="tool-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-5 7-12a7 7 0 1 0-14 0c0 7 7 12 7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>Send goal</button><button id="reset-view" class="tool-button">Reset view</button><button id="republish-map" class="tool-button">Republish map</button><span id="active-map-file" class="map-file-label" title="No map selected">Map · —</span></div><span id="map-tool-help">Drag to rotate · Shift-drag to pan · Scroll to zoom.</span></footer>
+            <footer class="map-toolbar"><div class="tool-group"><button id="set-initial" class="tool-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0-14v5l3 2"/></svg>Set initial pose</button><button id="send-goal" class="tool-button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s7-5 7-12a7 7 0 1 0-14 0c0 7 7 12 7 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>Send goal</button><button id="reset-view" class="tool-button">Reset view</button><button id="republish-map" class="tool-button">Republish map</button><span id="active-map-file" class="map-file-label" title="No map selected">Map · —</span></div><span id="map-tool-help">Left-drag to rotate · Right-drag to pan · Scroll to zoom.</span></footer>
           </article>
 
           <aside class="right-stack">
@@ -113,7 +139,7 @@
             <article class="surface health-panel">
               <header class="panel-header"><div><span class="overline">Runtime</span><h2>Subsystem health</h2></div><span class="quiet-copy">Live topics</span></header>
               <ul class="health-list">
-                <li id="health-chassis"><i></i><span><strong>Chassis</strong><small>/odom · /ackermann_cmd</small></span><b>Waiting</b></li>
+                <li id="health-chassis"><i></i><span><strong>Chassis</strong><small>/odom · hardware telemetry</small></span><b>Waiting</b></li>
                 <li id="health-sensors"><i></i><span><strong>Camera sensor</strong><small>/camera/camera/color/image_raw/compressed</small></span><b>Waiting</b></li>
                 <li id="health-lidar"><i></i><span><strong>LiDAR sensor</strong><small>/scan</small></span><b>Waiting</b></li>
                 <li id="health-planning"><i></i><span><strong>Planning</strong><small>/map · /plan</small></span><b>Waiting</b></li>
@@ -123,13 +149,17 @@
           </aside>
         </section>
 
-        <details class="surface console-panel" id="system-console">
-          <summary>
+
+      </main>
+
+      <main id="console-page" class="page-view" hidden>
+        <section class="surface console-panel" id="system-console">
+          <header class="console-heading">
             <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 8 4 4-4 4m6 0h4M4 4h16v16H4z"/></svg><strong>System console</strong><small>Build and launch output</small></span>
             <span class="console-summary"><i></i><b id="console-state">No active errors</b><svg class="chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg></span>
-          </summary>
+          </header>
           <div class="console-body"><div class="console-toolbar"><span>carkit / runtime</span><button id="clear-log" class="text-button">Clear view</button></div><pre id="logs">CARKit console ready.</pre></div>
-        </details>
+        </section>
       </main>
 
       <main id="code-page" class="page-view" hidden>
@@ -177,7 +207,7 @@
             <div class="build-targets">
               <label><input type="radio" name="compile-target" value="all" checked><span><strong>Entire repository</strong><small>Build CARKit and the installed chassis adapter.</small></span></label>
               <label><input type="radio" name="compile-target" value="perception"><span><strong>Perception only</strong><small>Messages and the perception implementation selected in Setup.</small></span></label>
-              <label><input type="radio" name="compile-target" value="localization"><span><strong>Localization only</strong><small>AMCL and SLAM packages.</small></span></label>
+              <label><input type="radio" name="compile-target" value="localization"><span><strong>Localization only</strong><small>Measured odometry, AMCL and SLAM packages.</small></span></label>
               <label><input type="radio" name="compile-target" value="control"><span><strong>Control only</strong><small>Safety infrastructure and the control implementation selected in Setup.</small></span></label>
               <label><input type="radio" name="compile-target" value="planning"><span><strong>Planning only</strong><small>The planning implementation selected in Setup.</small></span></label>
             </div>
@@ -241,7 +271,9 @@
       <section class="form-section">
         <div class="form-section-title"><span>01</span><div><strong>Course and hardware</strong><small>Sets the default implementation depth.</small></div></div>
         <label class="field">Course profile<select id="profile"></select><small id="profile-help"></small></label>
-        <label class="field">Chassis<select id="chassis"></select><small>Install before switching to a different platform.</small></label>
+        <label class="field">Chassis<select id="chassis-family"><option value="osracer">OSRacer</option><option value="f1tenth">F1TENTH / VESC</option></select><small>Select the vehicle platform.</small></label>
+        <label class="field">Hardware configuration<select id="chassis"></select><small>Sensor package and vehicle calibration. Install before switching configurations.</small></label>
+        <label class="field">Manual input<select id="manual-input"><option value="keyboard" selected>Keyboard · WASD + Caps Lock</option><option value="joystick">Joystick</option></select><small>Keyboard driving works in the focused Overview. Changes apply on the next launch.</small></label>
       </section>
 
       <section class="form-section">
@@ -262,11 +294,46 @@
       </section>
     </div>
     <footer class="drawer-footer">
+        <div class="drawer-vehicle-controls"><button id="take-control" class="button secondary" disabled>Take control</button><button id="global-estop" class="button stop-button" disabled>Emergency stop</button><button id="global-reset" class="button secondary" hidden>Reset to manual</button></div>
       <div id="activity" class="activity"><i></i><span>Ready to configure</span></div>
       <div class="drawer-actions"><button id="install" class="button secondary">Install chassis</button><button id="start" class="button primary">Launch session</button></div>
     </footer>
   </aside>
 
+  <dialog id="calibration-dialog" class="calibration-dialog" aria-labelledby="calibration-title">
+    <header class="calibration-header">
+      <div><span class="overline">Vehicle setup</span><h2 id="calibration-title">Steering calibration</h2></div>
+      <button id="calibration-close" class="button secondary" aria-label="Close calibration">Close</button>
+    </header>
+    <div class="calibration-body">
+      <div id="calibration-state" class="calibration-state needs-calibration" role="status"><i></i><div><strong id="calibration-status-label">Verification required</strong><p id="calibration-reason">Checking calibration history…</p></div></div>
+      <p id="calibration-intro" class="calibration-intro">Measure straight travel and turning response, then find a steering center and gain that best fit the results. Green means the current settings passed all six checks at the tested speed.</p>
+      <ol id="calibration-stages" class="calibration-stages">
+        <li>Forward only</li><li>Backward only</li><li>Maximum left turn</li><li>Half maximum left turn</li><li>Maximum right turn</li><li>Half maximum right turn</li>
+      </ol>
+      <section id="calibration-setup" class="calibration-section">
+        <div class="calibration-setup-row"><label class="field">Commanded test speed<select id="calibration-speed"><option value="1.0" selected>1.00 m/s · guided test</option></select></label><p>Each maneuver stops collecting as soon as enough steady-speed data is available, then retraces its path and stops. Forward/backward can travel up to 6 m or 12 seconds; turns can extend beyond 1 m, up to 3 m or 12 seconds. Single-check mode waits for your confirmation between maneuvers; Run all advances automatically. Maximum turn means the vehicle’s current steering limit. LiDAR checks the next 20 cm of travel beyond the vehicle footprint, with a 20 cm side margin.</p></div>
+        <div class="calibration-area"><strong>Prepare an open test area</strong><p>Keep at least 6.5 m clear ahead and behind, and 3.5 m on each side, measured from the starting vehicle footprint. Use a flat surface with good LiDAR visibility. Stay with the vehicle. The confirmed maneuver and return continue if you switch windows, close the browser, or lose its connection; single-check mode waits afterward; Run all continues automatically. Use Stop calibration or E-stop to stop it.</p></div>
+        <label class="calibration-confirm"><input type="checkbox" id="calibration-new"><span>Start a new sequence and repeat completed maneuvers.</span></label>
+        <label class="calibration-confirm"><input type="checkbox" id="calibration-clear"><span id="calibration-confirm-text">I confirm the vehicle is stationary, the area is clear and attended, and I want to run only the next maneuver and its return.</span></label>
+      </section>
+      <div id="calibration-progress" class="calibration-progress" hidden><progress id="calibration-progress-bar" max="6" value="0"></progress><strong id="calibration-progress-text">Checking sensors…</strong><span id="calibration-live-values"></span><small>Calibration continues independently of this browser. Missing vehicle sensor feedback stops the test. Manual and autonomous driving are blocked during calibration.</small></div>
+      <section id="calibration-results" class="calibration-section" hidden>
+        <h3>Measured response</h3><div class="calibration-table-wrap"><table><thead><tr><th>Test</th><th>Requested</th><th>Measured</th><th>Error</th></tr></thead><tbody id="calibration-results-body"></tbody></table></div>
+        <div id="calibration-recommendation"></div>
+        <p id="calibration-scope" class="calibration-note"></p>
+        <label id="calibration-apply-confirm" class="calibration-confirm" hidden><input type="checkbox" id="calibration-restart"><span>Apply the recommendation and restart the current stack. The button stays red until a new test verifies the changed settings.</span></label>
+      </section>
+      <p id="calibration-message" class="calibration-message" aria-live="polite"></p>
+    </div>
+    <footer class="calibration-footer">
+      <button id="calibration-stop" class="button stop-button">Stop calibration</button>
+      <div><button id="calibration-take-control" class="button secondary">Take control</button><button id="calibration-reset" class="button secondary" hidden>Reset E-stop</button><button id="calibration-apply" class="button secondary" hidden>Apply &amp; restart</button><button id="calibration-start" class="button primary" disabled>Run 1 check: Forward only</button><button id="calibration-all" class="button secondary" disabled>Run all 6 checks</button></div>
+    </footer>
+  </dialog>
+
+  <script src="/keyboard.js"></script>
   <script src="/app.js"></script>
+  <script src="/calibration.js"></script>
 </body>
 </html>

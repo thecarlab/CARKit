@@ -172,7 +172,9 @@ docker run --rm "${DOCKER_INTERACTIVE_ARGS[@]}" \
   --name carkit \
   -v /etc/localtime:/etc/localtime:ro \
   -v /etc/timezone:/etc/timezone:ro \
-  -e TZ="America/New_York" \
+  -e TZ="${TZ:-$(cat /etc/timezone 2>/dev/null || echo UTC)}" \
+  -e CARKIT_REQUIRE_ACCESS_KEY="${CARKIT_REQUIRE_ACCESS_KEY:-1}" \
+  -e CARKIT_WEBUI_HOST="${CARKIT_WEBUI_HOST:-127.0.0.1}" \
   -e CARKIT_HOST_UID="${HOST_UID}" \
   -e CARKIT_HOST_GID="${HOST_GID}" \
   -e CARKIT_HOST_USER="${HOST_USER}" \

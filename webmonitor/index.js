@@ -1,4 +1,4 @@
-const ONLINE_WINDOW_MS = 90 * 60 * 1000;
+const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 const JSON_HEADERS = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
@@ -131,7 +131,7 @@ const PAGE = String.raw`<!doctype html>
       </table>
       <div id="empty" class="empty">No vehicles match this filter.</div>
     </section>
-    <footer><span>Online = checked in during the last 90 minutes</span><span>CARLab · University of Delaware</span></footer>
+    <footer><span>Online = checked in during the last 2 minutes</span><span>CARLab · University of Delaware</span></footer>
   </main>
   <script>
     const state = { vehicles: [], status: "all", query: "", sort: "name-asc" };
@@ -199,7 +199,7 @@ const PAGE = String.raw`<!doctype html>
       document.querySelectorAll("[data-status]").forEach(item => item.classList.toggle("active", item === button));
       render();
     }));
-    refresh(); setInterval(refresh, 60_000); setInterval(render, 10_000);
+    refresh(); setInterval(refresh, 10_000); setInterval(render, 10_000);
   </script>
 </body>
 </html>`;

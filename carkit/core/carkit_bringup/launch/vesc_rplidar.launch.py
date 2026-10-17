@@ -1,50 +1,27 @@
-"""VESC, serial RPLidar and RealSense hardware adapter (ROS 2 Humble)."""
-from pathlib import Path
-
-from ament_index_python.packages import get_package_share_directory
+"""Standalone VESC/RPLidar bringup using the shared input and safety pipeline."""
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
-from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PythonExpression
-from launch_ros.actions import Node
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
-    config = str(Path(get_package_share_directory('carkit_bringup')) /
-                 'config' / 'vesc_rplidar.yaml')
-    chassis = IfCondition(LaunchConfiguration('start_chassis'))
-
-    def sensor(name):
-        return IfCondition(PythonExpression([
-            "'", LaunchConfiguration('start_sensors'), "' == 'true' and '",
-            LaunchConfiguration(name), "' == 'true'",
-        ]))
-
+    keys = ('start_chassis', 'start_sensors', 'start_camera', 'start_lidar')
     return LaunchDescription([
-        DeclareLaunchArgument('start_chassis', default_value='true'),
-        DeclareLaunchArgument('start_sensors', default_value='true'),
-        DeclareLaunchArgument('start_camera', default_value='true'),
-        DeclareLaunchArgument('start_lidar', default_value='true'),
-        Node(package='vesc_driver', executable='vesc_driver_node',
-             name='vesc_driver', parameters=[config], condition=chassis, output='screen'),
-        Node(package='vesc_ackermann', executable='ackermann_to_vesc_node',
-             name='ackermann_to_vesc', parameters=[config], condition=chassis,
-             remappings=[('ackermann_cmd', '/ackermann_cmd')], output='screen'),
-        Node(package='vesc_ackermann', executable='vesc_to_odom_node',
-             name='vesc_to_odom', parameters=[config], condition=chassis, output='screen'),
-        Node(package='sllidar_ros2', executable='sllidar_node', name='carkit_rplidar',
-             parameters=[config], remappings=[('scan', '/scan/raw')],
-             condition=sensor('start_lidar'), output='screen'),
-        Node(package='realsense2_camera', executable='realsense2_camera_node',
-             namespace='camera', name='camera', parameters=[config],
-             condition=sensor('start_camera'), output='screen'),
-        # Nominal mounting transforms: measure these for each assembled car.
-        Node(package='tf2_ros', executable='static_transform_publisher',
-             name='vesc_base_to_laser', condition=sensor('start_lidar'),
-             arguments=['--x', '0.0', '--y', '0.0', '--z', '0.15',
-                        '--frame-id', 'base_link', '--child-frame-id', 'laser']),
-        Node(package='tf2_ros', executable='static_transform_publisher',
-             name='vesc_base_to_camera', condition=sensor('start_camera'),
-             arguments=['--x', '0.0', '--y', '0.0', '--z', '0.15',
-                        '--frame-id', 'base_link', '--child-frame-id', 'camera_link']),
+        *[DeclareLaunchArgument(key, default_value='true') for key in keys],
+        DeclareLaunchArgument('hardware_config', default_value=''),
+        DeclareLaunchArgument('manual_input', default_value='keyboard'),
+        DeclareLaunchArgument('web_bridge', default_value='true'),
+        IncludeLaunchDescription(PythonLaunchDescriptionSource(PathJoinSubstitution([
+            FindPackageShare('carkit_bringup'), 'launch', 'carkit.launch.py'])),
+            launch_arguments={
+                **{key: LaunchConfiguration(key) for key in keys},
+                'hardware_config': LaunchConfiguration('hardware_config'),
+                'manual_input': LaunchConfiguration('manual_input'),
+                'web_bridge': LaunchConfiguration('web_bridge'),
+                'chassis': 'vesc_rplidar', 'profile': 'reference',
+                'start_planning': 'false', 'start_perception': 'false',
+                'start_behavior': 'false', 'start_control': 'true',
+            }.items()),
     ])

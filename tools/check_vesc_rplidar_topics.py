@@ -13,7 +13,7 @@ import numpy as np
 import rclpy
 from nav_msgs.msg import Odometry
 from rclpy.qos import qos_profile_sensor_data
-from sensor_msgs.msg import CompressedImage, LaserScan
+from sensor_msgs.msg import CompressedImage, Imu, LaserScan
 from vesc_msgs.msg import VescStateStamped
 
 
@@ -46,7 +46,11 @@ def main():
     subscribe('/odom', Odometry, lambda m: {
         'frame': m.header.frame_id, 'child_frame': m.child_frame_id,
         'speed_m_s': m.twist.twist.linear.x,
+        'yaw_rate_rad_s': m.twist.twist.angular.z,
     })
+    for kind in ('gyro', 'accel'):
+        subscribe(f'/camera/camera/{kind}/sample', Imu,
+                  lambda m: {'frame': m.header.frame_id})
     invalid_images = 0
 
     def describe_image(message):
@@ -74,11 +78,9 @@ def main():
         node.destroy_node()
         rclpy.shutdown()
     print(json.dumps(results, indent=2))
-    # Upstream VESC odometry waits for the first steering command. Do not
-    # actuate the servo just to make a stationary communication check pass.
-    required = ('/sensors/core', '/scan', '/camera/camera/color/image_raw/compressed')
+    required = tuple(results)
     if not results['/odom']['messages']:
-        print('Odometry pending: the VESC adapter waits for its first steering command.')
+        print('Measured odometry missing: hold still for IMU initialization and check RPM, gyro, accel and mounting TF.')
     return 0 if all(results[topic]['messages'] for topic in required) and not invalid_images else 1
 
 

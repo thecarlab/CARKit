@@ -61,4 +61,40 @@ TEST(FootprintFilter, OptionalPaddingExpandsFootprint)
   EXPECT_TRUE(std::isinf(filter_at_angle(0.0, 0.26F, 0.02)[0]));
 }
 
+TEST(FootprintFilter, OffsetLaserPreservesObstacleBehindCarAndRemovesBodyAhead)
+{
+  carkit_scan_filter::ScanProjection transform;
+  transform.x = -0.082558;
+  transform.y = -0.017229;
+  // A rear return at 0.20 m is outside the car, despite being near the laser.
+  std::vector<float> rear{0.20F};
+  carkit_scan_filter::filter_in_base_frame(rear, kPi, 0, transform, .5, .25, 0, 0, 0);
+  EXPECT_FLOAT_EQ(rear[0], 0.20F);
+  // A front return at 0.30 m is still inside the car in base coordinates.
+  std::vector<float> front{0.30F};
+  carkit_scan_filter::filter_in_base_frame(front, 0, 0, transform, .5, .25, 0, 0, 0);
+  EXPECT_TRUE(std::isinf(front[0]));
+}
+
+TEST(FootprintFilter, RotatedAndInvertedMountUsesBaseFootprint)
+{
+  // Laser +X points along base +Y; +Y points along base +X (upside-down mount).
+  carkit_scan_filter::ScanProjection transform{0, 0, 0, 1, 1, 0};
+  std::vector<float> side{.20F};
+  carkit_scan_filter::filter_in_base_frame(side, 0, 0, transform, .5, .25, 0, 0, 0);
+  EXPECT_FLOAT_EQ(side[0], .20F);
+  std::vector<float> front{.20F};
+  carkit_scan_filter::filter_in_base_frame(front, kPi/2, 0, transform, .5, .25, 0, 0, 0);
+  EXPECT_TRUE(std::isinf(front[0]));
+}
+
+TEST(FootprintFilter, RearAxleOriginAndOutsideSensorOnlyRemovePointsInsideBody)
+{
+  carkit_scan_filter::ScanProjection transform{.6, 0, -1, 0, 0, -1};
+  std::vector<float> ranges{.1F, .3F};
+  carkit_scan_filter::filter_in_base_frame(ranges, 0, 0, transform, .485, .27, .1925, 0, 0);
+  EXPECT_FLOAT_EQ(ranges[0], .1F);  // x=0.5: ahead of bumper, preserve.
+  EXPECT_TRUE(std::isinf(ranges[1]));  // x=0.3: within body.
+}
+
 }  // namespace

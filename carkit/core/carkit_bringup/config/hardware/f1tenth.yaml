@@ -1,0 +1,48 @@
+# Existing calibration / conservative limits; verify on each assembled vehicle.
+# mounts: [x, y, z, yaw, pitch, roll] in base_link; VESC camera mounts are nominal.
+max_speed: 0.8
+max_reverse_speed: 0.8
+max_steering_angle: 0.27
+footprint:
+  length: 0.485
+  width: 0.27
+  center_x: 0.1925
+  center_y: 0.0
+joystick:
+  device_id: 0
+  speed_axis: 1
+  steering_axis: 2
+  mode_toggle_button: 10
+  estop_button: 2
+  clear_estop_button: 3
+mounts:
+  laser:
+  - 0.27
+  - 0.0
+  - 0.11
+  - 0.0
+  - 0.0
+  - 0.0
+  camera_link:
+  - 0.0
+  - 0.0
+  - 0.15
+  - 0.0
+  - 0.0
+  - 0.0
+chassis: f1tenth
+wheelbase: 0.25
+driver:
+  port: /dev/sensors/vesc
+  speed_to_erpm_gain: 4614.0
+  speed_to_erpm_offset: 0.0
+  steering_angle_to_servo_gain: -1.2135
+  steering_angle_to_servo_offset: 0.44
+  servo_min: 0.1
+  servo_max: 0.9
+camera:
+  type: realsense
+lidar:
+  type: urg
+  ip_address: 192.168.0.10
+  ip_port: 10940

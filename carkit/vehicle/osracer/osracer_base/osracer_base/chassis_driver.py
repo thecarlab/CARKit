@@ -61,6 +61,9 @@ class ChassisDriver(Node):
         self.declare_parameter('legacy_status_period', 1.0)
         self.declare_parameter('legacy_stationary_speed_threshold', 0.02)
         self.declare_parameter('cmd_timeout', 0.5)
+        # Integrated driving must have exactly one command owner: the arbiter.
+        # Twist input is an explicit opt-in for standalone bench tools only.
+        self.declare_parameter('enable_cmd_vel', False)
         self.declare_parameter('reconnect_interval', 2.0)
         self.declare_parameter('firmware_version_timeout', 0.3)
         self.declare_parameter('connection_status_enabled', True)
@@ -141,7 +144,9 @@ class ChassisDriver(Node):
 
         qos_fast = QoSProfile(depth=1)
         qos_normal = QoSProfile(depth=5)
-        self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback, qos_normal)
+        self.enable_cmd_vel = self.as_bool(self.get_parameter('enable_cmd_vel').value)
+        if self.enable_cmd_vel:
+            self.create_subscription(Twist, 'cmd_vel', self.cmd_vel_callback, qos_normal)
         self.create_subscription(
             AckermannDriveStamped,
             'ackermann_cmd',
@@ -595,9 +600,14 @@ class ChassisDriver(Node):
         return False
 
     def cmd_vel_callback(self, msg):
+        if not self.enable_cmd_vel:
+            return
         binding = self.active_capability_binding()
         conn, capabilities = binding
         if conn is None:
+            return
+        if not (math.isfinite(msg.linear.x) and math.isfinite(msg.angular.z)):
+            self.send_drive_command(0.0, 0.0, expected_binding=binding)
             return
         speed = self.clamp(
             msg.linear.x,
@@ -632,6 +642,10 @@ class ChassisDriver(Node):
             conn is not expected_binding[0] or capabilities is not expected_binding[1]
         ):
             return
+        # Reject the whole command before clamping or geometry can turn NaN
+        # into a finite limit. The hardware boundary protects every caller.
+        if not (math.isfinite(speed) and math.isfinite(steering)):
+            speed, steering = 0.0, 0.0
         speed = self.clamp(
             float(speed),
             -capabilities.reverse_max_mps,
@@ -1095,7 +1109,7 @@ class ChassisDriver(Node):
 
     @staticmethod
     def clamp(value, lower, upper):
-        return max(lower, min(upper, value))
+        return max(lower, min(upper, value)) if math.isfinite(value) else 0.0
 
     @staticmethod
     def normalize_angle(angle):

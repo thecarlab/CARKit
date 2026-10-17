@@ -15,8 +15,9 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
-        (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
+        (os.path.join("share", package_name, "config"), [path for path in glob("config/*.yaml") if os.path.isfile(path)]),
         (os.path.join("share", package_name, "config", "profiles"), glob("config/profiles/*.yaml")),
+        (os.path.join("share", package_name, "config", "hardware"), glob("config/hardware/*.yaml")),
     ],
     install_requires=["setuptools", "PyYAML"],
     zip_safe=True,
@@ -24,4 +25,9 @@ setup(
     maintainer_email="ada@udel.edu",
     description="Course-profile-driven CARKit bringup",
     license="Apache-2.0",
+    entry_points={"console_scripts": [
+        "imu_rate_limit = carkit_bringup.imu_rate_limit:main",
+        "vesc_speed_control = carkit_bringup.vesc_speed_control:main",
+        "realsense_wheel_odometry = carkit_bringup.realsense_odometry:main",
+    ]},
 )

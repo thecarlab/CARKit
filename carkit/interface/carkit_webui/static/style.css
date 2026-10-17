@@ -159,7 +159,7 @@ h1, h2, p, dl, dd { margin: 0; }
 .stop-button:hover { color: #fff; background: var(--danger); border-color: var(--danger); }
 
 main { min-width: 0; min-height: 0; padding: 20px 24px; overflow: hidden; }
-#overview { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 16px; }
+#overview { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 16px; }
 .session-banner {
   display: flex;
   display: grid;
@@ -182,6 +182,7 @@ main { min-width: 0; min-height: 0; padding: 20px 24px; overflow: hidden; }
 .metric-strip div:last-child { border-right: 0; }
 .metric-strip dt { color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
 .metric-strip dd { overflow: hidden; margin-top: 4px; color: var(--ink); font-size: 15px; font-weight: 750; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.metric-strip small { margin-top: 3px; color: var(--muted); font-size: 9px; line-height: 1.3; }
 .metric-strip .control-mode-metric { padding-block: 7px; }
 .control-mode-switch { width: 100%; display: grid; grid-template-columns: 1fr 1.35fr; gap: 2px; padding: 2px; overflow: visible; background: #e8edf3; border: 1px solid #d7e0e9; border-radius: 8px; white-space: normal; }
 .control-mode-switch button { min-width: 0; min-height: 25px; padding: 0 7px; overflow: hidden; color: var(--muted); background: transparent; border: 0; border-radius: 5px; font-size: 9px; font-weight: 800; text-overflow: ellipsis; cursor: pointer; }
@@ -226,10 +227,10 @@ main { min-width: 0; min-height: 0; padding: 20px 24px; overflow: hidden; }
 .map-file-label { max-width: 150px; overflow: hidden; color: var(--muted); font: 9px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }
 #map-tool-help { color: var(--muted); font-size: 10px; text-align: right; }
 
-.right-stack { min-width: 0; min-height: 0; flex: 0 0 360px; display: flex; flex-direction: column; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 16px; overflow: hidden; }
+.right-stack { min-width: 0; min-height: 0; flex: 0 0 360px; display: flex; flex-direction: column; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; overflow: hidden; }
 .camera-panel { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 .camera-frame { position: relative; min-height: 0; height: 100%; aspect-ratio: auto; display: flex; align-items: center; justify-content: center; display: grid; place-items: center; overflow: hidden; background: #132336; border-radius: 0 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px); }
-.camera-frame img { z-index: 1; width: 100%; height: 100%; display: none; object-fit: contain; }
+.camera-frame img { position: absolute; inset: 0; min-width: 0; min-height: 0; z-index: 1; width: 100%; height: 100%; display: none; object-fit: contain; }
 .camera-frame canvas { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .empty-state { display: flex; flex-direction: column; align-items: center; max-width: 220px; padding: 24px; color: #8ea1b4; text-align: center; }
 .empty-state svg { width: 32px; height: 32px; margin-bottom: 10px; }
@@ -238,7 +239,8 @@ main { min-width: 0; min-height: 0; padding: 20px 24px; overflow: hidden; }
 .live-tag { position: absolute; z-index: 3; left: 11px; top: 11px; display: none; padding: 4px 6px; color: #fff; font-size: 8px; font-weight: 850; letter-spacing: .1em; background: var(--danger); border-radius: 4px; }
 .camera-frame.streaming .live-tag { display: block; }
 .quiet-copy { color: var(--quiet); font-size: 10px; }
-.health-list { margin: 0; padding: 5px 15px 9px; list-style: none; }
+.health-panel { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
+.health-list { overflow-y: auto; margin: 0; padding: 5px 15px 9px; list-style: none; }
 .health-list li { display: flex; display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 55px; border-bottom: 1px solid #edf1f5; }
 .health-list li:last-child { border-bottom: 0; }
 .health-list li > i { width: 8px; height: 8px; background: var(--quiet); border-radius: 50%; box-shadow: 0 0 0 3px rgba(148,163,181,.13); }
@@ -445,7 +447,7 @@ pre { min-height: 0; max-height: min(26vh, 240px); overflow: auto; margin: 0; pa
   .resource-chip dd span, .resource-chip small span { font-size: 9px; }
   #telemetry-temperature { display: none; }
   .workspace-grid { grid-template-columns: minmax(0, 1fr) minmax(290px, 340px); }
-  .right-stack { width: auto; flex: none; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+  .right-stack { width: auto; flex: none; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
   .map-stage { height: auto; }
   .compile-grid { grid-template-columns: 1fr; grid-template-rows: minmax(240px, 1fr) minmax(160px, 1fr); }
   .terminal-workspace { grid-template-columns: 210px minmax(0, 1fr); }
@@ -547,3 +549,93 @@ pre { min-height: 0; max-height: min(26vh, 240px); overflow: auto; margin: 0; pa
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
   #terminal-screen.terminal-input-ready::after { opacity: 1; animation: none; }
 }
+
+.keyboard-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+  margin: 0;
+  padding: 14px 18px;
+  border: 1px solid var(--border, #dce3e9);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+.keyboard-controls > div { display: grid; gap: 6px; }
+.keyboard-controls > div:nth-child(2) { flex: 1; }
+.keyboard-controls span, .keyboard-controls small { font-size: 12px; color: var(--muted, #526371); }
+.keyboard-controls kbd { font: inherit; font-weight: 650; border: 1px solid #cbd5df; border-bottom-width: 2px; padding: 2px 5px; border-radius: 4px; background: #f6f8fa; color: #233343; }
+
+/* Operator and emergency controls remain available outside Overview. */
+.global-control {display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:10px 20px; background:#fff; border-bottom:1px solid #dce3eb; position:sticky; top:0; z-index:30;}
+.global-control small {color:#657589; margin-left:auto;}
+.global-control .stop-button {background:#bb3038; color:white;}
+.login-panel {position:fixed; inset:0; z-index:1000; background:#102b46; display:grid; place-items:center;}
+.login-panel[hidden] {display:none;}
+.login-card {width:min(440px,90vw); padding:32px; display:grid; gap:16px;}
+.login-card input {width:100%; padding:12px; border:1px solid #a8b5c3; border-radius:6px;}
+#login-error {color:#b52730;}
+
+.global-control {z-index: 30;}
+
+/* Keep observation panels prominent; controls remain in Configure. */
+.global-control, .keyboard-controls { display: none; }
+.drawer-vehicle-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+
+#console-page { display: grid; min-height: 0; }
+#console-page .console-panel { display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.console-heading { min-height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 17px; }
+.console-heading > span { display: flex; align-items: center; gap: 10px; }
+.console-heading svg { width: 18px; height: 18px; }
+.console-heading .chevron { display: none; }
+#console-page .console-body { display: grid; grid-template-rows: 38px minmax(0, 1fr); min-height: 0; }
+#console-page #logs { height: 100%; max-height: none; min-height: 0; overflow: auto; margin: 0; }
+
+/* Calibration status is text-labelled as well as coloured. */
+.calibration-button { white-space: nowrap; border: 1px solid; }
+.calibration-button i, .calibration-state > i { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: currentColor; }
+.calibration-button.needs-calibration, .calibration-state.needs-calibration { color: #a32832; background: var(--danger-soft); border-color: #ecc4c8; }
+.calibration-button.good, .calibration-state.good { color: #116c49; background: var(--success-soft); border-color: #b9deca; }
+.calibration-button.running, .calibration-state.running { color: #895b09; background: var(--yellow-soft); border-color: #ead29b; }
+.calibration-dialog { width: min(760px, calc(100vw - 28px)); max-height: calc(100dvh - 32px); padding: 0; margin: auto; border: 1px solid var(--border); border-radius: 16px; color: var(--ink); box-shadow: 0 24px 90px #10233f40; overflow: hidden; }
+.calibration-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+.calibration-dialog::backdrop { background: #10233f88; backdrop-filter: blur(3px); }
+.calibration-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.calibration-header h2 { margin: 5px 0 0; font-size: 22px; }
+.calibration-body { overflow: auto; padding: 20px 24px; }
+.calibration-state { display: flex; align-items: center; gap: 13px; padding: 13px 16px; border: 1px solid; border-radius: 10px; }
+.calibration-state p { margin: 3px 0 0; font-size: 12px; }
+.calibration-intro, .calibration-note { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.calibration-stages { list-style: none; counter-reset: calibration-stage; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0; padding: 0; }
+.calibration-stages li { counter-increment: calibration-stage; padding: 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; font-size: 11px; font-weight: 650; }
+.calibration-stages li::before { content: counter(calibration-stage); display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; margin-right: 6px; color: var(--muted); background: #e8edf2; }
+.calibration-stages li.current { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
+.calibration-stages li.complete::before { content: '✓'; background: var(--success-soft); color: var(--success); }
+.calibration-section { margin-top: 16px; }
+.calibration-section h3 { margin: 16px 0 10px; font-size: 14px; }
+.calibration-setup-row { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: center; }
+.calibration-setup-row p { margin: 0; font-size: 12px; color: var(--muted); }
+.calibration-area { padding: 13px 16px; margin-top: 14px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); }
+.calibration-area p { margin: 5px 0 0; font-size: 12px; color: var(--ink-2); }
+.calibration-confirm { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; font-size: 12px; line-height: 1.6; }
+.calibration-confirm input { margin-top: 3px; width: 17px; height: 17px; flex-shrink: 0; }
+.calibration-progress { display: grid; gap: 9px; padding: 15px 0; }
+.calibration-progress progress { width: 100%; accent-color: var(--blue); }
+.calibration-progress small, #calibration-live-values { color: var(--muted); }
+.calibration-table-wrap { overflow-x: auto; }
+.calibration-table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.calibration-table-wrap th, .calibration-table-wrap td { text-align: right; padding: 9px; border-bottom: 1px solid var(--border); }
+.calibration-table-wrap th:first-child, .calibration-table-wrap td:first-child { text-align: left; }
+.calibration-table-wrap th { color: var(--muted); font-weight: 600; }
+.calibration-fit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.calibration-fit > div { background: var(--surface-2); padding: 12px; border-radius: 8px; }
+.calibration-fit dt { font-size: 11px; color: var(--muted); }
+.calibration-fit dd { margin: 5px 0 0; font-size: 13px; font-weight: 650; }
+.calibration-message { margin: 16px 0 0; font-size: 12px; color: var(--ink-2); }
+.calibration-message.error { color: var(--danger); }
+.calibration-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; background: var(--surface-2); border-top: 1px solid var(--border); }
+.calibration-footer > div { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.calibration-dialog [hidden] { display: none !important; }
+@media (max-width: 1500px) and (min-width: 821px) { .topbar .page-title { display: none; } .topbar { gap: 10px; } .telemetry-chip { padding-inline: 8px; } }
+@media (max-width: 1320px) { .topbar-actions .connection { font-size: 0; padding: 9px; gap: 0; } }
+@media (max-width: 620px) { .calibration-stages { grid-template-columns: repeat(2, 1fr); } .calibration-setup-row { grid-template-columns: 1fr; gap: 8px; } .calibration-header, .calibration-body { padding: 15px; } .calibration-footer { padding: 12px 15px; } .calibration-fit { grid-template-columns: 1fr; } .topbar-actions { gap: 5px; } .calibration-button { padding-inline: 8px; } }

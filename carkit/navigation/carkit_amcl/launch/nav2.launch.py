@@ -21,6 +21,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 from nav2_common.launch import RewrittenYaml
 
@@ -52,6 +53,9 @@ def generate_launch_description():
         param_rewrites={
             'default_nav_to_pose_bt_xml': bt_xml_nav_to_pose,
             'default_nav_through_poses_bt_xml': bt_xml_nav_through_poses,
+            'desired_linear_vel': LaunchConfiguration('desired_linear_vel'),
+            'minimum_turning_radius': LaunchConfiguration('minimum_turning_radius'),
+            'footprint': LaunchConfiguration('footprint'),
         },
         convert_types=True,
     )
@@ -82,18 +86,18 @@ def generate_launch_description():
         parameters=[{
             'cmd_vel_topic': '/cmd_vel',
             'ackermann_topic': '/drive',
-            # Keep these aligned with the legacy OSRacer capability contract.
-            'wheelbase': 0.325,
-            'max_speed': 0.8,
-            'max_reverse_speed': 0.0,
-            'max_steering_angle': 0.34,
+            # Supplied by the selected hardware profile in integrated bringup.
+            'wheelbase': ParameterValue(LaunchConfiguration('wheelbase'), value_type=float),
+            'max_speed': ParameterValue(LaunchConfiguration('max_speed'), value_type=float),
+            'max_reverse_speed': ParameterValue(LaunchConfiguration('max_reverse_speed'), value_type=float),
+            'max_steering_angle': ParameterValue(LaunchConfiguration('max_steering_angle'), value_type=float),
             'min_speed_for_steering': 0.05,
         }],
         condition=IfCondition(start_cmd_bridge),
     )
 
     command_mux = Node(
-        package='osracer_bringup',
+        package='carkit_human_control',
         executable='command_relay',
         name='osracer_nav_command_relay',
         output='screen',
@@ -112,6 +116,13 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        DeclareLaunchArgument('wheelbase', default_value='0.325'),
+        DeclareLaunchArgument('max_speed', default_value='0.8'),
+        DeclareLaunchArgument('max_reverse_speed', default_value='0.0'),
+        DeclareLaunchArgument('max_steering_angle', default_value='0.34'),
+        DeclareLaunchArgument('desired_linear_vel', default_value='0.75'),
+        DeclareLaunchArgument('minimum_turning_radius', default_value='0.92'),
+        DeclareLaunchArgument('footprint', default_value='[[0.435, 0.135], [0.435, -0.135], [-0.05, -0.135], [-0.05, 0.135]]'),
         DeclareLaunchArgument(
             'map',
             default_value='/workspaces/CARKit/map/map_3f.yaml',

@@ -307,6 +307,7 @@ def _driver_shell():
     driver.capability_conn = None
     driver.connection_status_enabled = True
     driver.protocol_mode = 'modern'
+    driver.enable_cmd_vel = True  # Explicit standalone Twist mode for mapping tests.
     driver.remote_control_active = None
     driver.publish_rc_enabled = True
     driver.publish_mag_enabled = True
@@ -1451,6 +1452,32 @@ class ControlMappingTests(unittest.TestCase):
         self.driver.get_clock = lambda: self.driver.clock
         self.driver.last_cmd_time = _TimePoint(0)
         self.driver.write_raw = mock.Mock(return_value=True)
+
+    def test_integrated_mode_rejects_direct_twist(self):
+        self.driver.enable_cmd_vel = False
+        message = DRIVER.Twist()
+        message.linear.x = 0.6
+        self.driver.cmd_vel_callback(message)
+        self.driver.write_raw.assert_not_called()
+
+    def test_nonfinite_ackermann_commands_stop_both_axes(self):
+        for value in (math.nan, math.inf, -math.inf):
+            for speed, steering in ((value, 0.1), (0.3, value)):
+                with self.subTest(speed=speed, steering=steering):
+                    self.driver.write_raw.reset_mock()
+                    self.driver.send_drive_command(speed, steering)
+                    self.driver.write_raw.assert_called_once_with(
+                        'v 0.000 0.00\n', expected_conn=self.serial_conn)
+
+    def test_nonfinite_twist_commands_stop_both_axes(self):
+        for value in (math.nan, math.inf, -math.inf):
+            for speed, yaw_rate in ((value, 0.1), (0.3, value)):
+                message = DRIVER.Twist()
+                message.linear.x, message.angular.z = speed, yaw_rate
+                self.driver.write_raw.reset_mock()
+                self.driver.cmd_vel_callback(message)
+                self.driver.write_raw.assert_called_once_with(
+                    'v 0.000 0.00\n', expected_conn=self.serial_conn)
 
     def test_ackermann_drive_matches_accepted_serial_mapping(self):
         message = DRIVER.AckermannDriveStamped()

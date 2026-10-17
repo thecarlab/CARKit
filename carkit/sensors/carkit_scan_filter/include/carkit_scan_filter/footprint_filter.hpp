@@ -10,6 +10,37 @@
 namespace carkit_scan_filter
 {
 
+/// XY projection of the complete laser-to-base rotation and translation.
+/// Keeping the four matrix entries also handles inverted/tilted laser mounts.
+struct ScanProjection
+{
+  double x{0.0}, y{0.0};
+  double xx{1.0}, xy{0.0}, yx{0.0}, yy{1.0};
+};
+
+inline std::size_t filter_in_base_frame(
+  std::vector<float> & ranges, double angle_min, double angle_increment,
+  const ScanProjection & transform, double length, double width,
+  double center_x, double center_y, double padding)
+{
+  std::size_t removed = 0;
+  for (std::size_t i = 0; i < ranges.size(); ++i) {
+    const double distance = ranges[i];
+    if (!std::isfinite(distance) || distance < 0.0) {continue;}
+    const double angle = angle_min + i * angle_increment;
+    const double lx = distance * std::cos(angle), ly = distance * std::sin(angle);
+    const double x = transform.x + transform.xx * lx + transform.xy * ly;
+    const double y = transform.y + transform.yx * lx + transform.yy * ly;
+    if (std::abs(x - center_x) <= length * 0.5 + padding &&
+      std::abs(y - center_y) <= width * 0.5 + padding)
+    {
+      ranges[i] = std::numeric_limits<float>::infinity();
+      ++removed;
+    }
+  }
+  return removed;
+}
+
 /// Compute the ray-to-rectangle intersection distance for every laser bearing.
 /// A return value is the distance at which that ray exits the padded vehicle footprint.
 inline std::vector<float> footprint_range_limits(

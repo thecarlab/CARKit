@@ -28,7 +28,7 @@
   <exec_depend>nav2_map_server</exec_depend>
   <exec_depend>nav2_regulated_pure_pursuit_controller</exec_depend>
   <exec_depend>nav2_smac_planner</exec_depend>
-  <exec_depend>osracer_bringup</exec_depend>
+  <exec_depend>carkit_human_control</exec_depend>
   <exec_depend>carkit_slam</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>

@@ -37,7 +37,11 @@ def main() -> None:
     )
     parser.add_argument("--name", default="yolo11n_fp16.engine")
     parser.add_argument("--image-size", default=448, type=int)
+    parser.add_argument("--workspace-gib", default=1.0, type=float,
+                        help="TensorRT tactic workspace limit in GiB.")
     args = parser.parse_args()
+    if args.workspace_gib <= 0:
+        parser.error("--workspace-gib must be positive")
 
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required to export the FP16 TensorRT engine")
@@ -54,6 +58,7 @@ def main() -> None:
             dynamic=False,
             device=0,
             simplify=False,
+            workspace=args.workspace_gib,
         )
     )
     engine_path = args.output_dir / args.name
@@ -71,6 +76,10 @@ def main() -> None:
         "dynamic": False,
         "platform": platform.platform(),
         "machine": platform.machine(),
+        "gpu_name": torch.cuda.get_device_name(0),
+        "gpu_compute_capability": list(torch.cuda.get_device_capability(0)),
+        "gpu_memory_bytes": torch.cuda.get_device_properties(0).total_memory,
+        "workspace_gib": args.workspace_gib,
         "versions": {
             "cuda": torch.version.cuda,
             "pytorch": torch.__version__,

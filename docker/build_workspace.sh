@@ -94,8 +94,7 @@ if [ "${CARKIT_CHASSIS}" = "vesc_rplidar" ]; then
   # Ignore these packages at discovery, not merely at build selection. Shared
   # legacy manifests name osracer_bringup as an optional runtime dependency;
   # --packages-skip still makes colcon require its missing install/package.sh.
-  COLCON_DISCOVERY_ARGS=(--packages-ignore "${OSRACER_PACKAGES[@]}" carkit_human_control)
-  INACTIVE_PACKAGES+=(carkit_human_control)
+  COLCON_DISCOVERY_ARGS=(--packages-ignore "${OSRACER_PACKAGES[@]}")
   for vendor in carkit/vendor/ada_system carkit/vehicle/f1tenth_system; do
     if [ -d "${vendor}" ]; then touch "${vendor}/COLCON_IGNORE"; fi
   done
@@ -265,7 +264,7 @@ fi
 
 # The bridge discovers VESC telemetry optionally at CMake configure time.
 # Install these messages first on this profile so a clean build includes it.
-if [ "${CARKIT_CHASSIS}" = "vesc_rplidar" ]; then
+if [ "${CARKIT_CHASSIS}" = "vesc_rplidar" ] || [ "${CARKIT_CHASSIS}" = "f1tenth" ]; then
   colcon build --symlink-install --packages-up-to vesc_msgs \
     "${COLCON_DISCOVERY_ARGS[@]}" \
     --executor sequential --cmake-args "${COLCON_CMAKE_ARGS[@]}"

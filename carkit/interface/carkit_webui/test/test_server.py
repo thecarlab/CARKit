@@ -1,5 +1,6 @@
 from html.parser import HTMLParser
 import base64
+import json
 from pathlib import Path
 import re
 import tempfile
@@ -37,6 +38,64 @@ class _IdCollector(HTMLParser):
 
 
 class TestServer(unittest.TestCase):
+    def test_launch_defaults_to_keyboard_and_allows_explicit_joystick(self):
+        for chassis in CHASSIS:
+            for manual_input in (None, 'joystick'):
+                with self.subTest(chassis=chassis, manual_input=manual_input), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    (root / '.carkit').mkdir()
+                    (root / '.carkit/config.json').write_text(json.dumps({'chassis': chassis}))
+                    (root / 'map').mkdir()
+                    map_path = root / 'map/test.yaml'
+                    map_path.write_text('image: test.pgm\n')
+                    manager = ProcessManager(root)
+                    manager._spawn = Mock(return_value=Mock())
+                    request = {'chassis': chassis, 'map': str(map_path)}
+                    if manual_input:
+                        request['manual_input'] = manual_input
+                    manager.launch(request)
+                    command = manager._spawn.call_args[0][0][-1]
+                    self.assertIn(f'manual_input:={manual_input or "keyboard"}', command)
+                    self.assertEqual(manager.current_config['manual_input'], manual_input or 'keyboard')
+
+    def test_map_only_apply_preserves_process_and_failed_reload_preserves_config(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / '.carkit').mkdir()
+            (root / '.carkit/config.json').write_text(json.dumps({'chassis': 'vesc_rplidar'}))
+            (root / 'map').mkdir()
+            for name in ('one', 'two'):
+                (root / f'map/{name}.yaml').write_text('image: test.pgm\n')
+            manager = ProcessManager(root)
+            process = Mock()
+            process.poll.return_value = None
+            manager._spawn = Mock(return_value=process)
+            manager.stop = Mock()
+            request = {'chassis': 'vesc_rplidar', 'map': str(root / 'map/one.yaml')}
+            manager.launch(request)
+            manager.stop.reset_mock()
+            manager._spawn.reset_mock()
+            manager._reload_map = Mock(side_effect=RuntimeError('map rejected'))
+            changed = {**request, 'map': str(root / 'map/two.yaml')}
+            with self.assertRaisesRegex(RuntimeError, 'map rejected'):
+                manager.launch(changed)
+            self.assertEqual(manager.current_config['map'], request['map'])
+            manager._reload_map.side_effect = None
+            self.assertEqual(manager.launch(changed), {'action': 'map_reloaded'})
+            self.assertIs(manager.process, process)
+            self.assertEqual(manager.current_config['map'], changed['map'])
+            manager.stop.assert_not_called()
+            manager._spawn.assert_not_called()
+            self.assertEqual(manager.launch(changed), {'action': 'unchanged'})
+            manager.launch({**changed, 'manual_input': 'joystick'})
+            manager.stop.assert_called_once()
+            manager._spawn.assert_called_once()
+
+    def test_invalid_manual_input_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(ValueError, 'invalid manual input'):
+                ProcessManager(Path(directory)).launch({'manual_input': 'arbitrary'})
+
     def test_lipo_estimate_handles_common_three_and_four_cell_packs(self):
         self.assertEqual(estimate_lipo_percentage(10.8), 0.0)
         self.assertAlmostEqual(estimate_lipo_percentage(12.6), 1.0)
@@ -139,6 +198,7 @@ class TestServer(unittest.TestCase):
         reference_control = resolve_build_packages(
             "control", {"control": "reference"}
         )
+        self.assertIn("carkit_vehicle_runtime", reference_control)
         self.assertIn("carkit_control_center", reference_control)
         self.assertIn("carkit_amcl", reference_control)
         self.assertFalse(any("intro2av" in name for name in reference_control))
@@ -148,7 +208,7 @@ class TestServer(unittest.TestCase):
             resolve_build_packages(
                 "localization", {"localization": "invalid"}
             ),
-            ["carkit_amcl", "carkit_slam"],
+            ["carkit_amcl", "carkit_slam", "carkit_vehicle_runtime", "carkit_bringup"],
         )
 
     def test_invalid_compile_implementation_is_rejected(self):

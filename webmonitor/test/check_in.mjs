@@ -28,3 +28,16 @@ const unauthenticated = await worker.fetch(new Request('https://monitor.example/
 }), env);
 assert.equal(unauthenticated.status, 401, 'Reject unauthenticated requests before parsing the body');
 console.log('Shared fleet and vehicle-scoped credential checks passed.');
+const now = Date.now();
+const originalNow = Date.now;
+Date.now = () => now;
+try {
+  const rows = [119999,120000,120001].map((age,i)=>({vehicle_id:`ADA${i+1}`,ip_address:'127.0.0.1',webui_port:8080,last_seen:now-age}));
+  const db={prepare:()=>({run:async()=>{},all:async()=>({results:rows})})};
+  const response=await worker.fetch(new Request('https://monitor.example/api/vehicles'),{DB:db});
+  const data=await response.json();
+  assert.equal(data.online_window_ms,120000);
+  assert.deepEqual(data.vehicles.map(v=>v.online),[true,true,false]);
+  assert.deepEqual(data.vehicles.map(v=>v.status),["online","online","offline"]);
+  console.log('2-minute boundary passed: exactly 2 minutes online; older offline.');
+} finally {Date.now=originalNow;}

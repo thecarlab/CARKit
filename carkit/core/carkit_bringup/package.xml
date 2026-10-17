@@ -10,6 +10,8 @@
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>carkit_ada_academy</exec_depend>
   <exec_depend>carkit_control_center</exec_depend>
+  <exec_depend>carkit_human_control</exec_depend>
+  <exec_depend>carkit_amcl</exec_depend>
   <exec_depend>carkit_intro2av</exec_depend>
   <exec_depend>carkit_intro2av_cpp</exec_depend>
   <exec_depend>carkit_scan_filter</exec_depend>
@@ -17,6 +19,14 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>carkit_vehicle_runtime</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>ackermann_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <!-- VESC messages and RealSense are optional, installed by the selected
+       chassis adapter in docker/build_workspace.sh; OSRacer does not need them. -->
   <test_depend>python3-pytest</test_depend>
   <export><build_type>ament_python</build_type></export>
 </package>

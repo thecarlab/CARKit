@@ -17,52 +17,24 @@ driver, odometry, IMU, battery state, LakiBeam lidar, UVC camera, and
 CARKit-compatible command routing. F1TENTH sources are fetched only when that
 adapter is installed.
 
-Manual driving and mapping use the OSRacer command relay directly.
-Autonomous driving uses `carkit_control_center` as the final `/ackermann_cmd`
-publisher.
-
-## Launch
-
-For manual driving, mapping, and vehicle checks:
+All integrated driving uses the shared arbiter, including manual-only sessions.
+Keyboard control in the WebUI is the default: hold WASD to drive, Caps Lock to
+toggle autonomy, and Space to stop. Joystick input is optional with
+`manual_input:=joystick`.
 
 ```bash
-ros2 launch carkit_human_control joystick.launch.py
-ros2 launch osracer_bringup sensors_launch.py
+ros2 launch carkit_bringup carkit.launch.py chassis:=osracer
+ros2 launch carkit_bringup carkit.launch.py chassis:=f1tenth
+ros2 launch carkit_bringup carkit.launch.py chassis:=vesc_rplidar
 ```
 
-For autonomous driving, remap the manual OSRacer relay away from `/ackermann_cmd`
-and start the control center in another terminal:
+Run only one selected adapter at a time. VESC drivers are launched explicitly;
+the vendor joystick/multiplexer launch is not included. OSRacer defaults to
+Ackermann-only input, so Nav2's `/cmd_vel` cannot bypass the arbiter.
 
-```bash
-ros2 launch carkit_human_control joystick.launch.py \
-  vehicle_command_topic:=/manual_command_unused
-```
-
-```bash
-ros2 launch carkit_control_center control_center.launch.py
-```
-
-## Topic Flow
-
-```text
-joystick -> /joy -> osracer joystick teleop -> /teleop
-/teleop -> osracer command relay -> /ackermann_cmd # manual/mapping
-/teleop + /drive + /behavior/* + /joy -> carkit_control_center -> /ackermann_cmd
-/ackermann_cmd -> osracer_base -> chassis
-chassis feedback -> osracer_base -> /odom + /imu/data + /battery_state
-```
-
-The control-center path is for autonomous driving. Direct human control keeps
-the default `vehicle_command_topic:=/ackermann_cmd`.
-
-## Configuration
-
-- Joystick config:
-  `carkit/vehicle/osracer/osracer_bringup/config/joy_teleop.yaml`
-- Chassis driver:
-  `carkit/vehicle/osracer/osracer_base/osracer_base/chassis_driver.py`
-- Udev rule:
-  `carkit/vehicle/osracer/osracer_base/udev/99-osrbot-osracer.rules`
-
-See [../control/README.md](../control/README.md) for control-center states and
-the autonomous command workflow.
+Geometry, devices, sensor mounting transforms and calibrated VESC conversion
+values are in `carkit/core/carkit_bringup/config/hardware/*.yaml`. These feed
+navigation, student control geometry, scan filtering and command limits together.
+The RPLidar profile's former `config/vesc_rplidar.yaml` was replaced by the hardware
+profile. See [hardware profiles](../../docs/hardware_profiles.md) for customization,
+calibration boundaries and regression checks.

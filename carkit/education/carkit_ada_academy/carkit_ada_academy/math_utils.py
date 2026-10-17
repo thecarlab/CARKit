@@ -28,6 +28,7 @@ def pure_pursuit_command(
     lookahead=0.55,
     wheelbase=0.325,
     speed=0.45,
+    max_steering_angle=0.34,
 ):
     """Return a stable pure-pursuit command for the unconsumed path ahead."""
     if not path:
@@ -72,7 +73,7 @@ def pure_pursuit_command(
 
     # Reduce speed in tight turns to avoid lateral slip.
     commanded_speed *= max(0.55, 1.0 - abs(steering) / 0.68)
-    return commanded_speed, clamp(steering, -0.34, 0.34)
+    return commanded_speed, clamp(steering, -max_steering_angle, max_steering_angle)
 
 
 def keep_detection(class_name, confidence, minimum_confidence=0.35):

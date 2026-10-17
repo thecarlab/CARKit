@@ -11,7 +11,12 @@
   <depend>launch</depend>
   <depend>launch_ros</depend>
 
-  <exec_depend>osracer_bringup</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>ackermann_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>joy</exec_depend>
+  <test_depend>python3-pytest</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

@@ -13,6 +13,9 @@
 // limitations under the License.
 
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <sstream>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -20,6 +23,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -32,6 +36,7 @@
 #include <ackermann_msgs/msg/ackermann_drive_stamped.hpp>
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
 #include <boost/beast/websocket.hpp>
 #include <carkit_perception_msgs/msg/yolo_detection2_d_array.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -45,6 +50,7 @@
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <std_msgs/msg/int8.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <std_msgs/msg/string.hpp>
 
 #ifdef CARKIT_HAS_VESC_MSGS
@@ -65,7 +71,7 @@ using SteadyClock = std::chrono::steady_clock;
 constexpr std::size_t kMaximumQueueDepth = 32;
 
 const std::unordered_set<std::string> kAllowedSubscriptions = {
-  "/map", "/scan", "/plan", "/odom", "/amcl_pose", "/control_center/main_state",
+  "/carkit/hardware", "/map", "/scan", "/plan", "/odom", "/amcl_pose", "/control_center/main_state",
   "/ackermann_cmd", "/camera/camera/color/image_raw/compressed",
   "/yolo/detections_2d", "/battery_state", "/sensors/core",
 };
@@ -190,6 +196,19 @@ public:
   : socket_(std::move(socket)), server_(server) {}
 
   void start();
+  void event(const Json & message) {
+    const std::string key = "/carkit/session/" + message.value("kind", "event");
+    subscriptions_[key] = Subscription{std::chrono::milliseconds(0), std::nullopt};
+    const auto bytes = Json::to_cbor(Json{{"op", "publish"}, {"topic", "/carkit/session"}, {"msg", message}});
+    deliver(key, std::make_shared<const std::vector<std::uint8_t>>(bytes));
+  }
+  bool authenticated() const {return authenticated_;}
+  const auto & subscriptions() const {return subscriptions_;}
+  bool ready(const std::string & topic) const {
+    const auto it = subscriptions_.find(topic);
+    return it != subscriptions_.end() && (!it->second.last_sent ||
+      SteadyClock::now() - *it->second.last_sent >= it->second.throttle);
+  }
   void deliver(
     const std::string & topic,
     const std::shared_ptr<const std::vector<std::uint8_t>> & data);
@@ -205,6 +224,8 @@ private:
   websocket::stream<tcp::socket> socket_;
   WebSocketServer & server_;
   beast::flat_buffer input_;
+  beast::http::request<beast::http::string_body> handshake_;
+  bool authenticated_{false};
   std::unordered_map<std::string, Subscription> subscriptions_;
   std::deque<OutgoingMessage> output_;
   bool writing_{false};
@@ -220,13 +241,15 @@ public:
     std::string address, std::uint16_t port, std::size_t maximum_clients,
     PublishHandler publish_handler)
   : acceptor_(context_), maximum_clients_(maximum_clients),
-    publish_handler_(std::move(publish_handler))
+    publish_handler_(std::move(publish_handler)), lease_timer_(context_)
   {
     const tcp::endpoint endpoint(net::ip::make_address(address), port);
     acceptor_.open(endpoint.protocol());
     acceptor_.set_option(net::socket_base::reuse_address(true));
     acceptor_.bind(endpoint);
     acceptor_.listen(net::socket_base::max_listen_connections);
+    const char * token = std::getenv("CARKIT_CONTROL_TOKEN");
+    token_ = token ? token : "";
   }
 
   ~WebSocketServer()
@@ -237,6 +260,7 @@ public:
   void start()
   {
     accept();
+    check_lease();
     thread_ = std::thread([this]() {context_.run();});
   }
 
@@ -261,22 +285,42 @@ public:
     return client_count_.load() != 0U;
   }
 
-  void broadcast(const std::string & topic, const Json & message, bool retain = false)
-  {
-    if (!retain && !has_clients()) {
-      return;
+  bool has_interest(const std::string & topic) const {
+    std::lock_guard<std::mutex> lock(interest_mutex_);
+    return interested_topics_.count(topic) != 0U;
+  }
+
+  // Called only on the network executor; readers on the ROS executor see a snapshot.
+  void refresh_interest() {
+    std::unordered_set<std::string> topics;
+    for (const auto & session : sessions_) {
+      if (!session->authenticated()) {continue;}
+      for (const auto & entry : session->subscriptions()) {topics.insert(entry.first);}
     }
-    Json packet = {{"op", "publish"}, {"topic", topic}, {"msg", message}};
-    auto encoded = std::make_shared<const std::vector<std::uint8_t>>(Json::to_cbor(packet));
-    net::post(
-      context_, [this, topic, encoded, retain]() {
-        if (retain) {
-          retained_[topic] = encoded;
-        }
-        for (const auto & session : sessions_) {
-          session->deliver(topic, encoded);
-        }
+    std::lock_guard<std::mutex> lock(interest_mutex_);
+    interested_topics_ = std::move(topics);
+  }
+
+  void broadcast_lazy(const std::string & topic, std::function<Json()> make_message, bool retain = false)
+  {
+    if (!retain && !has_interest(topic)) {return;}
+    net::post(context_, [this, topic, make_message = std::move(make_message), retain]() {
+      // Reject unrequested/throttled samples before JSON construction and CBOR encoding.
+      const bool due = std::any_of(sessions_.begin(), sessions_.end(), [&topic](const auto & session) {
+        return session->authenticated() && session->ready(topic);
       });
+      if (!retain && !due) {return;}
+      const Json packet = {{"op", "publish"}, {"topic", topic}, {"msg", make_message()}};
+      auto encoded = std::make_shared<const std::vector<std::uint8_t>>(Json::to_cbor(packet));
+      if (retain) {retained_[topic] = encoded;}
+      for (const auto & session : sessions_) {
+        if (session->authenticated()) {session->deliver(topic, encoded);}
+      }
+    });
+  }
+
+  void broadcast(const std::string & topic, const Json & message, bool retain = false) {
+    broadcast_lazy(topic, [message]() {return message;}, retain);
   }
 
   void replay(
@@ -297,7 +341,11 @@ public:
 
   void leave(const std::shared_ptr<WebSocketSession> & session)
   {
+    if (operator_owner_.lock() == session) {
+      release_operator();
+    }
     sessions_.erase(session);
+    refresh_interest();
     client_count_.store(sessions_.size());
   }
 
@@ -306,12 +354,94 @@ public:
     return sessions_.size() >= maximum_clients_;
   }
 
-  void publish_from_browser(const std::string & topic, const Json & message) const
+  bool operator_available() {expire_operator(); return operator_owner_.expired();}
+
+  bool authenticate(const std::string & candidate) const {
+    if (token_.size() < 32 || candidate.size() != token_.size()) {return false;}
+    unsigned difference = 0;
+    for (size_t i = 0; i < token_.size(); ++i) {difference |= candidate[i] ^ token_[i];}
+    return difference == 0;
+  }
+
+  bool valid_origin(const std::string & origin, const std::string & host) const {
+    if (origin.empty()) {return true;}  // CLI clients must still authenticate.
+    const char * configured = std::getenv("CARKIT_ALLOWED_ORIGINS");
+    std::istringstream origins(configured ? configured : "");
+    for (std::string item; std::getline(origins, item, ',');) {
+      if (!item.empty() && item == origin) {return true;}
+    }
+    const auto colon = host.rfind(':');
+    const auto hostname = colon == std::string::npos ? host : host.substr(0, colon);
+    const char * port = std::getenv("CARKIT_WEBUI_PORT");
+    return origin == "http://" + hostname + ":" + (port ? port : "8080") ||
+           origin == "https://" + hostname;
+  }
+
+  void operator_request(const std::string & operation,
+    const std::shared_ptr<WebSocketSession> & session)
   {
+    expire_operator();
+    const auto owner = operator_owner_.lock();
+    if (operation == "claim_control" && (!owner || owner == session)) {
+      operator_owner_ = session;
+      operator_received_ = SteadyClock::now();
+    } else if (operation == "control_heartbeat" && owner == session) {
+      operator_received_ = SteadyClock::now();
+    } else if (operation == "release_control" && owner == session) {
+      release_operator();
+    }
+    notify_ownership();
+  }
+
+  void publish_from_browser(
+    const std::string & topic, const Json & message,
+    const std::shared_ptr<WebSocketSession> & session)
+  {
+    expire_operator();
+    const bool emergency_stop = topic == "/control_center/emergency_stop" &&
+      message.value("data", false);
+    const bool allowed_topic = topic == "/teleop" || topic == "/enable_autonomous_control" ||
+      topic == "/goal_pose" || topic == "/initialpose" || topic == "/control_center/emergency_stop";
+    const bool accepted = allowed_topic && (emergency_stop || topic == "/initialpose" || operator_owner_.lock() == session);
+    if (!accepted) {
+      session->event({{"kind", "command"}, {"topic", topic}, {"accepted", false},
+        {"reason", "Take control before sending this command"}});
+      return;
+    }
+    if (topic == "/teleop") {
+      const auto drive = message.at("drive");
+      if (!std::isfinite(drive.at("speed").get<double>()) ||
+          !std::isfinite(drive.at("steering_angle").get<double>())) {return;}
+    }
     publish_handler_(topic, message);
+    session->event({{"kind", "command"}, {"topic", topic}, {"accepted", true}});
   }
 
 private:
+  void notify_ownership() {
+    const auto owner = operator_owner_.lock();
+    for (const auto & session : sessions_) {
+      if (session->authenticated()) {
+        session->event({{"kind", "ownership"}, {"operator", owner == session},
+          {"available", !owner}});
+      }
+    }
+  }
+  void release_operator() {
+    publish_handler_("/teleop", {{"drive", {{"speed", 0.0}, {"steering_angle", 0.0}}}});
+    operator_owner_.reset();
+    notify_ownership();
+  }
+  void expire_operator() {
+    if (!operator_owner_.expired() &&
+      SteadyClock::now() - operator_received_ > std::chrono::seconds(3)) {release_operator();}
+  }
+  void check_lease() {
+    lease_timer_.expires_after(std::chrono::milliseconds(250));
+    lease_timer_.async_wait([this](beast::error_code error) {
+      if (!error && !stopped_.load()) {expire_operator(); check_lease();}
+    });
+  }
   void accept()
   {
     acceptor_.async_accept(
@@ -338,9 +468,15 @@ private:
     std::string, std::shared_ptr<const std::vector<std::uint8_t>>> retained_;
   const std::size_t maximum_clients_;
   PublishHandler publish_handler_;
+  std::string token_;
+  net::steady_timer lease_timer_;
+  std::weak_ptr<WebSocketSession> operator_owner_;
+  SteadyClock::time_point operator_received_{};
   std::atomic<std::size_t> client_count_{0};
   std::atomic<bool> stopped_{false};
   std::thread thread_;
+  mutable std::mutex interest_mutex_;
+  std::unordered_set<std::string> interested_topics_;
 };
 
 void WebSocketSession::start()
@@ -351,13 +487,19 @@ void WebSocketSession::start()
       [](websocket::response_type & response) {
         response.set(beast::http::field::server, "carkit-web-bridge");
       }));
-  socket_.async_accept(
-    [self = shared_from_this()](beast::error_code error) {
-      if (error) {
-        return;
+  socket_.read_message_max(64 * 1024);
+  beast::http::async_read(socket_.next_layer(), input_, handshake_,
+    [self = shared_from_this()](beast::error_code error, std::size_t) {
+      if (error || !self->server_.valid_origin(
+        self->handshake_[beast::http::field::origin].to_string(),
+        self->handshake_[beast::http::field::host].to_string())) {
+        self->close(); return;
       }
-      self->server_.join(self);
-      self->read();
+      self->socket_.async_accept(self->handshake_, [self](beast::error_code accept_error) {
+        if (accept_error) {return;}
+        self->server_.join(self);
+        self->read();
+      });
     });
 }
 
@@ -390,6 +532,21 @@ void WebSocketSession::on_read(beast::error_code error, std::size_t)
 void WebSocketSession::handle_request(const Json & request)
 {
   const auto operation = request.value("op", "");
+  if (operation == "authenticate") {
+    authenticated_ = server_.authenticate(request.value("token", ""));
+    server_.refresh_interest();
+    event({{"kind", "authentication"}, {"authenticated", authenticated_},
+      {"available", server_.operator_available()}});
+    if (!authenticated_) {server_.operator_request("release_control", shared_from_this());}
+    return;
+  }
+  if (!authenticated_) {
+    event({{"kind", "authentication"}, {"authenticated", false}});
+    return;
+  }
+  if (operation == "claim_control" || operation == "release_control" || operation == "control_heartbeat") {
+    server_.operator_request(operation, shared_from_this()); return;
+  }
   const auto topic = request.value("topic", "");
   if (operation == "subscribe") {
     if (kAllowedSubscriptions.count(topic) == 0U) {
@@ -397,11 +554,13 @@ void WebSocketSession::handle_request(const Json & request)
     }
     const auto milliseconds = std::max(0, request.value("throttle_rate", 0));
     subscriptions_[topic] = Subscription{std::chrono::milliseconds(milliseconds), std::nullopt};
+    server_.refresh_interest();
     server_.replay(topic, shared_from_this());
   } else if (operation == "unsubscribe") {
     subscriptions_.erase(topic);
+    server_.refresh_interest();
   } else if (operation == "publish" && request.contains("msg")) {
-    server_.publish_from_browser(topic, request.at("msg"));
+    server_.publish_from_browser(topic, request.at("msg"), shared_from_this());
   }
   // "advertise" is intentionally accepted as a no-op for rosbridge client compatibility.
 }
@@ -488,15 +647,27 @@ public:
   BridgeNode()
   : Node("carkit_web_bridge")
   {
-    const auto address = declare_parameter<std::string>("address", "0.0.0.0");
+    const auto address = declare_parameter<std::string>("address", "127.0.0.1");
     const auto port = declare_parameter("port", 9090);
     const auto maximum_clients = declare_parameter("maximum_clients", 5);
+    keyboard_enabled_ = declare_parameter<std::string>("manual_input", "keyboard") == "keyboard";
+    max_speed_ = declare_parameter("max_speed", 0.8);
+    max_reverse_speed_ = declare_parameter("max_reverse_speed", 0.8);
+    max_steering_ = declare_parameter("max_steering_angle", 0.34);
+    if (!std::isfinite(max_speed_) || max_speed_ <= 0 ||
+      !std::isfinite(max_reverse_speed_) || max_reverse_speed_ <= 0 ||
+      !std::isfinite(max_steering_) || max_steering_ <= 0)
+    {
+      throw std::invalid_argument("Manual driving limits must be finite and positive");
+    }
     if (port < 1 || port > 65535 || maximum_clients < 1 || maximum_clients > 32) {
       throw std::invalid_argument("invalid WebSocket port or client limit");
     }
 
     autonomous_publisher_ = create_publisher<std_msgs::msg::Int8>(
       "/enable_autonomous_control", 10);
+    teleop_publisher_ = create_publisher<ackermann_msgs::msg::AckermannDriveStamped>("/teleop", 10);
+    estop_publisher_ = create_publisher<std_msgs::msg::Bool>("/control_center/emergency_stop", 10);
     initial_pose_publisher_ = create_publisher<geometry_msgs::msg::PoseWithCovarianceStamped>(
       "/initialpose", 10);
     goal_pose_publisher_ = create_publisher<geometry_msgs::msg::PoseStamped>("/goal_pose", 10);
@@ -508,9 +679,21 @@ public:
       });
     create_subscriptions();
     server_->start();
+    server_->broadcast("/carkit/hardware", Json{{"laser_mount",
+      declare_parameter<std::vector<double>>("laser_mount", {0., 0., 0., 0., 0., 0.})}, {"footprint", {
+      {"length", declare_parameter("footprint_length", 0.5)},
+      {"width", declare_parameter("footprint_width", 0.25)},
+      {"center_x", declare_parameter("footprint_center_x", 0.0)},
+      {"center_y", declare_parameter("footprint_center_y", 0.0)}}}}, true);
     RCLCPP_INFO(
       get_logger(), "C++ WebUI bridge listening on %s:%d (maximum %d clients)",
       address.c_str(), static_cast<int>(port), static_cast<int>(maximum_clients));
+  }
+
+  ~BridgeNode() override
+  {
+    // Join network callbacks while the publishers they use are still alive.
+    server_->stop();
   }
 
 private:
@@ -522,8 +705,8 @@ private:
     return create_subscription<MessageT>(
       topic, qos,
       [this, topic, callback, retain](const typename MessageT::ConstSharedPtr message) {
-        if (retain || server_->has_clients()) {
-          server_->broadcast(topic, callback(*message), retain);
+        if (retain || server_->has_interest(topic)) {
+          server_->broadcast_lazy(topic, [message, callback]() {return callback(*message);}, retain);
         }
       });
   }
@@ -607,14 +790,16 @@ private:
             }},
         };
       });
-    camera_subscription_ = subscribe<sensor_msgs::msg::CompressedImage>(
-      "/camera/camera/color/image_raw/compressed", sensor_qos,
-      [](const auto & message) {
-        return Json{
-          {"header", header_json(message.header)}, {"format", message.format},
-          {"data", Json::binary(message.data)},
-        };
-      });
+    image_demand_timer_ = create_wall_timer(std::chrono::milliseconds(250), [this]() {
+      const std::string topic = "/camera/camera/color/image_raw/compressed";
+      if (!server_->has_interest(topic)) {camera_subscription_.reset(); return;}
+      if (camera_subscription_) {return;}
+      camera_subscription_ = subscribe<sensor_msgs::msg::CompressedImage>(
+        topic, rclcpp::SensorDataQoS().keep_last(1), [](const auto & message) {
+          return Json{{"header", header_json(message.header)}, {"format", message.format},
+            {"data", Json::binary(message.data)}};
+        });
+    });
     detection_subscription_ = subscribe<carkit_perception_msgs::msg::YoloDetection2DArray>(
       "/yolo/detections_2d", sensor_qos,
       [](const auto & message) {
@@ -655,7 +840,23 @@ private:
   void publish_from_browser(const std::string & topic, const Json & message)
   {
     try {
-      if (topic == "/enable_autonomous_control") {
+      if (topic == "/teleop" && keyboard_enabled_) {
+        const auto drive = message.at("drive");
+        const double speed = drive.at("speed").get<double>();
+        const double steering = drive.at("steering_angle").get<double>();
+        ackermann_msgs::msg::AckermannDriveStamped output;
+        output.header.stamp = now();
+        output.header.frame_id = "base_link";
+        if (std::isfinite(speed) && std::isfinite(steering)) {
+          output.drive.speed = std::clamp(speed, -max_reverse_speed_, max_speed_);
+          output.drive.steering_angle = std::clamp(steering, -max_steering_, max_steering_);
+        }
+        teleop_publisher_->publish(output);
+      } else if (topic == "/control_center/emergency_stop") {
+        std_msgs::msg::Bool output;
+        output.data = message.at("data").get<bool>();
+        estop_publisher_->publish(output);
+      } else if (topic == "/enable_autonomous_control") {
         std_msgs::msg::Int8 output;
         output.data = static_cast<std::int8_t>(std::clamp(message.value("data", 0), -128, 127));
         autonomous_publisher_->publish(output);
@@ -691,6 +892,11 @@ private:
   }
 
   std::unique_ptr<WebSocketServer> server_;
+  rclcpp::TimerBase::SharedPtr image_demand_timer_;
+  bool keyboard_enabled_{true};
+  double max_speed_{0.8}, max_reverse_speed_{0.8}, max_steering_{0.34};
+  rclcpp::Publisher<ackermann_msgs::msg::AckermannDriveStamped>::SharedPtr teleop_publisher_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr estop_publisher_;
   rclcpp::Publisher<std_msgs::msg::Int8>::SharedPtr autonomous_publisher_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
     initial_pose_publisher_;

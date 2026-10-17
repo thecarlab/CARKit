@@ -1,7 +1,9 @@
 [Unit]
 Description=Report CARKit WebUI address to the CARLab fleet monitor
 Wants=network-online.target
-After=network-online.target
+Requires=carkit.service
+After=network-online.target carkit.service
+PartOf=carkit.service
 
 [Service]
 Type=simple
@@ -15,4 +17,4 @@ ProtectHome=true
 ProtectSystem=strict
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=carkit.service

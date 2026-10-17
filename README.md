@@ -228,83 +228,59 @@ The direct `ros2` examples below are advanced alternatives to the WebUI. Run
 them from a shell inside the active container (`docker exec -it carkit bash`)
 and stop any WebUI launch session that already owns the same hardware.
 
-## 🕹️ Manual Driving And Mapping Control
+## 🕹️ Keyboard Driving And Autonomous Control
 
-For manual driving, mapping, and vehicle checks, launch human control directly:
+Sign in with the private `.carkit/access.key` file on the vehicle computer, then
+select **Take control**. See [WebUI access and remote connections](docs/webui_access.md)
+for SSH forwarding and explicit network binding.
 
-```bash
-ros2 launch carkit_human_control joystick.launch.py
-```
+Both chassis use **keyboard control by default** in the focused WebUI Overview:
 
-In another terminal, start the OSRacer camera and lidar:
+- Hold **W / S** to move forward / reverse (up to 0.4 m/s).
+- Hold **A / D** to steer left / right; combine with W or S to turn.
+- Release the keys to stop. Leaving the window, opening the editor/configuration,
+  or losing the connection stops manual motion; press the keys again to resume.
+- Press **Caps Lock** once to enable or disable autonomous driving. The displayed
+  mode comes from the control center; holding Caps Lock does not repeatedly toggle it.
+- Press **Space** on Overview or **Ctrl + Shift + Space** from any page, or click
+  the persistent **Emergency stop** button, to latch a stop. **Reset to manual**
+  clears it without starting motion. Caps Lock cannot clear an emergency stop.
 
-```bash
-ros2 launch osracer_bringup sensors_launch.py
-```
+Typing in the code editor, terminal, or form fields does not drive the vehicle.
+Only one browser can supply keyboard motion at a time. The arbiter remains active
+in manual-only sessions, even when the **autonomous control** module is unchecked.
+Joystick input is optional: select **Manual input → Joystick** before launching,
+optionally customize the button mappings in the vehicle hardware profile, or pass
+`manual_input:=joystick` to the integrated launch.
 
-This launches joystick teleop, the OSRacer chassis driver, odometry, and the
-manual command relay from `/teleop` to `/ackermann_cmd`.
-
-Start human control as shown above, then launch mapping:
-
-```bash
-ros2 launch carkit_navigation navigation.launch.py \
-  mode:=mapping start_lidar:=false
-```
-
-Drive through the environment, then save the occupancy map:
-
-```bash
-ros2 run nav2_map_server map_saver_cli \
-  -f /workspaces/CARKit/map/test
-```
-
-Maps belong in the repository's top-level `map/` folder.
-
-## 🤖 Autonomous Driving
-
-Start human control with the manual OSRacer relay remapped away from
-`/ackermann_cmd`:
+For a full reference navigation session inside the container:
 
 ```bash
-ros2 launch carkit_human_control joystick.launch.py \
-  vehicle_command_topic:=/manual_command_unused
+ros2 launch carkit_bringup carkit.launch.py profile:=reference chassis:=osracer
+# Or select chassis:=f1tenth / chassis:=vesc_rplidar for the VESC vehicles.
 ```
 
-In another container terminal, start the OSRacer camera and lidar:
+Open the WebUI, set the vehicle's initial pose, send a goal, and use Caps Lock to
+switch to autonomous driving. Switching back to manual requires a new WASD press.
+The selected course profile determines which planning and control algorithms run.
+ADA algorithms now require fresh odometry and a valid transform between the goal,
+path, and odometry frames; a map-frame goal needs a localization provider publishing
+`map -> odom`. Missing feedback or transforms produce a stop, not an assumed pose.
+
+For keyboard mapping, select the reference profile and use
+`navigation_mode:=mapping`. Save the map from a container terminal:
 
 ```bash
-ros2 launch osracer_bringup sensors_launch.py
+ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/map/test
 ```
 
-Then start the control center and Nav2 in their own container terminals:
-
-```bash
-ros2 launch carkit_control_center control_center.launch.py
-```
-
-```bash
-ros2 launch carkit_navigation navigation.launch.py \
-  map:=/workspaces/CARKit/map/map_3f.yaml \
-  start_lidar:=false
-```
-
-Open the WebUI, set the initial pose, and send a Nav2 goal from the Overview.
-Press the joystick mode toggle to enter `AUTO_DRIVE`; the current default is
-`mode_toggle_button: 10` in
-`osracer_bringup/config/joy_teleop.yaml`.
-
-The reference Nav2 controller currently targets a `2.0 m/s` cruise speed. It
-can reduce to `0.8 m/s` while approaching a goal, following tight curvature,
-or applying the cone behavior override; the command pipeline is capped at
-`3.0 m/s`.
-
-The WebUI map dropdown discovers every `.yaml` map in the top-level `map/`
-folder. For example, to use the bundled `map.yaml` instead, pass:
-
-```bash
-map:=/workspaces/CARKit/map/map.yaml
-```
+Per-vehicle geometry, calibrated gains, device identifiers, mounting transforms,
+and limits are in [the hardware profiles](carkit/core/carkit_bringup/config/hardware).
+See [hardware profiles and safety validation](docs/hardware_profiles.md).
+The conservative default forward limits are 0.8 m/s for OSRacer and the legacy
+F1TENTH selection, and 0.5 m/s for VESC + RPLidar. Keyboard speed is additionally
+limited to 0.4 m/s. Changes to a hardware profile are applied together to the
+hardware driver, navigation, student control parameters, arbiter, and WebUI bridge.
 
 ### 👁️ Perception And Behavior
 

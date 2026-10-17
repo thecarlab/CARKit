@@ -1,6 +1,21 @@
 // CARKit learning annotation: implements the behavior described by this file's package and module.
 const $ = id => document.getElementById(id);
 
+// Legacy profile IDs remain stable for installed builds and calibrated vehicles.
+function chassisFamily(profile) {
+  return profile === "vesc_rplidar" || profile === "f1tenth" ? "f1tenth" : "osracer";
+}
+
+function selectHardwareConfiguration(profile) {
+  const family = chassisFamily(profile);
+  $("chassis-family").value = family;
+  const profiles = state.config.chassis.filter(value => chassisFamily(value) === family && value !== "f1tenth");
+  $("chassis").replaceChildren(...profiles.map(value => option(value,
+    value === "vesc_rplidar" ? "RPLidar + RealSense" :
+    "OSRacer sensors")));
+  $("chassis").value = profile === "f1tenth" ? "vesc_rplidar" : profile;
+}
+
 function editorIdentity() {
   let clientId;
   let name;
@@ -25,6 +40,21 @@ function editorIdentity() {
 const localEditorIdentity = editorIdentity();
 
 const state = {
+  signedIn: false,
+  runtimeRunning: false,
+  jobRunning: false,
+  refreshTimer: null,
+  refreshPending: false,
+  bridgeToken: null,
+  bridgeAuthenticated: false,
+  operator: false,
+  operatorAvailable: false,
+  teleopAck: 0,
+  footprint: null,
+  laserMount: null,
+  health: {},
+  topicStamps: {},
+  packetFresh: true,
   map: null,
   mapCanvas: null,
   mapRender: null,
@@ -34,6 +64,7 @@ const state = {
   path: null,
   odom: null,
   odomHistory: [],
+  lastMotion: 0,
   socket: null,
   activeChassis: null,
   chassisTelemetrySubscription: null,
@@ -48,6 +79,8 @@ const state = {
   lastDrawTime: 0,
   perceptionOverlay: null,
   controlMode: null,
+  controlModeUpdated: 0,
+  manualInput: "keyboard",
   pendingControlMode: null,
   controlModeTimer: null,
   pendingCameraFrame: null,
@@ -90,6 +123,88 @@ const state = {
 };
 
 const components = ["chassis", "sensors", "planning", "control", "perception", "behavior"];
+const keyboard = new CARKitKeyboard({
+  publish: (speed, steering) => {
+    if (!state.socket || state.socket.readyState !== WebSocket.OPEN || state.socket.bufferedAmount > 4096) return false;
+    return publishRos("/teleop", "ackermann_msgs/msg/AckermannDriveStamped", {
+      drive: {speed, steering_angle: steering},
+    });
+  },
+  toggle: () => requestControlMode(state.controlMode === "AUTO_DRIVE" ? "HUMAN_CONTROL" : "AUTO_DRIVE"),
+  emergencyStop: () => publishRos("/control_center/emergency_stop", "std_msgs/msg/Bool", {data: true}),
+  mode: () => state.pendingControlMode ? null : state.controlMode,
+  enabled: () => state.operator && state.manualInput === "keyboard" && document.hasFocus() && !document.hidden &&
+    !$("overview").hidden && !$("config-drawer").classList.contains("open") &&
+    !$("calibration-dialog")?.open && !state.calibrationRunning &&
+    state.socket && state.socket.readyState === WebSocket.OPEN &&
+    Date.now() - state.controlModeUpdated < 1500,
+  onChange: keys => {
+    const text = keys.length
+      ? `${Date.now() - state.teleopAck < 500 ? "Driving" : "Awaiting command acknowledgement"} · ${keys.map(key => key.slice(3)).join(" + ")} · release to stop`
+      : !state.operator ? "Observer · take control to drive or change mode."
+      : state.manualInput === "joystick" ? "Joystick selected for this session."
+        : !state.controlMode ? "Waiting for control center. Launch a session to drive."
+          : state.controlMode === "EMERGENCY_STOP" ? "Emergency stop latched. Reset to manual to continue."
+        : state.controlMode === "AUTO_DRIVE" ? "Autonomous driving · Caps Lock returns to manual."
+          : "Hold W/S to ramp up to 4 m/s, limited by the vehicle profile. Hold A/D to increase steering; release to center.";
+    if ($("keyboard-status").textContent !== text) $("keyboard-status").textContent = text;
+  },
+});
+document.addEventListener("keydown", event => keyboard.keydown(event));
+document.addEventListener("keyup", event => keyboard.keyup(event));
+document.addEventListener("focusin", event => { if (keyboard.editable(event.target)) keyboard.stop(); });
+window.addEventListener("blur", () => keyboard.stop());
+window.addEventListener("pagehide", () => keyboard.stop());
+document.addEventListener("visibilitychange", () => { if (document.hidden) keyboard.stop(); });
+setInterval(() => keyboard.tick(), 50);
+$("keyboard-estop").onclick = () => { keyboard.stop(); keyboard.emergencyStop(); };
+$("keyboard-reset").onclick = () => {
+  keyboard.stop();
+  publishRos("/control_center/emergency_stop", "std_msgs/msg/Bool", {data: false});
+};
+
+function updateOperator() {
+  $("operator-status").textContent = !state.bridgeAuthenticated ? "Observer · waiting for vehicle connection" : state.operator ? "You have control" : state.operatorAvailable ? "Observer · control available" : "Observer · another operator has control";
+  $("take-control").textContent = state.operator ? "Release control" : "Take control";
+  $("take-control").disabled = !state.bridgeAuthenticated || (!state.operator && !state.operatorAvailable);
+  $("global-estop").disabled = !state.bridgeAuthenticated;
+  for (const id of ["set-initial", "send-goal"]) {
+    $(id).disabled = !state.bridgeAuthenticated;
+    $(id).title = !state.bridgeAuthenticated ? "Waiting for ROS connection" : !state.operator && id !== "set-initial"
+      ? "Click to request control and place a pose" : "Click, then drag on the map to set position and heading";
+  }
+  renderControlMode(state.controlMode);
+}
+$("take-control").onclick = () => {
+  keyboard.stop();
+  state.socket.send(JSON.stringify({op: state.operator ? "release_control" : "claim_control"}));
+};
+$("global-estop").onclick = () => { keyboard.stop(); keyboard.emergencyStop(); };
+$("global-reset").onclick = () => $("keyboard-reset").click();
+document.addEventListener("keydown", event => {
+  if (event.code === "Space" && event.ctrlKey && event.shiftKey && state.bridgeAuthenticated) {
+    event.preventDefault();
+    if (!event.repeat) {keyboard.stop(); keyboard.emergencyStop();}
+  }
+}, true);
+setInterval(() => {
+  if (state.operator && state.bridgeAuthenticated && state.socket?.readyState === WebSocket.OPEN)
+    state.socket.send(JSON.stringify({op:"control_heartbeat"}));
+  const now = Date.now();
+  for (const [id, value] of Object.entries(state.health)) {
+    if (now - value.time > 3000) {
+      const item = $(`health-${id}`); item.classList.remove("live");
+      item.querySelector("b").textContent = "Stale";
+    }
+  }
+  if (state.controlMode && now - state.controlModeUpdated >= 1500) renderControlMode(null);
+  if (state.health.sensors && now - state.health.sensors.time > 3000) {
+    $("camera-status").textContent = "Stale frame";
+    $("camera-status").className = "status-pill neutral";
+    $("camera-live-tag").textContent = "STALE";
+  }
+  expireMotion(now);
+}, 500);
 const profileNames = {
   ada_high_school: "ADA Academy",
   intro2av: "Intro2AV",
@@ -114,6 +229,13 @@ async function api(path, body) {
         : `The WebUI returned an invalid response (HTTP ${response.status}).`
     );
   }
+  if (response.status === 401) {
+    state.signedIn = false;
+    state.bridgeToken = null;
+    if (state.socket) state.socket.close();
+    $("login-panel").hidden = false;
+    document.querySelector(".app-shell").inert = true;
+  }
   if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data;
 }
@@ -134,7 +256,7 @@ function setActivity(message, type = "") {
 function updateSetupLabels(profile, chassis) {
   const label = profileNames[profile] || profile || "Not selected";
   $("sidebar-profile").textContent = label;
-  $("sidebar-chassis").textContent = chassis === "vesc_rplidar" ? "VESC / RPLidar" : chassis === "f1tenth" ? "F1TENTH" : "OSRacer";
+  $("sidebar-chassis").textContent = chassis === "vesc_rplidar" || chassis === "f1tenth" ? "F1TENTH / VESC" : "OSRacer";
   $("metric-profile").textContent = label.replace(" Academy", "");
   state.activeChassis = chassis;
   subscribeChassisTelemetry(chassis);
@@ -160,9 +282,7 @@ async function configure() {
     )));
   }
   state.config.profiles.forEach(profile => $("profile").append(option(profile.id, profile.label)));
-  state.config.chassis.forEach(chassis => {
-    $("chassis").append(option(chassis, chassis === "vesc_rplidar" ? "VESC + RPLidar + RealSense" : chassis === "f1tenth" ? "F1TENTH / VESC" : "OSRacer"));
-  });
+  selectHardwareConfiguration("osracer");
   ["planning", "control", "perception"].forEach(id => {
     state.config.implementations.forEach(value => $(id).append(option(value, implementationLabel(value))));
   });
@@ -184,11 +304,12 @@ async function configure() {
   updatePerceptionModelHelp();
   components.forEach(name => {
     const label = document.createElement("label");
-    label.innerHTML = `<input type="checkbox" id="component-${name}" checked><span>${name}</span>`;
+    label.innerHTML = `<input type="checkbox" id="component-${name}" checked><span>${name === "control" ? "autonomous control" : name}</span>`;
     $("components").append(label);
   });
-  [["start-camera", "camera"], ["start-lidar", "lidar"]].forEach(([id, labelText]) => {
+  [["start-camera", "camera video"], ["start-lidar", "lidar"]].forEach(([id, labelText]) => {
     const label = document.createElement("label");
+    if (id === "start-camera") label.title = "VESC localization keeps the RealSense IMU enabled when video is off.";
     label.innerHTML = `<input type="checkbox" id="${id}" checked><span>${labelText}</span>`;
     $("components").append(label);
   });
@@ -246,7 +367,8 @@ function updateMapSelectionDisplay(path = $("map").value) {
 function applyLaunchConfig(config) {
   if (!config || state.formHydrated) return;
   if (config.profile) $("profile").value = config.profile;
-  if (config.chassis) $("chassis").value = config.chassis;
+  if (config.chassis) selectHardwareConfiguration(config.chassis);
+  $("manual-input").value = config.manual_input || "keyboard";
   updateProfileHelp();
   Object.entries(config.implementations || {}).forEach(([name, value]) => {
     if ($(name)) $(name).value = value;
@@ -275,6 +397,7 @@ function requestBody() {
   return {
     profile: $("profile").value,
     chassis: $("chassis").value,
+    manual_input: $("manual-input").value,
     map: $("map").value,
     implementations: {
       planning: $("planning").value,
@@ -290,6 +413,7 @@ function requestBody() {
 }
 
 function openDrawer() {
+  keyboard.stop();
   $("drawer-scrim").hidden = false;
   $("config-drawer").setAttribute("aria-hidden", "false");
   requestAnimationFrame(() => $("config-drawer").classList.add("open"));
@@ -404,23 +528,36 @@ function decodeCbor(buffer) {
   return value;
 }
 
+// Only request JPEG frames while the camera panel can be seen.
+function syncCameraSubscription() {
+  const socket = state.socket;
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  const visible = !document.hidden && !$("overview").hidden;
+  if (visible === Boolean(state.cameraSubscribed)) return;
+  const topic = "/camera/camera/color/image_raw/compressed";
+  socket.send(JSON.stringify(visible
+    ? {op: "subscribe", id: topic, topic, type: "sensor_msgs/msg/CompressedImage", queue_length: 1, compression: "cbor", throttle_rate: 0}
+    : {op: "unsubscribe", id: topic, topic}));
+  state.cameraSubscribed = visible;
+}
+
 function connectRos() {
-  if (state.socket && state.socket.readyState < 2) return;
-  const socket = new WebSocket(`ws://${location.hostname}:9090`);
+  if (!state.signedIn || !state.runtimeRunning || (state.socket && state.socket.readyState < 2)) return;
+  const socket = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.hostname}:9090`);
   socket.binaryType = "arraybuffer";
   state.socket = socket;
   socket.onopen = () => {
-    $("connection-text").textContent = "ROS connected";
+    socket.send(JSON.stringify({op:"authenticate", token:state.bridgeToken}));
+    $("connection-text").textContent = "Authenticating ROS…";
     document.querySelector(".connection").classList.add("live");
     const subscriptions = [
-      ["/map", "nav_msgs/msg/OccupancyGrid", 500],
-      ["/scan", "sensor_msgs/msg/LaserScan", 33],
-      ["/plan", "nav_msgs/msg/Path", 100],
-      ["/odom", "nav_msgs/msg/Odometry", 40],
-      ["/amcl_pose", "geometry_msgs/msg/PoseWithCovarianceStamped", 50],
-      ["/control_center/main_state", "std_msgs/msg/String", 250],
-      ["/ackermann_cmd", "ackermann_msgs/msg/AckermannDriveStamped", 50],
-      ["/camera/camera/color/image_raw/compressed", "sensor_msgs/msg/CompressedImage", 0],
+      ["/carkit/hardware", "std_msgs/msg/String", 0],
+      ["/map", "nav_msgs/msg/OccupancyGrid", 0],
+      ["/scan", "sensor_msgs/msg/LaserScan", 0],
+      ["/plan", "nav_msgs/msg/Path", 0],
+      ["/odom", "nav_msgs/msg/Odometry", 0],
+      ["/amcl_pose", "geometry_msgs/msg/PoseWithCovarianceStamped", 0],
+      ["/control_center/main_state", "std_msgs/msg/String", 0],
       ["/yolo/detections_2d", "carkit_perception_msgs/msg/YoloDetection2DArray", 0],
     ];
     subscriptions.forEach(([topic, type, throttle_rate]) => {
@@ -435,17 +572,26 @@ function connectRos() {
         ...(binaryImage ? {compression: "cbor"} : {}),
       }));
     });
+    syncCameraSubscription();
     subscribeChassisTelemetry(state.activeChassis || $("chassis").value);
   };
   socket.onclose = () => {
+    keyboard.stop();
+    state.controlModeUpdated = 0;
+    state.bridgeAuthenticated = false;
+    state.operator = false;
+    state.teleopAck = 0;
+    state.topicStamps = {};
+    updateOperator();
     state.advertised.clear();
     state.chassisTelemetrySubscription = null;
+    state.cameraSubscribed = false;
     state.perceptionOverlay = null;
     state.pendingControlMode = null;
     renderControlMode(null);
     document.querySelector(".connection").classList.remove("live");
     $("connection-text").textContent = "ROS disconnected";
-    setTimeout(connectRos, 1800);
+    if (state.runtimeRunning) setTimeout(connectRos, 1800);
   };
   socket.onerror = () => socket.close();
   socket.onmessage = event => {
@@ -478,13 +624,14 @@ function subscribeChassisTelemetry(chassis) {
     id: selection[0],
     topic: selection[0],
     type: selection[1],
-    throttle_rate: 500,
+    throttle_rate: 0,
     queue_length: 1,
   }));
   state.chassisTelemetrySubscription = selection[0];
 }
 
-function markHealth(id, label = "Live") {
+function markHealth(id, label = "Live", receivedAt = Date.now()) {
+  state.health[id] = {time: receivedAt};
   const item = $(`health-${id}`);
   item.classList.add("live");
   item.querySelector("b").textContent = label;
@@ -561,11 +708,19 @@ function renderSystemTelemetry(system) {
   );
 }
 
-function renderBattery(message) {
+function renderBattery(message, receivedAt = Date.now()) {
+  if (receivedAt < state.lastBatteryMessage - 100) return;
   const voltage = finiteNumber(message.voltage);
-  const percentage = finiteNumber(message.percentage);
-  state.lastBatteryMessage = Date.now();
-  state.lastChassisMessage = Date.now();
+  let percentage = finiteNumber(message.percentage);
+  if (percentage !== null && percentage >= 0 && percentage <= 1) {
+    state.batteryPercentage = {value: percentage, receivedAt};
+  } else {
+    const previous = state.batteryPercentage;
+    percentage = previous && receivedAt - previous.receivedAt < 3000 ? previous.value : null;
+  }
+  state.lastBatteryMessage = receivedAt;
+  state.lastChassisMessage = Math.max(state.lastChassisMessage, receivedAt);
+  markHealth("chassis", "Live", receivedAt);
   $("battery-voltage").textContent = voltage === null ? "—" : `${voltage.toFixed(2)} V`;
   $("battery-level").textContent = percentage !== null && percentage >= 0
     ? `${Math.round(percentage * 100)}% estimated`
@@ -588,6 +743,7 @@ function renderChassisStatus(running) {
   if (!running) {
     state.lastChassisMessage = 0;
     state.lastBatteryMessage = 0;
+    state.batteryPercentage = null;
     $("battery-voltage").textContent = "—";
     $("battery-level").textContent = "No data";
     $("telemetry-battery").classList.remove("warning");
@@ -598,6 +754,8 @@ function renderChassisStatus(running) {
 }
 
 function publishRos(topic, type, msg) {
+  if (!state.bridgeAuthenticated) return false;
+  if (topic !== "/initialpose" && !(topic === "/control_center/emergency_stop" && msg.data === true) && !state.operator) return false;
   const socket = state.socket;
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     setActivity("ROS WebSocket is not connected", "error");
@@ -612,10 +770,11 @@ function publishRos(topic, type, msg) {
 }
 
 function renderControlMode(mode) {
-  const validMode = ["HUMAN_CONTROL", "AUTO_DRIVE", "EMERGENCY_STOP"].includes(mode)
+  const validMode = ["HUMAN_CONTROL", "AUTO_DRIVE", "EMERGENCY_STOP", "CALIBRATING"].includes(mode)
     ? mode
     : null;
   state.controlMode = validMode;
+  if (validMode !== "HUMAN_CONTROL") keyboard.stop();
 
   if (validMode === "EMERGENCY_STOP") {
     state.pendingControlMode = null;
@@ -630,7 +789,7 @@ function renderControlMode(mode) {
   const human = $("mode-human");
   const autonomous = $("mode-autonomous");
   const pending = state.pendingControlMode;
-  const locked = !validMode || validMode === "EMERGENCY_STOP" || Boolean(pending);
+  const locked = !state.operator || !validMode || (validMode === "EMERGENCY_STOP" || validMode === "CALIBRATING") || Boolean(pending);
   human.disabled = locked;
   autonomous.disabled = locked;
   human.classList.toggle("active", validMode === "HUMAN_CONTROL");
@@ -642,20 +801,27 @@ function renderControlMode(mode) {
   switchNode.classList.toggle("estop", validMode === "EMERGENCY_STOP");
   switchNode.classList.toggle("pending", Boolean(pending));
   $("mode-source").textContent = pending
-    ? pending === "AUTO_DRIVE" ? "Switching to Ackermann /drive…" : "Switching to remote /teleop…"
+    ? pending === "AUTO_DRIVE" ? "Switching to autonomous driving…" : "Switching to manual driving…"
     : validMode === "HUMAN_CONTROL"
-      ? "Remote controller · /teleop"
+      ? state.manualInput === "joystick" ? "Joystick control" : "Keyboard control · WASD"
       : validMode === "AUTO_DRIVE"
         ? "Ackermann commands · /drive"
         : validMode === "EMERGENCY_STOP"
           ? "Emergency stop active"
-          : "Waiting for control center";
+          : validMode === "CALIBRATING" ? "Guided steering calibration" : "Waiting for control center";
+  $("global-mode").textContent = validMode === "EMERGENCY_STOP" ? "Emergency stop latched" : validMode === "AUTO_DRIVE" ? "Autonomous" : validMode === "HUMAN_CONTROL" ? "Manual" : validMode === "CALIBRATING" ? "Calibrating" : "Control state unavailable";
+  $("global-reset").hidden = validMode !== "EMERGENCY_STOP";
+  $("global-reset").disabled = !state.operator;
+  $("keyboard-reset").disabled = !state.operator;
+  $("keyboard-estop").disabled = !state.bridgeAuthenticated;
+  $("keyboard-reset").hidden = validMode !== "EMERGENCY_STOP";
 }
 
 function requestControlMode(mode) {
   if (!["HUMAN_CONTROL", "AUTO_DRIVE"].includes(mode)) return;
-  if (!state.controlMode || state.controlMode === "EMERGENCY_STOP") return;
+  if (!state.operator || !state.controlMode || ["EMERGENCY_STOP", "CALIBRATING"].includes(state.controlMode)) return;
   if (state.controlMode === mode && !state.pendingControlMode) return;
+  keyboard.stop();
   const enabled = mode === "AUTO_DRIVE" ? 1 : 0;
   if (!publishRos("/enable_autonomous_control", "std_msgs/msg/Int8", {data: enabled})) return;
 
@@ -702,8 +868,8 @@ function renderNextCameraFrame() {
     $("camera-empty").style.display = "none";
     document.querySelector(".camera-frame").classList.add("streaming");
     $("camera-status").textContent = state.perceptionOverlay
-      ? "Detections · 10 Hz"
-      : "Camera · 10 Hz";
+      ? "Detections live"
+      : "Camera live";
     drawPerceptionOverlay();
     renderNextCameraFrame();
   };
@@ -1274,11 +1440,25 @@ async function saveEditorFile() {
 }
 
 function armMapTool(tool) {
+  if (!state.operator && tool !== "set-initial") {
+    if (!state.bridgeAuthenticated) {
+      $("map-tool-help").textContent = "Connect to ROS before placing a pose.";
+      return;
+    }
+    if (!state.operatorAvailable) {
+      $("map-tool-help").textContent = "Another browser owns control. Release control there, then click this tool again.";
+      return;
+    }
+    state.pendingMapTool = tool;
+    $("map-tool-help").textContent = "Requesting control to place the pose…";
+    state.socket.send(JSON.stringify({op: "claim_control"}));
+    return;
+  }
   state.poseDrag = null;
   state.mapTool = state.mapTool === tool ? null : tool;
   ["set-initial", "send-goal"].forEach(id => $(id).classList.toggle("armed", id === state.mapTool));
   $("map-tool-help").textContent = !state.mapTool
-    ? "Drag to rotate · Shift-drag to pan · Scroll to zoom."
+    ? "Left-drag to rotate · Right-drag to pan · Scroll to zoom."
     : state.mapTool === "set-initial"
       ? "Click and drag from the vehicle location toward its heading."
       : "Click and drag from the destination toward its heading.";
@@ -1433,6 +1613,30 @@ function stampSeconds(header) {
   return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
 }
 
+function renderMeasuredMotion(message) {
+  const twist = message.twist && message.twist.twist;
+  const speed = twist && twist.linear && twist.linear.x;
+  const rate = twist && twist.angular && twist.angular.z;
+  if (!Number.isFinite(speed) || !Number.isFinite(rate)) return false;
+  state.lastMotion = Date.now();
+  $("speed").textContent = `${speed.toFixed(2)} m/s`;
+  $("yaw-rate").textContent = `${(rate * 180 / Math.PI).toFixed(1)}°/s`;
+  $("motion-source").textContent = chassisFamily(state.activeChassis) === "f1tenth"
+    ? "RealSense IMU + measured RPM" : "OSRacer odometry";
+  return true;
+}
+
+function expireMotion(now) {
+  if (!state.lastMotion || now - state.lastMotion <= 500) return;
+  $("speed").textContent = "—";
+  $("yaw-rate").textContent = "—";
+  $("motion-source").textContent = "Motion feedback stale";
+  if (state.map) {
+    $("map-status").textContent = "Map · motion feedback stale";
+    $("map-status").className = "status-pill neutral";
+  }
+}
+
 function rememberOdom(message) {
   const time = stampSeconds(message.header);
   if (time === null) return;
@@ -1532,13 +1736,59 @@ function odomPoseAt(time) {
 }
 
 function handleRos(topic, message) {
+  if (topic === "/carkit/session") {
+    if (message.kind === "authentication") {
+      state.bridgeAuthenticated = Boolean(message.authenticated);
+      if (!state.bridgeAuthenticated && !state.refreshingBridgeSession) {
+        state.refreshingBridgeSession = true;
+        api("/api/session").then(session => {
+          if (session.authenticated && session.bridge_token && session.bridge_token !== state.bridgeToken) {
+            state.bridgeToken = session.bridge_token;
+            state.socket?.close();
+          }
+        }).catch(error => setActivity(error.message, "error"))
+          .finally(() => { state.refreshingBridgeSession = false; });
+      }
+      state.operatorAvailable = Boolean(message.available);
+      $("connection-text").textContent = state.bridgeAuthenticated ? "ROS connected" : "ROS access denied";
+    } else if (message.kind === "ownership") {
+      state.operator = Boolean(message.operator);
+      if (state.pendingMapTool) {
+        const tool = state.pendingMapTool;
+        state.pendingMapTool = null;
+        if (state.operator) armMapTool(tool);
+        else $("map-tool-help").textContent = "Control request denied: another browser owns control.";
+      }
+      state.operatorAvailable = Boolean(message.available);
+      if (!state.operator) {keyboard.stop(); state.teleopAck = 0;}
+    } else if (message.kind === "command") {
+      if (message.accepted && message.topic === "/teleop") state.teleopAck = Date.now();
+      if (!message.accepted) {keyboard.stop(); setActivity(message.reason || "Command rejected", "error");}
+    }
+    updateOperator(); return;
+  }
+  if (topic === "/carkit/hardware") {
+    const mount = message.laser_mount;
+    if (Array.isArray(mount) && mount.length === 6 && mount.every(Number.isFinite)) state.laserMount = mount;
+    const f = message.footprint;
+    if (f && [f.length, f.width, f.center_x, f.center_y].every(Number.isFinite) && f.length > 0 && f.width > 0) {
+      state.footprint = f;
+      $("vehicle-dimensions").textContent = `Vehicle ${f.length.toFixed(3)} × ${f.width.toFixed(3)} m`;
+      scheduleDraw();
+    }
+    return;
+  }
+  const sourceStamp = stampSeconds(message.header);
+  state.packetFresh = sourceStamp === null || state.topicStamps[topic] === undefined || sourceStamp > state.topicStamps[topic];
+  if (!state.packetFresh) return;
+  if (sourceStamp !== null) state.topicStamps[topic] = sourceStamp;
   let mapChanged = false;
   if (topic === "/map") {
     state.map = message;
     cacheMap(message);
     $("map-status").textContent = `${message.info.width} × ${message.info.height}`;
     $("map-status").className = "status-pill live";
-    markHealth("planning", "Map live");
+    // A retained static map is availability, not a live planning heartbeat.
     mapChanged = true;
   } else if (topic === "/scan") {
     state.scan = message;
@@ -1550,7 +1800,8 @@ function handleRos(topic, message) {
     markHealth("planning", "Path live");
     mapChanged = true;
   } else if (topic === "/odom") {
-    state.lastChassisMessage = Date.now();
+    if (!renderMeasuredMotion(message)) return;
+    if (state.packetFresh) state.lastChassisMessage = Date.now();
     state.odom = message;
     rememberOdom(message);
     markHealth("chassis");
@@ -1560,19 +1811,16 @@ function handleRos(topic, message) {
     markHealth("planning", "Localized");
     mapChanged = true;
   } else if (topic === "/control_center/main_state") {
+    state.controlModeUpdated = Date.now();
     renderControlMode(message.data);
-  } else if (topic === "/ackermann_cmd") {
-    $("speed").textContent = `${message.drive.speed.toFixed(2)} m/s`;
-    $("steering").textContent = `${(message.drive.steering_angle * 57.296).toFixed(1)}°`;
-    markHealth("chassis");
   } else if (topic === "/battery_state") {
-    renderBattery(message);
+    if (state.packetFresh) {renderBattery(message); markHealth("chassis", "Live");}
   } else if (topic === "/sensors/core") {
-    renderBattery({
+    if (state.packetFresh) renderBattery({
       voltage: message.state && message.state.voltage_input,
       percentage: null,
     });
-    if (state.activeChassis === "vesc_rplidar") markHealth("chassis", "Telemetry");
+    if (state.activeChassis === "vesc_rplidar") markHealth("chassis", "Live");
   } else if (topic === "/yolo/detections_2d") {
     const trafficLights = (message.traffic_lights || []).map(item => ({
       ...(item.detection || {}),
@@ -1589,7 +1837,7 @@ function handleRos(topic, message) {
     const count = detections.length;
     markHealth("perception", `${count} objects`);
     $("camera-live-tag").textContent = "AI OVERLAY";
-    $("camera-status").textContent = "Detections · 10 Hz";
+    $("camera-status").textContent = "Detections live";
     drawPerceptionOverlay();
   } else if (topic.endsWith("/compressed")) {
     queueCameraFrame(message);
@@ -1613,22 +1861,20 @@ function socketSend(message) {
 function scheduleDraw() {
   if (state.drawPending) return;
   state.drawPending = true;
-  const delay = Math.max(0, 33 - (performance.now() - state.lastDrawTime));
-  setTimeout(() => {
-    requestAnimationFrame(() => {
-      state.drawPending = false;
-      state.lastDrawTime = performance.now();
-      draw();
-    });
-  }, delay);
+  requestAnimationFrame(() => {
+    state.drawPending = false;
+    state.lastDrawTime = performance.now();
+    draw();
+  });
 }
 
 function startViewDrag(event) {
-  if (state.mapTool || event.button !== 0) return;
+  if ((state.mapTool && event.button !== 2) || ![0, 2].includes(event.button)) return;
+  event.preventDefault();
   state.viewDrag = {
     x: event.clientX,
     y: event.clientY,
-    pan: event.shiftKey,
+    pan: event.button === 2,
   };
   state.viewMoved = false;
   event.currentTarget.setPointerCapture(event.pointerId);
@@ -1677,6 +1923,7 @@ function resetView() {
 
 /** Request the bridge's retained occupancy map for immediate display. */
 function republishMap() {
+  resetView();
   if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
     setActivity("ROS WebSocket is not connected", "error");
     return;
@@ -1686,7 +1933,7 @@ function republishMap() {
     id: "/map",
     topic: "/map",
     type: "nav_msgs/msg/OccupancyGrid",
-    throttle_rate: 500,
+    throttle_rate: 0,
     queue_length: 1,
   });
   $("map-status").textContent = "Refreshing map";
@@ -1708,6 +1955,26 @@ function gridSpacing(bounds) {
   );
   const options = [0.5, 1, 2, 5, 10, 20, 50];
   return options.find(value => span / value <= 80) || 100;
+}
+
+// Invert the viewport transform so the grid covers every visible corner.
+function visibleGridBounds(width, height, view, transform, pixelsPerMeter) {
+  const origin = transform(0, 0);
+  const cosine = Math.cos(view.rotation);
+  const sine = Math.sin(view.rotation);
+  const corners = [[0, 0], [width, 0], [width, height], [0, height]].map(([x, y]) => {
+    const dx = x - width / 2 - view.panX;
+    const dy = y - height / 2 - view.panY;
+    const localX = (dx * cosine + dy * sine) / view.zoom + width / 2;
+    const localY = (-dx * sine + dy * cosine) / view.zoom + height / 2;
+    return [(localX - origin[0]) / pixelsPerMeter, (origin[1] - localY) / pixelsPerMeter];
+  });
+  return {
+    minX: Math.min(...corners.map(point => point[0])),
+    maxX: Math.max(...corners.map(point => point[0])),
+    minY: Math.min(...corners.map(point => point[1])),
+    maxY: Math.max(...corners.map(point => point[1])),
+  };
 }
 
 function drawMetricGrid(context, transform, bounds, spacing) {
@@ -1748,14 +2015,17 @@ function drawMetricGrid(context, transform, bounds, spacing) {
 }
 
 function drawVehicleFootprint(context, transform, position, heading) {
-  const halfLength = 0.25;
-  const halfWidth = 0.125;
+  if (!state.footprint) return;
+  const halfLength = state.footprint.length / 2;
+  const halfWidth = state.footprint.width / 2;
   const cosine = Math.cos(heading);
   const sine = Math.sin(heading);
-  const worldPoint = (forward, left) => transform(
-    position.x + forward * cosine - left * sine,
-    position.y + forward * sine + left * cosine,
-  );
+  const worldPoint = (forward, left) => {
+    forward += state.footprint.center_x;
+    left += state.footprint.center_y;
+    return transform(position.x + forward * cosine - left * sine,
+      position.y + forward * sine + left * cosine);
+  };
   const corners = [
     worldPoint(halfLength, halfWidth),
     worldPoint(halfLength, -halfWidth),
@@ -1874,6 +2144,15 @@ function resizeMapCanvas(canvas) {
   return {context, width: rect.width, height: rect.height};
 }
 
+function projectLaserPoint(range, angle, mount) {
+  const [x, y, , yaw, pitch, roll] = mount || [0, 0, 0, 0, 0, 0];
+  const sx = range * Math.cos(angle), sy = range * Math.sin(angle);
+  const rx = Math.cos(pitch) * sx + Math.sin(pitch) * Math.sin(roll) * sy;
+  const ry = Math.cos(roll) * sy;
+  return [x + Math.cos(yaw) * rx - Math.sin(yaw) * ry,
+    y + Math.sin(yaw) * rx + Math.cos(yaw) * ry];
+}
+
 function draw() {
   const canvas = $("map-canvas");
   const metrics = resizeMapCanvas(canvas);
@@ -1890,6 +2169,21 @@ function draw() {
   context.scale(state.view.zoom, state.view.zoom);
   context.translate(-width / 2, -height / 2);
 
+  const latestOdomTime = state.odomHistory.length
+    ? state.odomHistory[state.odomHistory.length - 1].time : Number.NaN;
+  let displayPose = mapPoseAt(latestOdomTime);
+  const motionStale = state.lastMotion > 0 && Date.now() - state.lastMotion > 500;
+  const sensorLocal = !displayPose && Boolean(state.scan);
+  if (sensorLocal) displayPose = {x: 0, y: 0, heading: 0};
+  $("scan-frame-label").textContent = sensorLocal ? (state.map ? "LiDAR · unlocalized origin" : "LiDAR · sensor frame") : "LiDAR · motion corrected";
+  if (sensorLocal || (!state.map && state.scan)) {
+    $("map-status").textContent = sensorLocal
+      ? (state.map ? "Map + LiDAR · awaiting pose" : "Local LiDAR · no map") : "LiDAR · no map";
+    $("map-status").className = "status-pill neutral";
+  } else if (state.map) {
+    $("map-status").textContent = motionStale ? "Map · motion feedback stale" : displayPose ? `${state.map.info.width} × ${state.map.info.height}` : "Map · awaiting pose";
+    $("map-status").className = motionStale ? "status-pill neutral" : "status-pill live";
+  }
   let pixelsPerMeter = 45;
   let bounds = {
     minX: -width / (2 * pixelsPerMeter),
@@ -1928,13 +2222,14 @@ function draw() {
     ];
   }
 
+  bounds = visibleGridBounds(width, height, state.view, transform, pixelsPerMeter);
   const spacing = gridSpacing(bounds);
   $("grid-size").textContent = `Grid ${spacing < 1 ? spacing.toFixed(2) : spacing.toFixed(1)} m`;
   drawMetricGrid(context, transform, bounds, spacing);
   drawPoseDrag(context, transform);
 
   if (
-    state.path
+    !sensorLocal && state.path
     && state.path.poses
     && state.path.poses.length
   ) {
@@ -1949,12 +2244,6 @@ function draw() {
     context.stroke();
   }
 
-  const latestOdomTime = state.odomHistory.length
-    ? state.odomHistory[state.odomHistory.length - 1].time
-    : null;
-  const displayPose = latestOdomTime === null
-    ? mapPoseAt(Number.NaN)
-    : mapPoseAt(latestOdomTime);
   if (!displayPose) {
     context.restore();
     drawScaleBar(context, width, height, pixelsPerMeter);
@@ -1973,12 +2262,14 @@ function draw() {
       const beamHeading = beamPose ? beamPose.heading : heading;
       const beamX = beamPose ? beamPose.x : position.x;
       const beamY = beamPose ? beamPose.y : position.y;
-      const angle = beamHeading + state.scan.angle_min + index * state.scan.angle_increment;
-      const [x, y] = transform(beamX + range * Math.cos(angle), beamY + range * Math.sin(angle));
+      const angle = state.scan.angle_min + index * state.scan.angle_increment;
+      const point = projectLaserPoint(range, angle, state.laserMount);
+      const [x, y] = transform(beamX + point[0] * Math.cos(beamHeading) - point[1] * Math.sin(beamHeading),
+        beamY + point[0] * Math.sin(beamHeading) + point[1] * Math.cos(beamHeading));
       context.fillRect(x - 1.5, y - 1.5, 3, 3);
     });
   }
-  drawVehicleFootprint(context, transform, position, heading);
+  if (!sensorLocal) drawVehicleFootprint(context, transform, position, heading);
   context.restore();
   drawScaleBar(context, width, height, pixelsPerMeter);
 }
@@ -2346,6 +2637,7 @@ async function flushTerminalInput() {
 }
 
 function terminalKey(event) {
+  if (event.defaultPrevented) return;
   if (!activeTerminal() || !activeTerminal().running) return;
   const shortcut = event.key.toLowerCase();
   if ((event.ctrlKey || event.metaKey) && shortcut === "c" && terminalSelection()) {
@@ -2373,9 +2665,23 @@ function terminalKey(event) {
   queueTerminalInput(data);
 }
 
+function scheduleRefresh(delay) {
+  clearTimeout(state.refreshTimer);
+  if (state.signedIn) state.refreshTimer = setTimeout(refresh, delay);
+}
+
 async function refresh() {
+  if (state.refreshPending) return;
+  clearTimeout(state.refreshTimer);
+  state.refreshPending = true;
   try {
     const status = await api(`/api/status?log_after=${state.logCursor}`);
+    state.runtimeRunning = Boolean(status.running);
+    state.jobRunning = Boolean(status.job_running);
+    if (!state.runtimeRunning && state.socket && state.socket.readyState < 2) {
+      keyboard.stop();
+      state.socket.close();
+    }
     $("install").disabled = status.job_running;
     $("start").disabled = status.job_running;
     $("stop").disabled = !status.running;
@@ -2413,11 +2719,15 @@ async function refresh() {
             : "Install a chassis to continue",
       status.running || status.installed ? "success" : "",
     );
+    if (status.selection) state.installedHardwareProfile = status.selection.chassis;
     if (!state.chassisHydrated && status.selection && status.selection.chassis) {
-      $("chassis").value = status.selection.chassis;
+      selectHardwareConfiguration(status.selection.chassis);
       state.chassisHydrated = true;
     }
-    if (status.launch_config) applyLaunchConfig(status.launch_config);
+    if (status.launch_config) {
+      state.manualInput = status.launch_config.manual_input || "keyboard";
+      applyLaunchConfig(status.launch_config);
+    }
     updateActiveMapFile(
       status.launch_config && status.launch_config.map
         ? status.launch_config.map
@@ -2429,8 +2739,8 @@ async function refresh() {
       || $("chassis").value;
     updateSetupLabels(activeProfile, activeChassis);
     renderSystemTelemetry(status.system || {});
-    if (status.chassis_telemetry && status.chassis_telemetry.fresh) {
-      renderBattery(status.chassis_telemetry);
+    if (status.chassis_telemetry && status.chassis_telemetry.fresh && status.chassis_telemetry.age_seconds < 3) {
+      renderBattery(status.chassis_telemetry, Date.now() - status.chassis_telemetry.age_seconds * 1000);
     }
     renderChassisStatus(status.running);
     renderLogs(status);
@@ -2443,7 +2753,8 @@ async function refresh() {
     setActivity(error.message, "error");
     $("runtime-state").textContent = "Web service unavailable";
   }
-  setTimeout(refresh, 1500);
+  state.refreshPending = false;
+  scheduleRefresh(250);
 }
 
 $("profile").addEventListener("change", updateProfileHelp);
@@ -2451,6 +2762,12 @@ $("perception-model").addEventListener("change", updatePerceptionModelHelp);
 window.addEventListener("resize", drawPerceptionOverlay);
 $("mode-human").addEventListener("click", () => requestControlMode("HUMAN_CONTROL"));
 $("mode-autonomous").addEventListener("click", () => requestControlMode("AUTO_DRIVE"));
+$("chassis-family").addEventListener("change", () => {
+  const family = $("chassis-family").value;
+  const installed = state.installedHardwareProfile;
+  selectHardwareConfiguration(installed && chassisFamily(installed) === family ? installed : family);
+  updateSetupLabels($("profile").value, $("chassis").value);
+});
 $("chassis").addEventListener("change", () => updateSetupLabels($("profile").value, $("chassis").value));
 $("map").addEventListener("change", () => updateMapSelectionDisplay());
 $("open-config").addEventListener("click", openDrawer);
@@ -2462,6 +2779,7 @@ $("install").onclick = async () => {
   try {
     await api("/api/install", {chassis: $("chassis").value});
     setActivity("Installation started", "success");
+    await refresh();
   } catch (error) { setActivity(error.message, "error"); }
 };
 
@@ -2469,12 +2787,14 @@ $("start").onclick = async () => {
   try {
     const request = requestBody();
     state.odomHistory = [];
-    await api("/api/launch", request);
+    const result = await api("/api/launch", request);
     state.formHydrated = true;
     updateSetupLabels(request.profile, request.chassis);
-    setActivity("Starting CARKit…", "success");
+    setActivity(result.action === "map_reloaded"
+      ? "Map loaded. Set initial pose before resuming autonomous navigation."
+      : result.action === "unchanged" ? "Configuration unchanged" : "Starting CARKit…", "success");
     setTimeout(closeDrawer, 300);
-    setTimeout(connectRos, 1200);
+    await refresh();
   } catch (error) { setActivity(error.message, "error"); }
 };
 
@@ -2482,6 +2802,7 @@ $("stop").onclick = async () => {
   try {
     await api("/api/stop", {});
     setActivity("CARKit stopped", "success");
+    await refresh();
   } catch (error) { setActivity(error.message, "error"); }
 };
 
@@ -2657,18 +2978,24 @@ mapCanvas.addEventListener("pointerup", event => {
 mapCanvas.addEventListener("pointercancel", event => {
   if (!stopPoseDrag(event, true)) stopViewDrag(event);
 });
+mapCanvas.addEventListener("contextmenu", event => event.preventDefault());
 mapCanvas.addEventListener("wheel", zoomView, {passive: false});
 mapCanvas.addEventListener("dblclick", resetView);
 mapCanvas.addEventListener("mousemove", event => {
   updateMapCoordinate(event.clientX, event.clientY);
 });
 if (window.ResizeObserver) {
+  new ResizeObserver(() => {
+    document.documentElement.style.setProperty("--safety-bottom",
+      `${document.querySelector(".global-control").getBoundingClientRect().bottom}px`);
+  }).observe(document.querySelector(".global-control"));
   new ResizeObserver(scheduleDraw).observe(mapCanvas);
 } else {
   window.addEventListener("resize", scheduleDraw);
 }
 
 const pageConfiguration = {
+  "#console": ["console-page", "System console", "Runtime / Console"],
   "#overview": ["overview", "Vehicle workspace", "Overview"],
   "#code": ["code-page", "Code editor", "Development / Code editor"],
   "#compile": ["compile-page", "Compile workspace", "Development / Compile"],
@@ -2676,6 +3003,7 @@ const pageConfiguration = {
 };
 
 function showPage(hash) {
+  keyboard.stop();
   const selectedHash = pageConfiguration[hash] ? hash : "#overview";
   const [pageId, title, breadcrumb] = pageConfiguration[selectedHash];
   document.querySelectorAll("main.page-view").forEach(page => {
@@ -2687,6 +3015,7 @@ function showPage(hash) {
   });
   document.querySelector(".page-title h1").textContent = title;
   document.querySelector(".breadcrumb").textContent = breadcrumb;
+  syncCameraSubscription();
   if (selectedHash === "#code" && !state.editorLoaded) loadEditorWorkspace(true);
   state.terminalPollToken += 1;
   if (selectedHash === "#terminal") startTerminalPolling();
@@ -2707,6 +3036,29 @@ window.addEventListener("beforeunload", () => {
   })], {type: "application/json"}));
 });
 
-configure()
-  .then(() => { showPage(location.hash); refresh(); connectRos(); })
-  .catch(error => setActivity(error.message, "error"));
+async function startSession() {
+  const session = await api("/api/session");
+  state.signedIn = Boolean(session.authenticated);
+  $("login-panel").hidden = state.signedIn;
+  document.querySelector(".app-shell").inert = !state.signedIn;
+  if (!state.signedIn) return;
+  state.bridgeToken = session.bridge_token;
+  await configure();
+  showPage(location.hash); refresh(); connectRos();
+}
+$("login-form").onsubmit = async event => {
+  event.preventDefault();
+  try {
+    await api("/api/login", {key: $("access-key").value});
+    $("access-key").value = "";
+    $("login-error").textContent = "";
+    await startSession();
+  } catch (error) {$("login-error").textContent = error.message;}
+};
+startSession().catch(error => {$("login-error").textContent = error.message;});
+
+// Refresh immediately when returning to the dashboard.
+document.addEventListener("visibilitychange", () => {
+  syncCameraSubscription();
+  if (!document.hidden && state.signedIn) refresh();
+});

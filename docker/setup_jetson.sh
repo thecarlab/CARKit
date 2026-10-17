@@ -93,6 +93,7 @@ if ((${#packages[@]})); then
   "${SUDO[@]}" apt-get update
   "${SUDO[@]}" apt-get install -y "${packages[@]}"
 fi
+"${SUDO[@]}" "${ROOT_DIR}/docker/setup_time_sync.sh" --install
 "${SUDO[@]}" systemctl enable --now docker.service
 
 if ! getent group docker >/dev/null; then
@@ -179,7 +180,6 @@ fi
 "${SUDO[@]}" systemctl enable carkit.service
 if [[ ${CARKIT_SKIP_REPORTER:-0} != 1 ]]; then
   "${SUDO[@]}" systemctl enable carkit-webmonitor.service
-  "${SUDO[@]}" systemctl restart carkit-webmonitor.service
 fi
 "${SUDO[@]}" systemctl restart carkit.service
 
@@ -207,7 +207,8 @@ echo "WebUI/container autostart: enabled"
 if [[ ${CARKIT_SKIP_REPORTER:-0} == 1 ]]; then
   echo "IP reporter setup skipped; rerun without CARKIT_SKIP_REPORTER to configure it."
 else
-  echo "Hourly IP reporting: enabled"
+  echo "IP reporting: every minute after container readiness and clock synchronization"
 fi
 echo "Fleet monitor: ${MONITOR_URL}"
-echo "Local WebUI: http://<this-vehicle-IP>:8080"
+echo "WebUI: http://127.0.0.1:8080 (use SSH forwarding for remote access)"
+echo "Forward ports 8080 and 9090; sign in with the private .carkit/access.key file."

@@ -48,7 +48,9 @@ CARKIT_SKIP_REPORTER=1 ./docker/setup_jetson.sh ADA2 vesc_rplidar
 This skips reporter configuration; it does not enable reporting or disable an
 existing reporter. Rerun normally when the token is available.
 
-Open `http://<Jetson-IP>:8080` from a device with a route to the Jetson.
+Forward ports 8080 and 9090 over SSH and open `http://127.0.0.1:8080`.
+Sign in with the private `.carkit/access.key` on the vehicle computer, then select
+**Take control**. See [WebUI access](webui_access.md) for explicit network binding.
 On ADA2 this is the eduroam network. Select **VESC + RPLidar + RealSense**,
 click **Install / build selected chassis**, and wait for successful completion.
 The first build can take tens of minutes on an 8 GB Jetson. The WebUI remains
@@ -57,13 +59,16 @@ dashboard; only the container and WebUI automatically start at boot.
 
 ## Hardware configuration
 
-[`vesc_rplidar.yaml`](../carkit/core/carkit_bringup/config/vesc_rplidar.yaml)
+[`vesc_rplidar.yaml`](../carkit/core/carkit_bringup/config/hardware/vesc_rplidar.yaml)
 contains the serial devices and calibration. The S3M1-R2 uses **1,000,000 baud**
 and **DenseBoost**, matching
 [Slamtec's S3 launch configuration](https://github.com/Slamtec/sllidar_ros2/blob/34300099fadfc772965962dec837bf436706188f/launch/sllidar_s3_launch.py).
 It is not an A2 lidar; the A2 serial rates will not work.
-The RealSense publishes color at 640×480, 15 FPS; depth and IMU are disabled
-for this 2D driving profile.
+The RealSense publishes color at 640×480, 15 FPS, with gyroscope and accelerometer
+streams enabled; depth remains disabled for this 2D driving profile. Raw IMU data
+is available on `/camera/camera/gyro/sample` and `/camera/camera/accel/sample`.
+Enabling these streams does not fuse IMU measurements into odometry: VESC odometry
+still estimates yaw from motor speed and commanded steering.
 The ROS camera wrapper is built with GLSL disabled for this selection so it
 can start from systemd without an X display. CUDA/TensorRT perception remains
 available. This does not change the legacy F1TENTH camera build defaults.
@@ -80,9 +85,11 @@ and perception unchecked for this first check. Inspect `/sensors/core`,
 The installed VESC speed/steering gains, wheelbase, and lidar/camera mounting
 transforms are nominal starting values, not measured ADA2 calibration.
 Calibrate these before driving or relying on localization. The initial VESC
-speed limit is ±2500 electrical RPM. Check the VESC firmware's command timeout
+speed limit is ±0.5 m/s (±2307 electrical RPM at the bundled gain). Check the VESC firmware's command timeout
 and motor/servo direction with wheels lifted before enabling driving.
-Use the control component for the normal WebUI command watchdog and arbiter.
+The command watchdog and arbiter remain active even in a manual-only session.
+WASD keyboard driving is the default; Caps Lock toggles autonomous driving when
+the autonomous control component is enabled.
 USB/telemetry responses confirm communication, not motor or steering operation.
 
 Advanced container commands:
@@ -106,5 +113,39 @@ For a repeatable check that observes hardware without publishing commands:
 docker exec carkit bash -lc 'source install/setup.bash && python3 tools/check_vesc_rplidar_topics.py'
 ```
 
-The upstream VESC odometry node waits for the first steering command before
-publishing. This check does not send a steering command to satisfy that condition.
+Integrated VESC odometry uses measured RPM and the RealSense gyro; it does not
+need a steering command. Keep the car still for the two-second IMU bias check
+after startup. Missing gyro feedback or mounting TF pauses `/odom` rather than
+substituting a commanded turn. Camera video may be disabled while the IMU stays
+enabled. See [localization and feedback](hardware_profiles.md#localization-and-feedback).
+
+### Build inference engines on the vehicle
+
+If TensorRT warns that an engine was built for a different device model, stop the
+running stack and export both active models inside the vehicle's container. Keep
+camera resolution, inference image size, and model weights unchanged when comparing
+performance. Back up the existing engines and their JSON metadata first.
+
+```bash
+docker exec -it carkit bash
+cd /workspaces/CARKit
+python3 carkit/perception/carkit_perception/util/export_fp16_engine.py \
+  --source carkit/perception/carkit_perception/models/yolo11n.pt \
+  --name yolo11n_fp16.engine --workspace-gib 1
+python3 carkit/perception/carkit_perception/util/export_fp16_engine.py \
+  --source carkit/perception/carkit_perception/models/traffic_sign_1.pt \
+  --name traffic_sign_1_fp16.engine --workspace-gib 1
+```
+
+The exporter writes batch-one FP16 engines at 448 pixels with matching hashes,
+runtime versions, GPU details, and workspace limits in their JSON metadata. The
+workspace limit bounds TensorRT tactic selection memory; total export memory is
+higher. Export each model sequentially on the 8 GB Jetson.
+
+Perception preserves the phase of its target schedule: a 15 FPS camera can feed
+10 inference slots per second instead of being rounded down to every other frame.
+Missed slots are skipped after a stall. Fresh completed inference is published
+immediately instead of waiting for a second output timer; expired outputs are
+still discarded.
+Measure distinct source timestamps and source-to-receipt latency, not repeated
+publication counts, when checking the resulting rate.

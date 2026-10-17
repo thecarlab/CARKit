@@ -1,0 +1,53 @@
+# Existing calibration / conservative limits; verify on each assembled vehicle.
+# mounts: [x, y, z, yaw, pitch, roll] in base_link; VESC camera mounts are nominal.
+max_speed: 0.8
+max_reverse_speed: 0.8
+max_steering_angle: 0.34
+footprint:
+  length: 0.485
+  width: 0.27
+  center_x: 0.1925
+  center_y: 0.0
+joystick:
+  device_id: 0
+  speed_axis: 1
+  steering_axis: 2
+  mode_toggle_button: 10
+  estop_button: 2
+  clear_estop_button: 3
+mounts:
+  laser:
+  - -0.082558
+  - -0.017229
+  - 0.034095
+  - 0.0
+  - 0.0
+  - 0.0
+  camera_link:
+  - 0.12323
+  - -0.017229
+  - -0.053395
+  - -1.5708
+  - 0.0
+  - -1.5708
+  imu_link:
+  - 0.041796
+  - -0.017758
+  - -0.063599
+  - 0.0
+  - 0.0
+  - 0.0
+chassis: osracer
+wheelbase: 0.325
+driver:
+  port: /dev/osrbot_base
+  baudrate: 460800
+  protocol_mode: legacy
+lidar:
+  type: lakibeam
+  sensor_ip: 192.168.8.2
+  host_ip: 0.0.0.0
+  port: 2368
+camera:
+  type: uvc
+  device: /dev/osrbot_usb_cam

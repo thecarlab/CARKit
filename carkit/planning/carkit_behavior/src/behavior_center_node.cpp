@@ -401,8 +401,13 @@ private:
       detection_sub_ = create_subscription<DetectionArray>(
         "/yolo/detections_2d", 10,
         [this](DetectionArray::ConstSharedPtr message) {
+          const auto stamp = rclcpp::Time(message->header.stamp);
+          const double age = (now() - stamp).seconds();
+          if (stamp.nanoseconds() <= 0 || age < 0.0 || age > detection_timeout_ ||
+            stamp.nanoseconds() <= last_detection_stamp_) {return;}
+          last_detection_stamp_ = stamp.nanoseconds();
           latest_detections_ = message;
-          latest_detection_time_ = seconds();
+          latest_detection_time_ = seconds() - age;
           ++detection_sequence_;
           stale_handled_ = false;
         });
@@ -435,6 +440,7 @@ private:
       plan_sub_.reset();
       tf_listener_.reset();
       latest_detections_.reset();
+      last_detection_stamp_ = 0;
       latest_scan_.reset();
       latest_nav_drive_.reset();
     }
@@ -466,6 +472,11 @@ private:
     if (main_state_ != kAutoDrive) {
       publish_state(cb::kNormalNav2, false, current_time);
       last_behavior_state_ = cb::kNormalNav2;
+      return;
+    }
+    if (!latest_detections_ || current_time - latest_detection_time_ > detection_timeout_) {
+      publish_decision(cb::BehaviorDecision::stop(
+        "PERCEPTION_STALE", "perception_watchdog", "Waiting for fresh perception"), current_time);
       return;
     }
     update_world_model(current_time);
@@ -1025,7 +1036,8 @@ private:
     last_state_publish_time_ = current_time;
   }
 
-  double seconds() {return get_clock()->now().seconds();}
+  double seconds() {return std::chrono::duration<double>(
+    std::chrono::steady_clock::now().time_since_epoch()).count();}
 
   double min_confidence_{0.55};
   double detection_timeout_{0.5}, scan_timeout_{0.5}, status_rate_{5.0};
@@ -1054,6 +1066,7 @@ private:
   uint8_t latest_light_color_{TrafficDetection::TRAFFIC_LIGHT_UNKNOWN};
   int64_t light_stop_frames_{0}, light_green_frames_{0};
   uint64_t detection_sequence_{0}, processed_detection_sequence_{0};
+  int64_t last_detection_stamp_{0};
   double latest_detection_time_{0.0}, latest_scan_time_{0.0};
   std::optional<double> camera_image_width_, camera_cx_, camera_fx_;
   std::optional<double> velocity_, robot_x_, robot_y_;
