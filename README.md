@@ -69,9 +69,11 @@ Obtain the reporter token from the CARLab administrator. A vehicle-specific
 token must also be configured on the monitor Site under
 `CARKIT_REPORTER_TOKEN_ADA<number>`. Setup prompts for it with hidden input and
 stores it as `CARKIT_REPORTER_TOKEN` in `/etc/carkit-webmonitor.env`, readable
-only by root. Do not put tokens in source files or shell commands.
+only by root. Do not put tokens in source files or shell commands. To replace
+a saved token, update both the vehicle-specific Site secret and the Jetson
+configuration; see [replacing a vehicle token](webmonitor/README.md#replacing-a-vehicle-token).
 
-### 2. Clone and run host setup
+### 2. Install CARKit and open the dashboard
 
 On a fresh Jetson:
 
@@ -92,13 +94,13 @@ Run **one** command for the actual chassis, replacing the example vehicle ID:
 
 Run setup while the vehicle is stopped: it may restart Docker and CARKit.
 It enables time synchronization, prepares the container and hardware rules,
-and installs the dashboard and reporter as boot services. No desktop login
-is required. OSRacer setup also configures its USB devices, camera alias, and
+installs the dashboard and reporter as boot services, and builds the selected
+chassis inside the container. It then restarts the service to load the new build
+and waits for the dashboard to respond. No desktop login is required. OSRacer setup also configures its USB devices, camera alias, and
 LakiBeam Ethernet interface.
 
-### 3. Open the dashboard and build the chassis
-
-Host setup starts the WebUI; **building the selected chassis is a separate step**.
+When the script prints **CARKit setup complete**, the selected chassis is
+built and the dashboard is ready. Vehicle operation is not started automatically.
 On the Jetson, open `http://127.0.0.1:8080/`. By default, access requires the
 key in `~/CARKit/.carkit/access.key`.
 
@@ -116,9 +118,10 @@ Direct links use `http://<vehicle-eduroam-ip>:8080/`; they require a permitted
 network path and a network-accessible dashboard binding. See
 [WebUI access configuration](docs/webui_access.md) for binding and sign-in options.
 
-In **Configure**, select the chassis family and hardware configuration. For
-F1TENTH, select **F1TENTH / VESC** and the VESC/RPLidar/RealSense configuration.
-Click **Install / build selected chassis** and wait for completion before launch.
+The selected chassis is already installed; no additional WebUI installation
+click is needed. Use **Configure** to choose the course and components before
+launching. **Install / build selected chassis** remains available when changing
+hardware configurations or rebuilding manually.
 OSRacer displays **No calibration needed**; F1TENTH has guided steering
 calibration described in its hardware guide.
 
@@ -133,8 +136,9 @@ git pull --ff-only
 ```
 
 Setup reuses the saved vehicle ID, chassis, and token, or prompts for missing
-values. Rebuild affected packages through the WebUI after source updates.
-The next launch uses the updated install overlay.
+values, rebuilds the selected chassis, and restarts the dashboard with the updated
+install overlay. For code-only iteration, the WebUI Compile page can rebuild
+selected components without repeating host setup.
 
 ## Daily operation
 

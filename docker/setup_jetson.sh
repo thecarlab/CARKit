@@ -195,19 +195,32 @@ if [[ ${CARKIT_SKIP_REPORTER:-0} != 1 ]]; then
     || fail "carkit-webmonitor.service did not start"
 fi
 
-webui_ready=0
-for _ in {1..60}; do
-  if curl --fail --silent --max-time 2 http://127.0.0.1:8080/ >/dev/null; then
-    webui_ready=1
-    break
-  fi
-  sleep 2
-done
-[[ ${webui_ready} -eq 1 ]] \
-  || fail "WebUI did not become ready; run: journalctl -u carkit.service -n 100"
+wait_for_webui() {
+  local attempt
+  for attempt in {1..60}; do
+    if curl --fail --silent --max-time 2 http://127.0.0.1:8080/ >/dev/null; then
+      return 0
+    fi
+    sleep 2
+  done
+  fail "WebUI did not become ready; run: journalctl -u carkit.service -n 100"
+}
+
+wait_for_webui
+
+echo "Installing and building the selected chassis (${chassis})..."
+# Use the same installer as the WebUI; do not launch vehicle nodes or motion.
+# An installer failure stops setup before the completion message.
+"${SUDO[@]}" docker exec -w /workspaces/CARKit carkit \
+  bash /workspaces/CARKit/docker/install_carkit.sh "${chassis}"
+
+# The running server started before the build and may have loaded the old overlay.
+"${SUDO[@]}" systemctl restart carkit.service
+wait_for_webui
 
 echo
 echo "CARKit setup complete for ${vehicle_id} (${chassis})."
+echo "Chassis build: complete (vehicle runtime remains stopped)"
 echo "WebUI/container autostart: enabled"
 if [[ ${CARKIT_SKIP_REPORTER:-0} == 1 ]]; then
   echo "IP reporter setup skipped; rerun without CARKIT_SKIP_REPORTER to configure it."

@@ -15,8 +15,8 @@ to provision another car. Sites does not return stored secret values.
 
 Run `node test/check_in.mjs` to test shared and vehicle-specific authentication.
 
-The public dashboard is read-only. `POST /api/check-in` requires the shared
-`CARKIT_REPORTER_TOKEN` Sites secret. Vehicle state is persisted in the `DB` D1
+The public dashboard is read-only. `POST /api/check-in` accepts the shared
+`CARKIT_REPORTER_TOKEN` or the matching vehicle-specific Sites secret. Vehicle state is persisted in the `DB` D1
 binding configured by `.openai/hosting.json`. A vehicle is shown online for 2
 minutes after its last successful check-in.
 
@@ -58,3 +58,30 @@ For ADA5's OSRacer setup, use `CARKIT_REPORT_INTERFACE=wlxa047d74d7bd3`
 address, reporting fails and follows the retry policy; it never substitutes an
 Ethernet or onboard Wi-Fi address. Without this setting, default-route address
 selection is retained for other vehicles.
+
+## Replacing a vehicle token
+
+The vehicle ID selects which vehicle-specific secret the Site accepts. For ADA4:
+
+| Location | Setting |
+| --- | --- |
+| Hosted Site secret | `CARKIT_REPORTER_TOKEN_ADA4` |
+| Jetson `/etc/carkit-webmonitor.env` | `CARKIT_VEHICLE_ID=ADA4` and `CARKIT_REPORTER_TOKEN=<same token value>` |
+
+To replace the token, update that vehicle's Site secret and deploy the current
+saved Site version to activate it. On the Jetson, edit only the local token
+value, preserving the vehicle ID, endpoint, and other configuration:
+
+```bash
+sudo nano /etc/carkit-webmonitor.env
+sudo systemctl restart carkit-webmonitor
+sudo journalctl -u carkit-webmonitor -n 20 --no-pager
+```
+
+Look for `reported ADA4 at ...`. The local environment variable is always
+`CARKIT_REPORTER_TOKEN`, not `CARKIT_REPORTER_TOKEN_ADA4`. Paste the secret's
+value, not its variable name. Sites hides secret values; obtain them from the
+administrator or provision a replacement. Do not commit or paste the environment
+file into public logs. Existing setup runs reuse the saved token, so rerunning
+setup alone does not replace it. Keep tokens unique per vehicle when provisioning
+new credentials, and leave unrelated vehicle secrets unchanged.

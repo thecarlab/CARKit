@@ -78,13 +78,14 @@ the browser does not guess a vehicle size before receiving it.
 
 ## Guided steering calibration
 
-The **Calibration** button sits immediately left of **Configure**. Red means the
+The **Calibration** button sits immediately left of **Configure**. For F1TENTH, red means the
 current hardware settings need verification; green means a complete six-stage run
-passed at the tested speed. Changing the relevant hardware configuration invalidates
+passed at the tested speed. OSRacer shows green with **No calibration needed**,
+which is a configuration status rather than a measured calibration pass. Changing the relevant hardware configuration invalidates
 the previous pass. The method switches automatically with the running chassis (or the saved selection
 when stopped). Both `f1tenth` and `vesc_rplidar` use the guided VESC command sequence
-with RealSense IMU and LiDAR. OSRacer has a separate, not-yet-configured method;
-its panel hides the VESC sequence and cannot start or apply VESC calibration.
+with RealSense IMU and LiDAR. OSRacer requires no CARKit calibration procedure; its panel hides the VESC
+sequence and cannot start or apply VESC calibration.
 
 Select Human control, take browser control, release the driving controls, and open
 Calibration. Confirm the vehicle is stationary on a flat surface in an attended,

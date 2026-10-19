@@ -1,9 +1,7 @@
 # ADA2: VESC, RPLidar S3M1-R2 and RealSense D435i
 
-This is the `vesc_rplidar` hardware selection. It is separate from `osracer`
-(OSRacer/LakiBeam/UVC) and `f1tenth` (legacy F1TENTH/Hokuyo/RealSense).
-The legacy F1TENTH installer requires access to `thecarlab/ada_system`;
-this selection instead fetches public `f1tenth/vesc` Humble sources pinned to
+F1TENTH uses the `vesc_rplidar` selector for its VESC, RPLidar, and RealSense
+hardware. Its installer fetches public `f1tenth/vesc` sources pinned to
 `1bc8251296abb3936da5f30821b6311d67e861b7`.
 
 ## Install on another Jetson
@@ -16,7 +14,8 @@ cd ~/CARKit
 
 Use that car's ADA number. The setup installs the NVIDIA Docker runtime,
 pulls the runtime image, creates `/dev/carkit_vesc` and `/dev/carkit_rplidar`,
-and enables the WebUI and authenticated IP reporter at boot. Supply the
+builds the selected chassis, and enables the WebUI and authenticated IP reporter
+at boot. Supply the
 monitor token at its hidden prompt; later runs reuse `/etc/carkit-webmonitor.env`.
 Sites hides stored secret values, so account access alone cannot retrieve an
 existing token. An administrator can provision a separate vehicle token
@@ -51,10 +50,10 @@ existing reporter. Rerun normally when the token is available.
 Forward ports 8080 and 9090 over SSH and open `http://127.0.0.1:8080`.
 Sign in with the private `.carkit/access.key` on the vehicle computer, then select
 **Take control**. See [WebUI access](webui_access.md) for explicit network binding.
-On ADA2 this is the eduroam network. Select **VESC + RPLidar + RealSense**,
-click **Install / build selected chassis**, and wait for successful completion.
-The first build can take tens of minutes on an 8 GB Jetson. The WebUI remains
-available during compilation. Hardware/ROS launches are started from the
+Use the eduroam address for remote access. Host setup already builds this
+configuration; **Install / build selected chassis** is available for subsequent
+manual rebuilds or hardware changes. The initial build can take tens of minutes
+on an 8 GB Jetson. Wait for the setup completion message before operating. Hardware/ROS launches are started from the
 dashboard; only the container and WebUI automatically start at boot.
 
 ## Hardware configuration

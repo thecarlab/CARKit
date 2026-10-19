@@ -8,32 +8,26 @@ dependencies needed to build the mounted CARKit workspace.
 The image does not contain a baked copy of this repository. `run_jetson.sh`
 mounts the checkout at `/workspaces/CARKit`.
 
-## User Flow
+## Installation
 
-For VESC + RPLidar **S3M1-R2** + RealSense **D435i**, use
-`./docker/setup_jetson.sh ADA2 vesc_rplidar`, then choose
-**VESC + RPLidar + RealSense** and install/build it in the browser.
-See [the setup guide](../docs/vesc_rplidar_setup.md) for device aliases,
-calibration, and installing locally before a fleet-monitor token is available.
-
-Clone the release branch, then run one setup command with the vehicle ID and
-chassis:
+Follow the [main installation guide](../README.md#installation) for network
+prerequisites, cloning, and dashboard access. Run host setup with the actual
+vehicle ID and one hardware selector:
 
 ```bash
-git clone --branch ada2026 https://github.com/thecarlab/CARKit.git ~/CARKit
-cd ~/CARKit
-./docker/setup_jetson.sh ADA5 f1tenth
+# OSRacer
+./docker/setup_jetson.sh ADA5 osracer
+# F1TENTH (VESC / RPLidar / RealSense), instead of the command above
+./docker/setup_jetson.sh ADA2 vesc_rplidar
 ```
 
-Use `osracer` instead of `f1tenth` for an OSRacer. The first run securely
-prompts for the CARLab monitor token; later runs reuse the protected host
-configuration. The setup installs missing host requirements, configures the
-NVIDIA Docker runtime, pulls the image, installs applicable device rules, and
-enables both the WebUI/container and IP reporter at boot.
-
-Find the vehicle in the public fleet monitor:
-
-[CARLab ADA Fleet Monitor](https://carlab-ada-monitor.udcarlab.chatgpt.site)
+Setup prompts for a monitor token when none is saved, prepares the host and
+container, builds the selected chassis, and restarts the dashboard with the
+new build. No additional browser installation click is needed. A build failure
+stops setup before its completion message. Vehicle operation is not launched.
+See the [F1TENTH hardware guide](../docs/vesc_rplidar_setup.md) for device aliases
+and calibration, and the [reporter guide](../webmonitor/README.md#replacing-a-vehicle-token)
+for updating an existing token.
 
 ## Start Automatically at Boot
 
@@ -53,8 +47,8 @@ access, it tries every five minutes and stops after 20 consecutive failures.
 Restart `carkit-webmonitor.service` to begin a new retry window without
 rebooting the vehicle.
 
-Choose `osracer` or `f1tenth`, install/build it, then start the desired course
-profile and components. Use `./docker/run_jetson.sh bash` when a terminal is
+After setup completes, choose the desired course profile and components in
+the dashboard. Use `./docker/run_jetson.sh bash` when a terminal is
 preferred.
 
 `run_jetson.sh` pulls `ariiees/carkit:latest` only when it is missing locally.
@@ -127,7 +121,7 @@ failures on an 8 GB Jetson Orin Nano.
 
 ## Scripts
 
-- `setup_jetson.sh`: one-command host setup, boot services, and fleet reporting.
+- `setup_jetson.sh`: one-command host setup, chassis build, boot services, and fleet reporting.
 - `configure_lakibeam_network.sh`: rebinds the Richbeam adapter and repairs its
   direct route before every OSRacer container start.
 - `run_jetson.sh`: pulls/runs the runtime image and mounts this checkout.
