@@ -36,90 +36,136 @@ the native C++ CARKit WebSocket bridge.
 
 ## ⚙️ Setup
 
-### One-command Jetson setup
+### Install on the Jetson host
 
-For **ADA2's VESC + RPLidar S3M1-R2 + RealSense D435i**, use the additional
-`vesc_rplidar` selection:
+Run these commands in a terminal on the **Jetson host**, not inside Docker.
+On a fresh Jetson, clone the deployment branch:
+
+```bash
+git clone --branch ada2026 https://github.com/thecarlab/CARKit.git ~/CARKit
+cd ~/CARKit
+```
+
+For an existing checkout, update it first (preserve any local changes):
+
+```bash
+cd ~/CARKit
+git pull --ff-only
+```
+
+Choose **one** setup command below. Replace the example ADA number with the
+actual vehicle ID; the ID does not determine the chassis type.
+
+| Hardware | Setup selection |
+| --- | --- |
+| OSRacer, LakiBeam LiDAR, UVC camera | `osracer` |
+| VESC, RPLidar S3M1-R2, RealSense D435i | `vesc_rplidar` |
+| Legacy F1TENTH/VESC, Hokuyo URG, RealSense | `f1tenth` |
+
+#### OSRacer prerequisites
+
+Before running setup, use NetworkManager on the Jetson to save the credentials
+and establish the intended connections:
+
+- **Onboard Wi-Fi:** the vehicle's `OSR-*` network, such as `OSR-F912`.
+  Reserve this connection for the vehicle's local network; do not use it for
+  remote SSH or dashboard access.
+- **USB Wi-Fi:** `eduroam`, using the institution's eduroam configuration.
+  Use this adapter's `128.*` address for SSH and the WebUI.
+
+Check the assignments locally:
+
+```bash
+nmcli -t -f DEVICE,STATE,CONNECTION device
+ip -4 -br address
+```
+
+Setup requires exactly one onboard and one USB Wi-Fi adapter, saved profiles
+for eduroam and a unique `OSR-*` network, and any active Wi-Fi connection to
+already match its intended network. It does not provision eduroam credentials
+or disconnect an incorrectly assigned active connection automatically.
+
+Install OSRacer, for example on ADA5:
+
+```bash
+./docker/setup_jetson.sh ADA5 osracer
+```
+
+The host setup binds the saved Wi-Fi profiles to their respective adapters,
+disables autoconnect on other saved Wi-Fi profiles, and gives USB eduroam
+IPv4 routes metric **50**. The reporter uses only the USB adapter's address;
+it never falls back to the OSR or Ethernet address. These settings persist
+across reboot. Existing local OSR and LiDAR routes remain in place.
+
+#### VESC / RPLidar / RealSense
+
+For ADA2's VESC + RPLidar S3M1-R2 + RealSense D435i configuration:
 
 ```bash
 ./docker/setup_jetson.sh ADA2 vesc_rplidar
 ```
 
-Then select **VESC + RPLidar + RealSense** in the WebUI and click
-**Install / build selected chassis**. See the
-[ADA2 setup and calibration instructions](docs/vesc_rplidar_setup.md).
-The OSRacer and legacy F1TENTH instructions below remain available.
+See the [ADA2 setup and calibration instructions](docs/vesc_rplidar_setup.md).
 
-On a fresh Jetson, clone the `ada2026` branch and run the setup script once.
-Pass the vehicle's ADA number and chassis:
+#### Legacy F1TENTH
+
+Use the actual vehicle ID in place of the example `ADA3`:
 
 ```bash
-git clone --branch ada2026 https://github.com/thecarlab/CARKit.git ~/CARKit
-cd ~/CARKit
-./docker/setup_jetson.sh ADA5 f1tenth
+./docker/setup_jetson.sh ADA3 f1tenth
 ```
 
-For an OSRacer, use its own ADA number and `osracer`:
+#### Reporter token and host services
 
-```bash
-./docker/setup_jetson.sh ADA1 osracer
-```
+The first run asks for the CARLab monitor token with hidden input. Obtain the
+vehicle's token from the CARLab administrator. For a vehicle-specific token,
+the fleet monitor Site must have the matching secret, for example
+`CARKIT_REPORTER_TOKEN_ADA6` for vehicle ID `ADA6`. On the Jetson, setup stores
+the token as `CARKIT_REPORTER_TOKEN` in the root-readable
+`/etc/carkit-webmonitor.env` and reuses it on subsequent runs. Never put the
+token in this repository or directly in a shell command.
 
-The first run asks for the CARLab monitor token with hidden input. Obtain it
-from the CARLab administrator. It is stored only in the root-readable
-`/etc/carkit-webmonitor.env` file and is reused automatically on later setup
-runs. It is deliberately not committed to this public repository, because
-that would let anyone overwrite vehicle addresses.
-
-`setup_jetson.sh` performs the complete host setup:
+`setup_jetson.sh` performs the host setup:
 
 - installs missing Docker, Python, and HTTPS client packages;
-- enables Docker and configures the NVIDIA container runtime;
+- enables host time synchronization and configures the NVIDIA container runtime;
 - pulls `ariiees/carkit:latest`;
-- installs OSRacer USB, camera, and LakiBeam network rules when applicable;
+- installs OSRacer USB, camera, LakiBeam network, and Wi-Fi profile settings
+  when applicable;
 - repairs the Richbeam network binding before every container start, even when
   its MAC-derived Linux interface name changes;
-- installs and enables the CARKit container/WebUI boot service;
-- installs and enables the authenticated IP reporter; and
-- starts both services and waits until the WebUI answers on port `8080`.
+- installs and enables the CARKit container/WebUI and authenticated reporter
+  services at boot; and
+- starts the services and waits for the WebUI on port `8080`.
 
-The script is safe to run again after updating the checkout. If the vehicle
-and chassis arguments are omitted, it reuses the existing configuration or
-prompts for the missing values:
+Run setup while the vehicle is stopped: it may restart Docker and the CARKit
+service. After updating an existing checkout, you can reuse its saved vehicle
+ID, chassis selection, and reporter token:
 
 ```bash
 ./docker/setup_jetson.sh
 ```
 
-After setup, open the public
-[CARLab ADA Fleet Monitor](https://carlab-ada-monitor.udcarlab.chatgpt.site).
-The selected vehicle appears there as online with its current WebUI address.
-The reporter sends an update immediately after startup and every hour. If the
-vehicle is offline, it retries every five minutes for at most 20 consecutive
-attempts, then stops until the reporter service or vehicle is restarted. This
-avoids continual internet traffic when the vehicle is intentionally operating
-only on a local network.
+#### Build the selected chassis in the WebUI
 
-On the computer or tablet used to view an OSRacer:
+Host setup starts the dashboard; **the chassis workspace still needs to be
+installed/built**. Open the vehicle from the
+[CARLab ADA Fleet Monitor](https://carlab-ada-monitor.udcarlab.chatgpt.site),
+select the matching chassis, and click **Install / build selected chassis**.
+For VESC/RPLidar hardware, select **VESC + RPLidar + RealSense**.
 
-1. Connect to the vehicle's **OSR Wi-Fi** network. The OSRacer Jetson reaches
-   that network through its CUDY router and receives a private `192.*` address.
-2. Open the vehicle from the fleet monitor, select **OSRacer**, and click
-   **Install / build selected chassis**. Do not use the LakiBeam interface's
-   `192.168.8.*` address.
+Use the vehicle's eduroam `128.*` address with plain HTTP and port `8080`,
+for example `http://<vehicle-eduroam-ip>:8080/`. The viewing computer must have
+a permitted network path to that address. Do not connect to OSR-F912 or use
+an OSR/LiDAR `192.*` address for remote management. Campus wireless-client
+restrictions can affect direct eduroam access even while internet access works.
 
-The viewing device must remain on the OSR Wi-Fi network while using the
-OSRacer WebUI.
-
-On the computer or tablet used to view a F1TENTH:
-
-1. Connect to **eduroam**. The F1TENTH Jetson is connected directly to
-   eduroam and receives a `128.*` address.
-2. Open the vehicle from the fleet monitor, select **F1TENTH**, and click
-   **Install / build selected chassis**. This fetches the pinned F1TENTH/VESC
-   sources when they are absent and builds the F1TENTH adapter.
-
-The viewing device must remain on eduroam while using the F1TENTH WebUI.
+The reporter sends an update once the container, dashboard, and synchronized
+host clock are ready, then **every minute**. The monitor displays a vehicle as
+online for **two minutes** after its latest report; this confirms recent
+reporting, not inbound dashboard reachability. Failed reports retry every five
+minutes for at most 20 consecutive attempts, then stop until the reporter
+service or vehicle restarts.
 
 For either chassis, the dashboard lets you choose the course profile,
 independently override each algorithm, select startup components, launch,
@@ -198,9 +244,9 @@ Ownership selector can independently switch to Intro2AV C++. See
 
 ### Using the WebUI
 
-Use the chassis-specific network described during installation: connect the
-viewing device to **OSR Wi-Fi** and open the OSRacer's `192.*` address, or
-connect it to **eduroam** and open the F1TENTH vehicle's `128.*` address. The
+Use the vehicle's **eduroam `128.*` address on port `8080`** from a computer
+with a permitted campus-network path. For OSRacer, remote access uses USB
+Wi-Fi; onboard OSR Wi-Fi remains reserved for the vehicle network. The
 Overview provides the map, LiDAR, perception overlay, launch controls,
 telemetry, and goal/pose tools without an RViz or Foxglove process.
 
