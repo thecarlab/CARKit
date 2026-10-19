@@ -4,389 +4,281 @@
   <a href="https://www.thecarlab.org/">The CAR Lab</a>
 </div>
 
-**CARKit** is a modular ROS 2 middleware platform for autonomous driving education, developed by the Connected and Autonomous Research (CAR) Lab at the University of Delaware for ADA Academy and Intro2AV.
+**CARKit** is a ROS 2 platform for autonomous-driving education at the
+University of Delaware's CAR Lab. It combines vehicle hardware, perception,
+localization, planning, and control with editable ADA Academy and Intro2AV
+course implementations.
 
-Designed around real autonomous vehicle workflows, CARKit provides a unified software stack for perception, navigation, planning, and control on small-scale Ackermann vehicles. The platform combines industry-standard ROS 2 tools with hands-on deployment on physical vehicles and simulation environments, enabling students to learn autonomous systems through practical experimentation.
+The normal interface is a browser dashboard on port **8080**. ROS 2 and vehicle
+dependencies run in the `carkit` Docker container; RViz and rqt are available
+for debugging but are not started automatically.
 
-## 🧩 Supported Platforms
+## Supported hardware
 
-- 🚀 NVIDIA Jetson Orin Nano (`aarch64`). The current vehicle deployment is
-  validated on Jetson Linux R39.2.1.
-- 📦 The published container uses NVIDIA L4T JetPack `r36.4.0` (JetPack
-  6.1 userspace), Ubuntu 22.04, ROS 2 Humble, CUDA, and TensorRT.
-- 🐳 Docker Engine with the
-  [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
-  on the Jetson host.
-- 🏎️ OSRacer chassis, LakiBeam lidar, UVC camera, and a CUDY router
-  providing the vehicle's private `192.*` network.
-- 🏎️ F1TENTH chassis with VESC, RPLidar S3M1-R2, Intel RealSense D435i,
-  and a Jetson connected directly to eduroam with a `128.*` address.
-- 🛰️ The generic navigation package also retains serial SLLidar/RPLIDAR
-  support for other course vehicles.
-- 🌐 A current Chromium, Chrome, Firefox, or Safari browser. The native bridge
-  accepts up to five simultaneous WebUI clients by default.
+| Chassis | Sensors | Setup / launch selector |
+| --- | --- | --- |
+| OSRacer | LakiBeam LiDAR, UVC camera | `osracer` |
+| F1TENTH | VESC, RPLidar S3M1-R2, RealSense D435i | `vesc_rplidar` |
 
-ROS 2 and CARKit dependencies run inside `ariiees/carkit:latest`. The host
-only needs compatible Jetson Linux, Docker, Git, and hardware access for the
-selected chassis. ROS 2 Desktop, RViz, and rqt remain available inside the
-image for debugging, but no ROS GUI is started automatically. The normal
-interface is the lightweight CARKit WebUI on port `8080`. It draws the map,
-path, lidar, camera/perception results, and Jetson/chassis telemetry through
-the native C++ CARKit WebSocket bridge.
+`vesc_rplidar` is the code selector for the F1TENTH hardware configuration,
+not a third chassis type.
 
-## ⚙️ Setup
+The vehicle computer is an NVIDIA Jetson Orin Nano (`aarch64`). Vehicle
+deployments have been validated on Jetson Linux R39.2.1. The base image,
+`ariiees/carkit:latest`, uses L4T `r36.4.0` / JetPack 6.1 userspace, Ubuntu 22.04,
+ROS 2 Humble, CUDA, and TensorRT. Host and container versions are distinct.
+Use a current browser; the native WebSocket bridge supports up to five clients.
 
-### Install on the Jetson host
+## Installation
 
-Run these commands in a terminal on the **Jetson host**, not inside Docker.
-On a fresh Jetson, clone the deployment branch:
+### 1. Prepare the host network and token
 
-```bash
-git clone --branch ada2026 https://github.com/thecarlab/CARKit.git ~/CARKit
-cd ~/CARKit
-```
+Run host setup on the **Jetson**, not inside Docker. Have Git, sudo access,
+internet access, and the vehicle's CARLab monitor token available. Setup
+installs missing host dependencies and configures the NVIDIA Docker runtime.
 
-For an existing checkout, update it first (preserve any local changes):
+For **OSRacer**, save the network credentials in NetworkManager and establish:
 
-```bash
-cd ~/CARKit
-git pull --ff-only
-```
+| Adapter | Network | Purpose |
+| --- | --- | --- |
+| Onboard Wi-Fi | The vehicle's `OSR-*` SSID, such as `OSR-F912` | Local vehicle network |
+| USB Wi-Fi | `eduroam` | SSH, dashboard access, and internet |
 
-Choose **one** setup command below. Replace the example ADA number with the
-actual vehicle ID; the ID does not determine the chassis type.
-
-| Hardware | Setup selection |
-| --- | --- |
-| OSRacer, LakiBeam LiDAR, UVC camera | `osracer` |
-| F1TENTH: VESC, RPLidar S3M1-R2, RealSense D435i | `vesc_rplidar` |
-
-#### OSRacer prerequisites
-
-Before running setup, use NetworkManager on the Jetson to save the credentials
-and establish the intended connections:
-
-- **Onboard Wi-Fi:** the vehicle's `OSR-*` network, such as `OSR-F912`.
-  Reserve this connection for the vehicle's local network; do not use it for
-  remote SSH or dashboard access.
-- **USB Wi-Fi:** `eduroam`, using the institution's eduroam configuration.
-  Use this adapter's `128.*` address for SSH and the WebUI.
-
-Check the assignments locally:
+Verify the assignments locally:
 
 ```bash
 nmcli -t -f DEVICE,STATE,CONNECTION device
 ip -4 -br address
 ```
 
-Setup requires exactly one onboard and one USB Wi-Fi adapter, saved profiles
-for eduroam and a unique `OSR-*` network, and any active Wi-Fi connection to
-already match its intended network. It does not provision eduroam credentials
-or disconnect an incorrectly assigned active connection automatically.
+OSRacer setup requires one onboard and one USB Wi-Fi adapter, a unique saved
+`OSR-*` network, and a saved eduroam profile. Any active connection must already
+match its intended network. Setup does not provision eduroam credentials or
+switch an incorrectly connected adapter automatically.
 
-Install OSRacer, for example on ADA5:
+Setup binds the profiles to their adapters, disables other Wi-Fi profiles'
+autoconnect, and gives USB eduroam IPv4 routes metric **50**. It preserves
+local OSR and LiDAR routes and pins IP reporting to USB Wi-Fi. These settings
+persist across reboot. Do not use the OSR connection for remote management.
+See [OSRacer Wi-Fi assignment](docker/README.md#osracer-wi-fi-assignment).
+
+For **F1TENTH**, connect the Jetson to eduroam and follow the
+[F1TENTH hardware and calibration guide](docs/vesc_rplidar_setup.md).
+
+Obtain the reporter token from the CARLab administrator. A vehicle-specific
+token must also be configured on the monitor Site under
+`CARKIT_REPORTER_TOKEN_ADA<number>`. Setup prompts for it with hidden input and
+stores it as `CARKIT_REPORTER_TOKEN` in `/etc/carkit-webmonitor.env`, readable
+only by root. Do not put tokens in source files or shell commands.
+
+### 2. Clone and run host setup
+
+On a fresh Jetson:
 
 ```bash
-./docker/setup_jetson.sh ADA5 osracer
+git clone --branch ada2026 https://github.com/thecarlab/CARKit.git ~/CARKit
+cd ~/CARKit
 ```
 
-The host setup binds the saved Wi-Fi profiles to their respective adapters,
-disables autoconnect on other saved Wi-Fi profiles, and gives USB eduroam
-IPv4 routes metric **50**. The reporter uses only the USB adapter's address;
-it never falls back to the OSR or Ethernet address. These settings persist
-across reboot. Existing local OSR and LiDAR routes remain in place.
-
-#### F1TENTH (VESC / RPLidar / RealSense)
-
-For ADA2's VESC + RPLidar S3M1-R2 + RealSense D435i configuration:
+Run **one** command for the actual chassis, replacing the example vehicle ID:
 
 ```bash
+# OSRacer example
+./docker/setup_jetson.sh ADA5 osracer
+
+# F1TENTH example — run this instead for VESC/RPLidar/RealSense hardware
 ./docker/setup_jetson.sh ADA2 vesc_rplidar
 ```
 
-See the [ADA2 setup and calibration instructions](docs/vesc_rplidar_setup.md).
+Run setup while the vehicle is stopped: it may restart Docker and CARKit.
+It enables time synchronization, prepares the container and hardware rules,
+and installs the dashboard and reporter as boot services. No desktop login
+is required. OSRacer setup also configures its USB devices, camera alias, and
+LakiBeam Ethernet interface.
 
-F1TENTH is the VESC/RPLidar/RealSense chassis. The current setup-script
-selection for this hardware is `vesc_rplidar`; it is not a separate chassis.
+### 3. Open the dashboard and build the chassis
 
-#### Reporter token and host services
+Host setup starts the WebUI; **building the selected chassis is a separate step**.
+On the Jetson, open `http://127.0.0.1:8080/`. By default, access requires the
+key in `~/CARKit/.carkit/access.key`.
 
-The first run asks for the CARLab monitor token with hidden input. Obtain the
-vehicle's token from the CARLab administrator. For a vehicle-specific token,
-the fleet monitor Site must have the matching secret, for example
-`CARKIT_REPORTER_TOKEN_ADA6` for vehicle ID `ADA6`. On the Jetson, setup stores
-the token as `CARKIT_REPORTER_TOKEN` in the root-readable
-`/etc/carkit-webmonitor.env` and reuses it on subsequent runs. Never put the
-token in this repository or directly in a shell command.
-
-`setup_jetson.sh` performs the host setup:
-
-- installs missing Docker, Python, and HTTPS client packages;
-- enables host time synchronization and configures the NVIDIA container runtime;
-- pulls `ariiees/carkit:latest`;
-- installs OSRacer USB, camera, LakiBeam network, and Wi-Fi profile settings
-  when applicable;
-- repairs the Richbeam network binding before every container start, even when
-  its MAC-derived Linux interface name changes;
-- installs and enables the CARKit container/WebUI and authenticated reporter
-  services at boot; and
-- starts the services and waits for the WebUI on port `8080`.
-
-Run setup while the vehicle is stopped: it may restart Docker and the CARKit
-service. After updating an existing checkout, you can reuse its saved vehicle
-ID, chassis selection, and reporter token:
+For remote access with the default localhost binding, forward both ports from
+your viewing computer. Replace `USER` and `VEHICLE_EDUROAM_IP`:
 
 ```bash
+ssh -L 8080:127.0.0.1:8080 -L 9090:127.0.0.1:9090 USER@VEHICLE_EDUROAM_IP
+```
+
+Then open `http://127.0.0.1:8080/` on that computer. Fleet deployments explicitly
+configured for network access can instead use the link in the
+[CARLab ADA Fleet Monitor](https://carlab-ada-monitor.udcarlab.chatgpt.site).
+Direct links use `http://<vehicle-eduroam-ip>:8080/`; they require a permitted
+network path and a network-accessible dashboard binding. See
+[WebUI access configuration](docs/webui_access.md) for binding and sign-in options.
+
+In **Configure**, select the chassis family and hardware configuration. For
+F1TENTH, select **F1TENTH / VESC** and the VESC/RPLidar/RealSense configuration.
+Click **Install / build selected chassis** and wait for completion before launch.
+OSRacer displays **No calibration needed**; F1TENTH has guided steering
+calibration described in its hardware guide.
+
+### Updating an existing installation
+
+Preserve local work before pulling, and stop vehicle operation before setup:
+
+```bash
+cd ~/CARKit
+git pull --ff-only
 ./docker/setup_jetson.sh
 ```
 
-#### Build the selected chassis in the WebUI
+Setup reuses the saved vehicle ID, chassis, and token, or prompts for missing
+values. Rebuild affected packages through the WebUI after source updates.
+The next launch uses the updated install overlay.
 
-Host setup starts the dashboard; **the chassis workspace still needs to be
-installed/built**. Open the vehicle from the
-[CARLab ADA Fleet Monitor](https://carlab-ada-monitor.udcarlab.chatgpt.site),
-select the matching chassis, and click **Install / build selected chassis**.
-For VESC/RPLidar hardware, select **VESC + RPLidar + RealSense**.
+## Daily operation
 
-Use the vehicle's eduroam `128.*` address with plain HTTP and port `8080`,
-for example `http://<vehicle-eduroam-ip>:8080/`. The viewing computer must have
-a permitted network path to that address. Do not connect to OSR-F912 or use
-an OSR/LiDAR `192.*` address for remote management. Campus wireless-client
-restrictions can affect direct eduroam access even while internet access works.
+In **Configure**, select a course profile, algorithm implementations, and the
+components to launch. The Overview shows the map, LiDAR, camera/perception,
+vehicle telemetry, and runtime health. Components, including behavior planning,
+can be enabled or disabled as needed.
 
-The reporter sends an update once the container, dashboard, and synchronized
-host clock are ready, then **every minute**. The monitor displays a vehicle as
-online for **two minutes** after its latest report; this confirms recent
-reporting, not inbound dashboard reachability. Failed reports retry every five
-minutes for at most 20 consecutive attempts, then stop until the reporter
-service or vehicle restarts.
+For localization, choose **Set initial pose**, press at the vehicle's map
+position, drag toward its forward direction, and release. Goal poses use the
+same position-and-heading gesture. Drag the map to rotate, Shift-drag to pan,
+scroll to zoom, and double-click to reset the view.
 
-For either chassis, the dashboard lets you choose the course profile,
-independently override each algorithm, select startup components, launch,
-stop, and inspect live results. The **Code editor** provides a read-only view
-of the component-scoped reference implementation plus editable ADA and
-Intro2AV workspaces, a file explorer, syntax diagnostics, and collaborative
-editing for up to five users. The **Compile** page can
-rebuild the entire repository or only perception, localization, control, or
-planning. The next launch automatically sources the updated install overlay.
+### Driving controls
 
-### Service management
+After signing in if required, choose **Take control**. Only one browser owns
+motion control at a time. Keyboard driving works in the focused Overview:
 
-The setup command enables both services at boot. They do not require a GNOME
-login. Useful commands:
+| Input | Action |
+| --- | --- |
+| Hold W / S | Forward / reverse, up to 0.4 m/s |
+| Hold A / D | Steer left / right; combine with W / S to turn |
+| Release keys | Stop manual motion |
+| Caps Lock | Request autonomous/manual mode toggle |
+| Space on Overview, or Ctrl + Shift + Space anywhere | Latch emergency stop |
+| Reset to manual | Clear emergency stop without starting motion |
+
+Losing focus, opening the editor/configuration, or losing the connection stops
+manual motion. Typing in editors or forms does not drive the vehicle. Autonomous
+operation is managed by the control arbiter; Caps Lock cannot clear an emergency
+stop. Joystick input is available through **Manual input → Joystick**.
+
+Hardware profiles define geometry, transforms, device identifiers, and limits.
+The default forward limits are 0.8 m/s for OSRacer and 0.5 m/s for F1TENTH;
+keyboard driving has its own 0.4 m/s cap. See
+[hardware profiles and safety validation](docs/hardware_profiles.md).
+
+### Course profiles and editing
+
+| Profile | Purpose |
+| --- | --- |
+| `reference` | Reference implementations, primarily native C++; YOLO/TensorRT perception uses Python |
+| `ada_high_school` | Guided student algorithms in `carkit_ada_academy` |
+| `intro2av` | Student implementations in Python and C++ |
+
+The **Code editor** separates read-only reference code from editable student
+workspaces and supports collaborative editing. Selecting a course or algorithm
+does not overwrite source files. **Compile** rebuilds the repository or selected
+components. See [course profiles](docs/course_profiles.md) for package ownership
+and implementation selection.
+
+## Services and fleet reporting
+
+Run these commands on the Jetson host:
 
 ```bash
 systemctl status carkit carkit-webmonitor
-sudo systemctl restart carkit
-sudo systemctl restart carkit-webmonitor
-sudo systemctl stop carkit
 journalctl -u carkit -f
 journalctl -u carkit-webmonitor -f
+sudo systemctl restart carkit-webmonitor
+# Stop vehicle operation before restarting or stopping the runtime:
+sudo systemctl restart carkit
+sudo systemctl stop carkit
 ```
 
-To use a shell while the boot service or foreground WebUI is running:
+The reporter waits for the container, local dashboard, and synchronized clock,
+then reports **every minute**. The monitor marks a vehicle online for **two
+minutes** after its latest report. That means recent outbound reporting, not
+verified inbound SSH or dashboard access. Failures retry every five minutes,
+up to 20 consecutive attempts, then stop until the service or vehicle restarts.
+For OSRacer, no USB Wi-Fi address means no report; there is no interface fallback.
+
+## Command-line alternatives
+
+These commands are for debugging or terminal-based operation. Stop any WebUI
+launch session using the same hardware before launching ROS nodes manually.
+Enter the running container from the host:
 
 ```bash
 docker exec -it carkit bash
 ```
 
-To run only a shell with no WebUI, stop the service first:
+Inside the container, install/build the selected chassis if needed:
 
 ```bash
-sudo systemctl stop carkit
-./docker/run_jetson.sh bash
-```
-
-Then, inside that container shell, use the command for the selected chassis.
-For OSRacer:
-
-```bash
+cd /workspaces/CARKit
 ./docker/install_carkit.sh osracer
+# For F1TENTH, use: ./docker/install_carkit.sh vesc_rplidar
+source /opt/ros/humble/setup.bash
+source install/setup.bash
 ```
 
-For F1TENTH:
-
-```bash
-./docker/install_carkit.sh vesc_rplidar
-```
-
-`install_carkit.sh` records the selected chassis in `.carkit/config.json`,
-fetches the pinned optional F1TENTH source when needed, and builds the mounted
-workspace at `/workspaces/CARKit`.
-
-## 🎓 Course Profiles
-
-- `reference`: native C++ planning, behavior, localization adapters, and
-  control; Python is retained only for YOLO/TensorRT perception.
-- `ada_high_school`: working guided planning, control, and perception from the
-  student-owned `carkit_ada_academy` package.
-- `intro2av`: safe ROS 2 boilerplates for planning, control, and perception in
-  both Python and C++; topic names, timers, and the safety boundary remain.
-
-Behavior planning remains enabled for every profile and lives in the planning
-layer. Course selection changes planning, control, and perception ownership
-together; each ownership selector can still override one component without
-modifying the reference source.
-
-Switching a component in the WebUI never copies over the reference source.
-Student work lives in the separate `carkit/education/carkit_ada_academy`,
-`carkit/education/carkit_intro2av`, and `carkit_intro2av_cpp` packages;
-reference implementations stay in their production packages. Changing the
-course selector chooses Intro2AV Python initially, while each Algorithm
-Ownership selector can independently switch to Intro2AV C++. See
-[`docs/course_profiles.md`](docs/course_profiles.md).
-
-### Using the WebUI
-
-Use the vehicle's **eduroam `128.*` address on port `8080`** from a computer
-with a permitted campus-network path. For OSRacer, remote access uses USB
-Wi-Fi; onboard OSR Wi-Fi remains reserved for the vehicle network. The
-Overview provides the map, LiDAR, perception overlay, launch controls,
-telemetry, and goal/pose tools without an RViz or Foxglove process.
-
-To localize the vehicle, click **Set initial pose**, press on its current map
-position, drag toward the vehicle's forward direction, and release. Goal poses
-use the same position-and-heading gesture. Drag the map to rotate, Shift-drag
-to pan, and use the mouse wheel to zoom.
-
-USB reminder before launching sensors:
-
-- Connect the OSRacer USB hub and verify the UVC camera alias. The LakiBeam is
-  exposed over USB Ethernet at `192.168.8.2`; the setup script assigns its
-  Richbeam adapter `192.168.8.1/24` with no default route.
-- On the Jetson host, confirm the devices and direct LiDAR route before launch:
-
-```bash
-lsusb -t
-ls -l /dev/osrbot_base /dev/osrbot_usb_cam
-ip -4 -brief address
-ip route get 192.168.8.2
-ping -c 1 192.168.8.2
-```
-
-The direct `ros2` examples below are advanced alternatives to the WebUI. Run
-them from a shell inside the active container (`docker exec -it carkit bash`)
-and stop any WebUI launch session that already owns the same hardware.
-
-## 🕹️ Keyboard Driving And Autonomous Control
-
-Sign in with the private `.carkit/access.key` file on the vehicle computer, then
-select **Take control**. See [WebUI access and remote connections](docs/webui_access.md)
-for SSH forwarding and explicit network binding.
-
-Both chassis use **keyboard control by default** in the focused WebUI Overview:
-
-- Hold **W / S** to move forward / reverse (up to 0.4 m/s).
-- Hold **A / D** to steer left / right; combine with W or S to turn.
-- Release the keys to stop. Leaving the window, opening the editor/configuration,
-  or losing the connection stops manual motion; press the keys again to resume.
-- Press **Caps Lock** once to enable or disable autonomous driving. The displayed
-  mode comes from the control center; holding Caps Lock does not repeatedly toggle it.
-- Press **Space** on Overview or **Ctrl + Shift + Space** from any page, or click
-  the persistent **Emergency stop** button, to latch a stop. **Reset to manual**
-  clears it without starting motion. Caps Lock cannot clear an emergency stop.
-
-Typing in the code editor, terminal, or form fields does not drive the vehicle.
-Only one browser can supply keyboard motion at a time. The arbiter remains active
-in manual-only sessions, even when the **autonomous control** module is unchecked.
-Joystick input is optional: select **Manual input → Joystick** before launching,
-optionally customize the button mappings in the vehicle hardware profile, or pass
-`manual_input:=joystick` to the integrated launch.
-
-For a full reference navigation session inside the container:
+Launch the reference stack:
 
 ```bash
 ros2 launch carkit_bringup carkit.launch.py profile:=reference chassis:=osracer
-# For F1TENTH, select chassis:=vesc_rplidar.
+# For F1TENTH, use chassis:=vesc_rplidar. For Intro2AV, use profile:=intro2av.
 ```
 
-Open the WebUI, set the vehicle's initial pose, send a goal, and use Caps Lock to
-switch to autonomous driving. Switching back to manual requires a new WASD press.
-The selected course profile determines which planning and control algorithms run.
-ADA algorithms now require fresh odometry and a valid transform between the goal,
-path, and odometry frames; a map-frame goal needs a localization provider publishing
-`map -> odom`. Missing feedback or transforms produce a stop, not an assumed pose.
-
-For keyboard mapping, select the reference profile and use
-`navigation_mode:=mapping`. Save the map from a container terminal:
+Direct bridge launches require the authentication environment described in
+[WebUI access configuration](docs/webui_access.md). For mapping, add
+`navigation_mode:=mapping` to the launch command. Save a map from another
+container terminal with the ROS environment sourced:
 
 ```bash
-ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/map/test
+ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/map/test \
+  --ros-args -p free_thresh_default:=0.196
 ```
 
-Per-vehicle geometry, calibrated gains, device identifiers, mounting transforms,
-and limits are in [the hardware profiles](carkit/core/carkit_bringup/config/hardware).
-See [hardware profiles and safety validation](docs/hardware_profiles.md).
-The conservative default forward limits are 0.8 m/s for OSRacer and
-0.5 m/s for F1TENTH (VESC + RPLidar). Keyboard speed is additionally
-limited to 0.4 m/s. Changes to a hardware profile are applied together to the
-hardware driver, navigation, student control parameters, arbiter, and WebUI bridge.
+The threshold preserves unknown gray pixels when the saved PGM map is reloaded.
+See [navigation](carkit/navigation/README.md),
+[perception](carkit/perception/README.md), and [control](carkit/control/README.md)
+for subsystem-specific commands.
 
-### 👁️ Perception And Behavior
-
-With the selected sensor bringup publishing the camera, start typed 2D YOLO
-perception:
-
-```bash
-ros2 launch carkit_perception perception.launch.py
-```
-
-The WebUI shows the annotated perception stream directly. Its
-configuration drawer can select generic COCO, traffic-sign-only, combined, or
-a custom Jetson TensorRT model. Camera publication and perception inference
-both target 10 Hz while discarding stale frames to keep the live view current.
-In the map/lidar panel, drag to rotate,
-Shift-drag to pan, use the mouse wheel to zoom, and double-click to reset.
-
-Start behavior overrides separately:
-
-```bash
-ros2 launch carkit_behavior behavior_center.launch.py
-```
-
-Behavior logic only affects commands while the control center is in
-`AUTO_DRIVE`.
-
-## 🗂️ Repository Layout
+## Repository layout
 
 ```text
 carkit/
-  core/          one carkit_bringup entry point, profiles, stable interfaces
-  education/     separate ADA Academy and Intro2AV algorithm packages
-  interface/     WebUI, collaborative editor, and native C++ ROS bridge
-  control/       human teleop and autonomous command safety arbiter
-  planning/      scalable road-behavior planning rules
-  navigation/    SLAM Toolbox, AMCL, Nav2, Twist-to-Ackermann bridge
-  perception/    Python YOLO/TensorRT inference and typed 2D detections
-  sensors/       camera, scan filter, sensor transforms, and vendor adapters
-  vehicle/       OSRacer integration and pinned F1TENTH vendor selection
-  tools/         classroom utilities and demos
-map/             all occupancy maps
-docker/          image, run, build, and publish scripts
-docs/            troubleshooting and diagrams
+  core/          integrated bringup, profiles, and interfaces
+  education/     ADA Academy and Intro2AV student packages
+  interface/     WebUI, collaborative editor, and native ROS bridge
+  control/       manual input and command safety arbiter
+  planning/      behavior planning
+  navigation/    SLAM, AMCL, Nav2, and command adapters
+  perception/    YOLO/TensorRT inference and typed detections
+  sensors/       camera, scan filtering, and sensor adapters
+  vehicle/       chassis integration
+  tools/         classroom utilities
+map/             occupancy maps
+docker/          host setup, image, build, and service scripts
+webmonitor/      fleet monitor and vehicle reporter
+docs/            hardware guides, architecture, and troubleshooting
 ```
 
-All supported workflows start through one ROS entry point inside the one
-`carkit` Docker container:
+Vendor package names remain unchanged for upstream and license traceability.
+Required external vehicle sources are fetched at pinned revisions during build.
 
-```bash
-ros2 launch carkit_bringup carkit.launch.py \
-  profile:=intro2av chassis:=vesc_rplidar
-```
+## Further documentation
 
-Vendor package names such as `osracer_base`, `f1tenth_stack`, and `vesc_driver`
-remain unchanged so upstream updates and licenses stay traceable. They are
-isolated behind the CARKit launch and topic contract; optional F1TENTH sources
-are fetched at their pinned revisions only when that chassis is installed.
-
-## 📚 More Docs
-
-- [Control](carkit/control/README.md)
-- [Navigation](carkit/navigation/README.md)
-- [Perception](carkit/perception/README.md)
-- [Sensors](carkit/sensors/README.md)
-- [Vehicle](carkit/vehicle/README.md)
-- [Docker](docker/README.md)
+- [F1TENTH setup and calibration](docs/vesc_rplidar_setup.md)
+- [WebUI access and operator control](docs/webui_access.md)
+- [Hardware profiles](docs/hardware_profiles.md)
+- [Course profiles and architecture](docs/course_profiles.md)
+- [Sensors](carkit/sensors/README.md) and [vehicles](carkit/vehicle/README.md)
+- [Docker and host setup](docker/README.md)
+- [Fleet monitor](webmonitor/README.md)
 - [Troubleshooting](docs/troubleshooting.md)
-- [Architecture and course profiles](docs/course_profiles.md)
-- [WebUI design](docs/webui_design.md)
