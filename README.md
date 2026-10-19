@@ -19,7 +19,7 @@ Designed around real autonomous vehicle workflows, CARKit provides a unified sof
   on the Jetson host.
 - 🏎️ OSRacer chassis, LakiBeam lidar, UVC camera, and a CUDY router
   providing the vehicle's private `192.*` network.
-- 🏎️ F1TENTH/VESC chassis, Hokuyo URG lidar, Intel RealSense camera,
+- 🏎️ F1TENTH chassis with VESC, RPLidar S3M1-R2, Intel RealSense D435i,
   and a Jetson connected directly to eduroam with a `128.*` address.
 - 🛰️ The generic navigation package also retains serial SLLidar/RPLIDAR
   support for other course vehicles.
@@ -59,8 +59,7 @@ actual vehicle ID; the ID does not determine the chassis type.
 | Hardware | Setup selection |
 | --- | --- |
 | OSRacer, LakiBeam LiDAR, UVC camera | `osracer` |
-| VESC, RPLidar S3M1-R2, RealSense D435i | `vesc_rplidar` |
-| Legacy F1TENTH/VESC, Hokuyo URG, RealSense | `f1tenth` |
+| F1TENTH: VESC, RPLidar S3M1-R2, RealSense D435i | `vesc_rplidar` |
 
 #### OSRacer prerequisites
 
@@ -97,7 +96,7 @@ IPv4 routes metric **50**. The reporter uses only the USB adapter's address;
 it never falls back to the OSR or Ethernet address. These settings persist
 across reboot. Existing local OSR and LiDAR routes remain in place.
 
-#### VESC / RPLidar / RealSense
+#### F1TENTH (VESC / RPLidar / RealSense)
 
 For ADA2's VESC + RPLidar S3M1-R2 + RealSense D435i configuration:
 
@@ -107,13 +106,8 @@ For ADA2's VESC + RPLidar S3M1-R2 + RealSense D435i configuration:
 
 See the [ADA2 setup and calibration instructions](docs/vesc_rplidar_setup.md).
 
-#### Legacy F1TENTH
-
-Use the actual vehicle ID in place of the example `ADA3`:
-
-```bash
-./docker/setup_jetson.sh ADA3 f1tenth
-```
+F1TENTH is the VESC/RPLidar/RealSense chassis. The current setup-script
+selection for this hardware is `vesc_rplidar`; it is not a separate chassis.
 
 #### Reporter token and host services
 
@@ -213,7 +207,7 @@ For OSRacer:
 For F1TENTH:
 
 ```bash
-./docker/install_carkit.sh f1tenth
+./docker/install_carkit.sh vesc_rplidar
 ```
 
 `install_carkit.sh` records the selected chassis in `.carkit/config.json`,
@@ -303,7 +297,7 @@ For a full reference navigation session inside the container:
 
 ```bash
 ros2 launch carkit_bringup carkit.launch.py profile:=reference chassis:=osracer
-# Or select chassis:=f1tenth / chassis:=vesc_rplidar for the VESC vehicles.
+# For F1TENTH, select chassis:=vesc_rplidar.
 ```
 
 Open the WebUI, set the vehicle's initial pose, send a goal, and use Caps Lock to
@@ -323,8 +317,8 @@ ros2 run nav2_map_server map_saver_cli -f /workspaces/CARKit/map/test
 Per-vehicle geometry, calibrated gains, device identifiers, mounting transforms,
 and limits are in [the hardware profiles](carkit/core/carkit_bringup/config/hardware).
 See [hardware profiles and safety validation](docs/hardware_profiles.md).
-The conservative default forward limits are 0.8 m/s for OSRacer and the legacy
-F1TENTH selection, and 0.5 m/s for VESC + RPLidar. Keyboard speed is additionally
+The conservative default forward limits are 0.8 m/s for OSRacer and
+0.5 m/s for F1TENTH (VESC + RPLidar). Keyboard speed is additionally
 limited to 0.4 m/s. Changes to a hardware profile are applied together to the
 hardware driver, navigation, student control parameters, arbiter, and WebUI bridge.
 
@@ -377,7 +371,7 @@ All supported workflows start through one ROS entry point inside the one
 
 ```bash
 ros2 launch carkit_bringup carkit.launch.py \
-  profile:=intro2av chassis:=f1tenth
+  profile:=intro2av chassis:=vesc_rplidar
 ```
 
 Vendor package names such as `osracer_base`, `f1tenth_stack`, and `vesc_driver`
